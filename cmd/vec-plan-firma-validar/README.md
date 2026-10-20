@@ -1,5 +1,51 @@
 # Preparar y comprobar un material local del plan de firma
 
+F1-121 añade la preparación completa de los dos materiales con la interfaz
+que usa la receta de la copia. Se compila desde Git y trabaja con archivos
+locales, sin conexiones a la red o a la base:
+
+```sh
+go_local=$(scripts/seleccionar_toolchain_go_local.sh)
+GOTOOLCHAIN=local GOPROXY=off "$go_local" build -p 6 \
+  -o "$RUN/vec-plan-firma-preparar" ./cmd/vec-plan-firma-validar
+"$RUN/vec-plan-firma-preparar" --config "$RUN/config.json" --salida "$RUN/material"
+```
+
+`RUN` es una carpeta privada propia. La configuración contiene exactamente
+las siguientes claves, compatibles con el consumidor cedido por H el 20/10:
+
+| Claves | Contenido |
+| --- | --- |
+| `version`, `copia_ref` | `1` e identificador de la copia |
+| `circuito_archivo`, `circuito_archivo_sha256` | Paquete local del circuito publicado v2 y huella de sus bytes |
+| `entradas_archivo`, `entradas_archivo_sha256` | Las cinco entradas ordenadas y la huella de ese archivo |
+| `fuente_ref` | Referencia de la fuente del plan |
+| `creado_por`, `creado_perfil_ref`, `publicado_por`, `publicado_perfil_ref` | Referencias de los dos administradores y sus perfiles |
+| `aprobacion_ref`, `preparacion_ref` | Referencias de aprobación propuesta y preparación local |
+| `clave_operacion_crear`, `clave_operacion_publicar` | Claves distintas que se conservarán con los materiales |
+| `correlacion_crear`, `correlacion_publicar` | Correlaciones de cada operación |
+
+Cada entrada aporta su cargo, rol, perfil esperado, organización, unidad,
+correspondencia y vigencia, como indica la
+[receta de firma](../../deploy/principal/candidata_hz39/firma/LEEME.md).
+El preparador completa las referencias de circuito y paso desde el paquete
+v2 y calcula la huella del catálogo con el modelo común. Los textos del
+catálogo proceden de `plantilla_plan_copia.json`.
+
+La salida debe ser nueva y su padre, privado. Guarda seis archivos `0600`:
+`crear-catalogo.json`, `crear-material.json`, `crear-material.sha256` y sus
+equivalentes `publicar-*`. Ambos materiales pasan el validador existente
+antes de escribirse; la publicación queda ligada a la huella del borrador.
+El mismo ejecutable acepta la validación histórica por ruta y huella.
+
+La fecha propuesta se fija al preparar. Para recuperar una operación se usan
+los archivos y claves conservados, sin regenerarlos. Un error de escritura
+conserva los archivos completos anteriores en esa carpeta y termina con código
+1; nunca reemplaza una salida existente. El resumen solo contiene estado y
+huellas. La preparación produce propuestas: los dos administradores crean y
+publican el plan mediante `/api/admin/perfiles/v1/plan-firma/gobierno`, con
+sus autorizaciones y recibos reales.
+
 `vec-plan-firma-validar` comprueba un fichero preparado para el kit privado de
 gobierno del plan de firma CT. Recibe la ruta local y el SHA-256 esperado de
 los bytes exactos:

@@ -380,9 +380,23 @@ export async function consultarContactosCandidato(bolsaRef, participacionRef, { 
 
 export async function registrarContactoCandidato(bolsaRef, participacionRef, payload, { fetchImpl = fetch } = {}) {
   if (!bolsaRef || !participacionRef || !payload?.canal || !payload?.resultado || !payload?.anotacion || !payload?.clave_idempotencia) return { ok:false,status:400,codigo:"solicitud_invalida",mensaje:traducirBolsaInterna("contacto_solicitud_invalida") };
+  const servidor = payload.registro_telefono === true;
+  if (servidor && (payload.canal !== "telefono" || !payload.llamamiento_ref || payload.instante !== undefined)) return { ok:false,status:400,codigo:"solicitud_invalida",mensaje:traducirBolsaInterna("contacto_solicitud_invalida") };
   try {
-    const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials: "same-origin",mode:"same-origin",cache:"no-store",redirect:"error",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify({canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,instante:payload.instante,llamamiento_ref:payload.llamamiento_ref||""})});
-    const cuerpo=await respuesta.json().catch(()=>({})); if(respuesta.ok&&cuerpo?.data?.recibo_ref)return{ok:true,datos:cuerpo.data}; return{ok:false,status:respuesta.status,codigo:cuerpo?.error?.codigo||"error_servidor",mensaje:traducirBolsaInterna(respuesta.status===403?"contacto_permiso_denegado":respuesta.status===409?"contacto_clave_conflicto":"contacto_registro_error")};
+    const comando={canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,llamamiento_ref:payload.llamamiento_ref||""};
+    if (!servidor) comando.instante=payload.instante;
+    const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials: "same-origin",mode:"same-origin",cache:"no-store",redirect:"error",referrerPolicy:"no-referrer",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify(comando)});
+    const cuerpo=await respuesta.json().catch(()=>null);
+    if(respuesta.status>=200&&respuesta.status<300){
+      if(![200,201].includes(respuesta.status)||typeof cuerpo?.data?.recibo_ref!=="string"||!cuerpo.data.recibo_ref.trim())return{ok:false,status:0,codigo:"respuesta_invalida",mensaje:traducirBolsaInterna("contacto_registro_error")};
+      const datos=cuerpo.data;
+      if(servidor&&(datos.participacion_ref!==participacionRef||datos.llamamiento_ref!==comando.llamamiento_ref||datos.canal!=="telefono"||datos.resultado!==comando.resultado||datos.anotacion!==comando.anotacion||!Number.isFinite(Date.parse(datos.instante))))return{ok:false,status:0,codigo:"respuesta_invalida",mensaje:traducirBolsaInterna("contacto_registro_error")};
+      return{ok:true,datos};
+    }
+    const codigo=cuerpo?.error?.codigo||"error_servidor";
+    const mensajes={contacto_en_conflicto:"contacto_clave_conflicto",contacto_no_valido:"contacto_no_valido",control_intentos_invalido:"contacto_no_valido",intento_antes_de_separacion:"contacto_antes_de_separacion",intento_fuera_de_franja:"contacto_fuera_de_franja",intentos_agotados:"contacto_intentos_agotados",anotacion_con_dato_personal:"contacto_anotacion_privada"};
+    const error=respuesta.status===403?"contacto_permiso_denegado":Object.hasOwn(mensajes,codigo)?mensajes[codigo]:"contacto_registro_error";
+    return{ok:false,status:respuesta.status,codigo,mensaje:traducirBolsaInterna(error)};
   } catch(_error){return{ok:false,status:0,codigo:"error_red",mensaje:traducirBolsaInterna("contacto_comunicacion_error")}}
 }
 
@@ -868,7 +882,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function fichaProtegida() {
-    return Boolean(estado.modalFicha?.enviandoCambioSituacion || estado.modalFicha?.resultadoInciertoCambioSituacion);
+    return Boolean(estado.modalFicha?.enviandoCambioSituacion || estado.modalFicha?.resultadoInciertoCambioSituacion || estado.modalFicha?.enviandoContacto || estado.modalFicha?.resultadoInciertoContacto);
   }
 
   // `fuera` admite a la persona leída fuera de la página visible (comprobación del ofrecimiento).
@@ -1567,11 +1581,43 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
       const formContacto = evento.target?.closest?.('[data-bolsa-form="contacto"]');
       if (formContacto) {
-        evento.preventDefault(); const datos=new FormData(formContacto); const canal=String(datos.get("canal")||""); const resultado=String(datos.get("resultado")||""); const anotacion=String(datos.get("anotacion")||"").trim();
-        if(!canal||!resultado||!anotacion){if(estado.modalFicha){estado.modalFicha.errorContacto=traducirBolsaInterna("contacto_formulario_incompleto");renderizar()}return}
-		const huella=JSON.stringify([canal,resultado,anotacion,String(datos.get("llamamiento_ref")||"")]); let clave=estado.modalFicha?.claveContacto; let instante=estado.modalFicha?.instanteContacto;
-		if(!clave||estado.modalFicha?.huellaContacto!==huella){clave=globalThis.crypto?.randomUUID?.()||`contacto-${Date.now()}-${Math.random().toString(16).slice(2)}`;instante=new Date().toISOString();if(estado.modalFicha){estado.modalFicha.claveContacto=clave;estado.modalFicha.huellaContacto=huella;estado.modalFicha.instanteContacto=instante}}
-        void registrarContactoCandidato(estado.bolsaSeleccionada,formContacto.dataset.participacionRef,{canal,resultado,anotacion,instante,llamamiento_ref:String(datos.get("llamamiento_ref")||""),clave_idempotencia:clave}).then(async(res)=>{if(res.ok){const ref=formContacto.dataset.participacionRef;if(fichaProtegida()){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar();return}estado.modalFicha=null;await cargarCandidatosBolsa(estado.bolsaSeleccionada);abrirFicha(ref);if(estado.modalFicha){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar()}}else if(estado.modalFicha){estado.modalFicha.errorContacto=res.mensaje;renderizar()}}); return;
+        evento.preventDefault(); if(estado.modalFicha?.enviandoContacto)return;
+        const modal=estado.modalFicha;
+        let comando=modal?.resultadoInciertoContacto ? modal.comandoContactoPendiente : null;
+        if(!comando){
+        const datos=new FormData(formContacto); const canal=String(datos.get("canal")||""); const resultado=String(datos.get("resultado")||""); const anotacion=String(datos.get("anotacion")||"").trim();
+        if(!canal||!resultado||!anotacion){if(modal){modal.errorContacto=traducirBolsaInterna("contacto_formulario_incompleto");renderizar()}return}
+		const llamamientoRef=String(datos.get("llamamiento_ref")||"");
+        const registro=modal?.intentosContacto?.datos?.registro_telefono;
+        const registroValido=modal?.intentosLlamamiento===llamamientoRef
+          &&modal?.intentosContacto?.carga==="listo"&&registro?.esquema==="vec.bolsa.registro_telefono.v1"
+          &&registro.instante_servidor===true&&registro.anotacion_opcional===true&&Array.isArray(registro.resultados);
+        const modoAnunciado=canal==="telefono"&&llamamientoRef!==""&&registroValido&&registro.resultados.includes(resultado);
+        if(canal==="telefono"&&llamamientoRef!==""&&!modoAnunciado){
+          if(modal){modal.borradorContacto={canal,resultado,anotacion,llamamiento_ref:llamamientoRef};modal.errorContacto=traducirBolsaInterna(registroValido?"contacto_resultado_no_admitido":"contacto_esperar_telefono");renderizar();documento.querySelector?.('[data-bolsa-form="contacto"] [name="resultado"]')?.focus?.()}
+          return;
+        }
+        const huellaEntrada=JSON.stringify([canal,resultado,anotacion,llamamientoRef]);
+        const servidor=modal?.huellaContactoEntrada===huellaEntrada ? modal.registroContactoServidor===true : modoAnunciado;
+		const huella=JSON.stringify([huellaEntrada,servidor]); let clave=modal?.claveContacto; let instante=modal?.instanteContacto;
+		if(!clave||modal?.huellaContacto!==huella){clave=globalThis.crypto?.randomUUID?.()||`contacto-${Date.now()}-${Math.random().toString(16).slice(2)}`;instante=servidor?undefined:new Date().toISOString();if(modal){modal.claveContacto=clave;modal.huellaContacto=huella;modal.huellaContactoEntrada=huellaEntrada;modal.registroContactoServidor=servidor;modal.instanteContacto=instante}}
+        comando={canal,resultado,anotacion,llamamiento_ref:llamamientoRef,clave_idempotencia:clave,
+          ...(servidor?{registro_telefono:true}:{instante})};
+        if(modal)modal.borradorContacto={canal,resultado,anotacion,llamamiento_ref:llamamientoRef};
+        }
+        if(modal)modal.comandoContactoPendiente=comando;
+        if(modal){modal.enviandoContacto=true;modal.errorContacto="";renderizar()}
+        void registrarContactoCandidato(estado.bolsaSeleccionada,formContacto.dataset.participacionRef,comando).then(async(res)=>{
+          if(modal)modal.enviandoContacto=false;
+          if(estado.modalFicha!==modal)return;
+          if(res.ok){modal.resultadoInciertoContacto=false;modal.comandoContactoPendiente=null;const ref=formContacto.dataset.participacionRef;if(fichaProtegida()){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar();return}estado.modalFicha=null;await cargarCandidatosBolsa(estado.bolsaSeleccionada);abrirFicha(ref);if(estado.modalFicha){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar()}}
+          else if(estado.modalFicha===modal){
+            modal.resultadoInciertoContacto=res.status===0||res.status>=500;
+            if(!modal.resultadoInciertoContacto){modal.comandoContactoPendiente=null;modal.claveContacto="";modal.huellaContacto="";modal.huellaContactoEntrada="";modal.registroContactoServidor=false;modal.instanteContacto=undefined}
+            modal.errorContacto=modal.resultadoInciertoContacto?traducirBolsaInterna("contacto_resultado_incierto"):res.mensaje;
+            renderizar();documento.querySelector?.(modal.resultadoInciertoContacto?'[data-bolsa-form="contacto"] button[type="submit"]':'[data-bolsa-form="contacto"] [name="anotacion"]')?.focus?.()
+          }
+        }); return;
       }
 
       const formResultado = evento.target?.closest?.('[data-bolsa-form="resultado"]');

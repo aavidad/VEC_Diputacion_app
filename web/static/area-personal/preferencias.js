@@ -120,8 +120,8 @@ export async function montarUsuariosAreaPersonal(estado, fetchImpl = globalThis.
   void estado.imagen.cargar();
 }
 
-/** Pone las iniciales de la sesión en el avatar sin pisar la imagen elegida. */
+/** Pone las iniciales en el avatar sin pisar la imagen elegida; sin ellas queda el icono. */
 export function pintarInicialesSesion(estado, elemento, iniciales) {
   if (estado?.avatar) estado.avatar.fijarIniciales(iniciales);
-  else if (elemento) elemento.textContent = iniciales;
+  else if (elemento && iniciales) elemento.textContent = iniciales;
 }

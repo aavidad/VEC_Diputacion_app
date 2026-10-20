@@ -239,6 +239,9 @@ class Copia:
                 estado = self.leer()
                 estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
                 guardar(self.estado, estado)
+                # F1-113: Mis preferencias y Mi imagen, ya con Antonio como aspirante.
+                from copia_local_usuarios import preparar as preparar_usuarios
+                preparar_usuarios(self, args.rrhh_original, guardar, sha256)
         if args.segundo_rrhh:
             from copia_local_rrhh_adicional import preparar_copia
             huella_semilla = preparar_copia(self)
@@ -288,6 +291,9 @@ class Copia:
                          descriptores=(self.candado,), entorno={**os.environ,
                          'VEC_COPIA_PORTAL_ESTADO': str(privado_portal)})
             comprobar_conexiones(self)
+            # F1-113: Mis preferencias y Mi imagen, ya con el aspirante del portal.
+            from copia_local_usuarios import preparar as preparar_usuarios
+            preparar_usuarios(self, args.rrhh_original, guardar, sha256)
             estado = self.leer()
             estado['portal_externo_preparado'] = True
             guardar(self.estado, estado)
@@ -335,7 +341,7 @@ class Copia:
         config.write_text("ALTER SYSTEM SET ssl='on';\nALTER SYSTEM SET ssl_cert_file='server.crt';\nALTER SYSTEM SET ssl_key_file='server.key';\nSELECT pg_reload_conf();\n")
         self.sql(config, 'tls.log')
 
-    def arrancar(self):
+    def arrancar(self, comprobar_modulos=True):
         estado = self.leer()
         if not estado['preparada'] or estado['revision'] != revision():
             raise ValueError('Copia incompleta o revisión distinta; use una instancia nueva')
@@ -374,7 +380,7 @@ class Copia:
             if proceso.poll() is not None:
                 raise ValueError('La aplicación terminó; consulte app.log en su copia')
             try:
-                self.comprobar(comprobar_admin=False)
+                self.comprobar(comprobar_admin=False, comprobar_modulos=comprobar_modulos)
             except (OSError, ValueError):
                 time.sleep(.5)
                 continue
@@ -442,6 +448,16 @@ class Copia:
         from copia_local_firma import parar_verificador
         parar_verificador(self)
 
+    def personal(self, configuracion):
+        from copia_local_personal import preparar
+        estado = self.leer()
+        verificar_fuente(estado['revision'])
+        memoria()
+        go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
+        entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+        preparar(self, configuracion, repo=REPO, go=go, entorno_go=entorno_go, guardar=guardar)
+
     def firma(self, manifiesto):
         """Compone la firma de una copia con módulos y la reinicia con el verificador."""
         from copia_local_firma import preparar
@@ -459,12 +475,12 @@ class Copia:
         self.parar()
         self.arrancar()
 
-    def comprobar(self, comprobar_admin=True):
+    def comprobar(self, comprobar_admin=True, comprobar_modulos=True):
         estado = self.leer()
         contexto = ssl.create_default_context(cafile=str(self.material / 'ca/ca.crt'))
         contexto.load_cert_chain(str(self.material / 'mtls/cliente.crt'), str(self.material / 'mtls/cliente.key'))
         rutas = [('/livez', None), ('/portal-empleado/', None)]
-        if estado.get('comprobar_modulos'):
+        if comprobar_modulos and estado.get('comprobar_modulos'):
             cuadro = dict(filtros=dict(texto='', estado_clave='', fase_clave=''),
                           paginacion=dict(limite=6, cursor=''))
             rutas.extend([('/api/vec/contratacion-temporal/cuadro/consultas', json.dumps(cuadro).encode()),
@@ -571,7 +587,7 @@ def migraciones(listas):
 def main():
     os.umask(0o077)
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon', 'firma'])
+    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon', 'firma', 'personal', 'organizacion-historica'])
     p.add_argument('--equipo', required=True)
     p.add_argument('--instancia', required=True)
     p.add_argument('--puerto-pg', type=int, default=55481)
@@ -587,6 +603,7 @@ def main():
     p.add_argument('--sin-inscripcion', action='store_true', help='Preparar el portal sin activar inscripción')
     p.add_argument('--archivo-clon')
     p.add_argument('--manifiesto-firma', type=Path, help='Manifiesto privado de la orden firma (etapas y verificador)')
+    p.add_argument('--config-personal', type=Path, help='Configuración B2 aprobada de referencia; solo se conservan referencias y motivos')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
@@ -628,6 +645,13 @@ def main():
                          '-v', f'{copia.raiz}/pgdata:/copia', '--entrypoint', 'sh', IMAGEN,
                          '-c', 'find /copia -mindepth 1 -delete', salida=subprocess.DEVNULL)
             shutil.rmtree(copia.raiz)
+        elif args.orden == 'organizacion-historica':
+            from copia_local_organizacion_historica_activacion import activar
+            activar(copia, REPO)
+        elif args.orden == 'personal':
+            if not args.config_personal or not args.config_personal.is_absolute():
+                p.error('personal requiere --config-personal con ruta absoluta')
+            copia.personal(args.config_personal)
         elif args.orden == 'firma':
             if not args.manifiesto_firma or not args.manifiesto_firma.is_absolute():
                 p.error('firma requiere --manifiesto-firma con ruta absoluta')

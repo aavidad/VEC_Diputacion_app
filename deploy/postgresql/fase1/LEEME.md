@@ -66,7 +66,12 @@ trece pruebas SQL existentes, en este orden:
    cotejo de lectura de Bolsa conserva dueño, permisos y definición de CA48,
    bloquea en el mismo orden que la acreditación y el resolutor, acepta un
    contexto corporativo vivo y rechaza una versión de cuenta ajena.
-13. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
+13. `bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql`: la entrada web
+   lee el ámbito de la bolsa solo con su función, la confirmación de una
+   aceptación (B128) se deniega en una bolsa de otra unidad o sin ámbito, la
+   recuperación de una carga cuya bolsa no tiene ámbito también, y el rol de
+   línea de órdenes ya no constituye bolsas ni registra vínculos.
+14. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
    contexto externo por la función vigente, comprueba su huella y versión,
    acredita el candidato propio, rechaza el ajeno y los cruces de persona o
    perfil, y comprueba los permisos de ejecución; comprueba resolución,
@@ -172,3 +177,8 @@ la primera bloquea perfil y vínculo y confirma. Se exige que las dos terminen
 sin error y que el cotejo dé `true`. Con el cotejo anterior a CA48, que
 bloqueaba el vínculo antes que la cuenta, PostgreSQL aborta una de ellas con
 `40P01`.
+
+La preparación conserva también los seis conjuntos técnicos de audiencias de
+Administración definidos antes del corte del volcado. Son listas cerradas de
+nombres, sin claves, asignaciones ni actos. AD304 verifica el conjunto 6 antes
+de añadir el 7; la semilla no evita esa comprobación ni publica capacidades.

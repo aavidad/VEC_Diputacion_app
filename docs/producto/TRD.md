@@ -63,7 +63,7 @@ importantes son:
 
 | Ejecutable | Para qué sirve |
 | --- | --- |
-| `cmd/vec-server` | Servidor principal: portal de RRHH, portal del empleado, Área personal del aspirante y consulta pública. Lleva subórdenes de operación (`importar-convoca`, `constituir-bolsa`, `publicar-proyeccion-publica`, `comprobar-dietas`, `rellenar-vinculos-bolsa`) |
+| `cmd/vec-server` | Servidor principal: portal de RRHH, portal del empleado, Área personal del aspirante y consulta pública. Lleva subórdenes de operación (`importar-convoca`, `publicar-proyeccion-publica`, `comprobar-dietas`, `rellenar-vinculos-bolsa`) |
 | `cmd/vec-admin` | Administración en su propio proceso y subdominio, con certificado de cliente obligatorio |
 | `cmd/vec-publico`, `cmd/vec-interno` | Composición separada de las superficies pública e interna |
 | `cmd/vec-analizador` | Análisis de ficheros subidos (ClamAV y política de PDF) |
@@ -245,7 +245,11 @@ restaura el volcado y sus permisos sin credenciales globales, genera material
 de 90 días y permite reiniciar o borrar una instancia propia. Este primer
 corte arranca el portal con funciones opcionales apagadas; las conexiones y
 actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
-El arranque HTTP no acredita el recorrido funcional.
+F1-119 añade la orden `personal` a la fábrica: genera las conexiones propias,
+publica por el gobierno existente y prepara incorporación B2, categoría RPT,
+GINPIX manual y cese desde una configuración aprobada, sin copiar capacidades
+antiguas. La activación y la semilla no autoritativa de Plantilla están en el
+apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
 
 ### Arranque de Administración
 
@@ -549,6 +553,24 @@ restauración de copias sigue el mismo patrón (`docs/plan_modulos/copias_seguri
 
 ### Lecturas y actos
 
+F1-104 conecta la selección de Contratación con Organización histórica de
+Personal mediante un puerto en proceso. Revalida el certificado y la cuenta
+de la petición y selecciona el perfil de consulta propio de esa cuenta, sin
+sumarlo al perfil de Contratación. Conserva la ruta original, la autorización
+y la auditoría de Personal. El cliente M10 con certificado fijo deja de usarse
+en este recorrido. Si falta el montaje de Personal, falla solo la selección.
+
+F1-106 retira la publicación del rol de Organización histórica del arranque de
+la copia. `crear --modulos` no publica ese rol ni activa la consulta. El rol
+`consulta_organizacion_historica_rrhh:v1` requiere propuesta y aprobación de dos
+administradores distintos por AUT60 y el conjunto 7. Después se ejecuta
+`copia_local.sh organizacion-historica --equipo o --instancia f106` para sembrar
+identidades y asignaciones ficticias y montar la consulta. La aplicación arranca
+antes y después. La copia acredita publicación por dos administradores y consulta
+de dos técnicas con 200 en su centro y 403 fuera, también tras reiniciar. Véase
+`deploy/principal/organizacion_historica_f1_106_20261020.md`.
+
+
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe
   el estado (apartado 7).
 - **Lecturas.** Hoy también pasan por fachadas V3 nominales y eso las encarece.
@@ -616,7 +638,16 @@ se muestra pertenece al registro original. La respuesta ampliada de la ficha
 exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
 uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
 identidad ni huellas y cancela la consulta al cambiar de expediente. La
-publicación y el recorrido real siguen pendientes.
+consulta y recuperación tras reiniciar se comprobaron en la copia de F1-58;
+el caso completo 4.0 sigue pendiente.
+
+F1-58 utiliza AUT103 y el plan de publicación de cargos v2 para suceder los
+cuatro roles de consulta: conserva cuadro y descarga y sustituye solo la
+operación de detalle por la que concede los selectores. La recuperación R5
+necesita además su propia fila técnica de origen AD172, distinta de la
+descarga y sin permiso humano nuevo. El cotejo del núcleo, la activación y
+los límites del ensayo se describen en
+[`firma_por_cargos_f1_58_20261020.md`](../../deploy/principal/firma_por_cargos_f1_58_20261020.md).
 
 ## 8. Protección de datos
 

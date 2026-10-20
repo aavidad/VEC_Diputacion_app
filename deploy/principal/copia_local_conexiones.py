@@ -271,3 +271,127 @@ def preparar(copia) -> dict[str, str]:
     copia.sql_bytes(_sql(nombres, claves, grupos, vence), "conexiones.log")
     _publicar(destino, json.dumps(env, ensure_ascii=False, sort_keys=True) + "\n")
     return env
+
+
+# F1-103: cuatro LOGIN propios de la consulta de Organización histórica en el
+# proceso combinado. Van al fichero privado del montaje, no al entorno, y cada
+# uno tiene un solo grupo con INHERIT TRUE, SET FALSE y ADMIN FALSE.
+GRUPOS_ORGANIZACION_HISTORICA = {
+    "dsn_personal": "vec_personal_ejecutor",
+    "dsn_fuente_autorizacion": "vec_autorizacion_fuente",
+    "dsn_registro_autorizacion": "vec_autorizacion_registro",
+    "dsn_motivos": "vec_autorizacion_motivos_evaluador",
+}
+# Índices de LOGIN posteriores a los de GRUPOS: no se reutiliza ningún nombre.
+PRIMER_INDICE_ORGANIZACION_HISTORICA = 40
+# Origen del consumo de Personal (AD172): fila técnica del DBA para el LOGIN de
+# Personal. No concede permisos de negocio; sin ella el consumo da VA172.
+ORIGEN_ORGANIZACION_HISTORICA = ("vec_personal.organizacion_historica.consultar.v1",
+                                 "personal.organizacion_historica.consultar", "vec-server", "interna_corporativa")
+
+
+def _sql_organizacion_historica(nombres: list[str], claves: list[str], grupos: list[str], vence: str) -> bytes:
+    """Altas mínimas con comprobación previa y posterior en una transacción."""
+    cadenas = ",".join("'" + valor + "'" for valor in nombres)
+    pares = ",".join("('" + login + "','" + grupo + "')" for login, grupo in zip(nombres, grupos))
+    lineas = [
+        "BEGIN;",
+        "SET LOCAL search_path=pg_catalog;",
+        "SET LOCAL lock_timeout='3s';",
+        "SET LOCAL statement_timeout='30s';",
+        "SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:copia:conexiones:oh:v1',0));",
+        "DO $pre$ BEGIN",
+        "IF pg_catalog.current_database()<>'postgres' THEN RAISE EXCEPTION 'Base de copia inesperada'; END IF;",
+        "IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname IN (" + cadenas + ")) "
+        "THEN RAISE EXCEPTION 'Un LOGIN de Organización histórica ya existe'; END IF;",
+        "IF EXISTS (SELECT 1 FROM (VALUES " + pares + ") e(login,grupo) "
+        "LEFT JOIN pg_catalog.pg_roles r ON r.rolname=e.grupo "
+        "WHERE r.oid IS NULL OR r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole "
+        "OR r.rolreplication OR r.rolbypassrls OR r.rolconfig IS NOT NULL "
+        "OR NOT pg_catalog.has_database_privilege(r.oid,'postgres','CONNECT') "
+        "OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)) "
+        "THEN RAISE EXCEPTION 'Grupo de Organización histórica ausente o inseguro'; END IF;",
+        "END $pre$;",
+    ]
+    for login, clave, grupo in zip(nombres, claves, grupos):
+        lineas.append("CREATE ROLE " + login + " LOGIN INHERIT NOSUPERUSER NOCREATEDB "
+                      "NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '" + clave +
+                      "' VALID UNTIL '" + vence + "';")
+        lineas.append("GRANT " + grupo + " TO " + login + " WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;")
+    audiencia, operacion, proceso, canal = ORIGEN_ORGANIZACION_HISTORICA
+    lineas.extend((
+        "SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;",
+        "INSERT INTO vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1"
+        "(login_nombre,audiencia_consumo,operacion,proceso,canal_permitido) VALUES ('" + nombres[0] + "','" +
+        audiencia + "','" + operacion + "','" + proceso + "','" + canal + "');",
+        "RESET ROLE;",
+    ))
+    lineas.extend((
+        "DO $post$ BEGIN IF EXISTS (SELECT 1 FROM (VALUES " + pares + ") e(login,grupo) "
+        "LEFT JOIN pg_catalog.pg_roles r ON r.rolname=e.login "
+        "LEFT JOIN pg_catalog.pg_roles g ON g.rolname=e.grupo "
+        "WHERE r.oid IS NULL OR NOT r.rolcanlogin OR NOT r.rolinherit OR r.rolsuper OR r.rolcreatedb "
+        "OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls OR r.rolconfig IS NOT NULL "
+        "OR r.rolvaliduntil IS DISTINCT FROM '" + vence + "'::pg_catalog.timestamptz "
+        "OR (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)<>1 "
+        "OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid "
+        "AND m.roleid=g.oid AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)) "
+        "THEN RAISE EXCEPTION 'LOGIN de Organización histórica no aislado'; END IF; END $post$;",
+        "COMMIT;",
+    ))
+    return ("\n".join(lineas) + "\n").encode()
+
+
+def preparar_organizacion_historica(copia) -> dict[str, str]:
+    """Crea los cuatro LOGIN y devuelve sus conexiones TLS verificadas."""
+    nombre = _nombre_instancia(copia)
+    material = Path(copia.material)
+    _privado(material, directorio=True)
+    ca = material / "ca" / "ca.crt"
+    if ca.is_symlink() or not ca.is_file() or ca.resolve(strict=True) != ca:
+        raise ValueError("CA propia ausente o enlazada")
+    puerto = copia.leer().get("puerto_pg")
+    if not isinstance(puerto, int) or not 1024 <= puerto <= 65535:
+        raise ValueError("Puerto de la copia inválido")
+    campos = list(GRUPOS_ORGANIZACION_HISTORICA)  # el primero es el de Personal
+    nombres = [_rol(nombre, PRIMER_INDICE_ORGANIZACION_HISTORICA + i) for i in range(len(campos))]
+    claves = [secrets.token_hex(32) for _ in nombres]
+    vence = (datetime.now(timezone.utc) + timedelta(days=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    copia.sql_bytes(_sql_organizacion_historica(
+        nombres, claves, [GRUPOS_ORGANIZACION_HISTORICA[c] for c in campos], vence), "conexiones-oh.log")
+    return {campo: "postgresql://" + quote(login) + ":" + quote(clave) + "@localhost:" + str(puerto) +
+            "/postgres?" + urlencode({"sslmode": "verify-full", "sslrootcert": str(ca)})
+            for campo, login, clave in zip(campos, nombres, claves)}
+
+
+# vec-preparar-material-interno exige un LOGIN con una sola membresía: el
+# migrador AD3 (SET TRUE para asumir el propietario en su lectura). El LOGIN de
+# gobierno de la copia tiene los arcos de la excepción F0-08 y no sirve. Este
+# LOGIN vive solo mientras se prepara el material y se borra al terminar.
+PREPARADOR_GOBIERNO = 49
+
+
+def crear_preparador_gobierno(copia) -> str:
+    nombre = _rol(_nombre_instancia(copia), PREPARADOR_GOBIERNO)
+    material = Path(copia.material)
+    ca = material / "ca" / "ca.crt"
+    puerto = copia.leer().get("puerto_pg")
+    if not isinstance(puerto, int) or not 1024 <= puerto <= 65535 or ca.is_symlink() or not ca.is_file():
+        raise ValueError("Copia sin puerto o CA válidos")
+    clave = secrets.token_hex(32)
+    vence = (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    copia.sql_bytes((
+        "BEGIN;\nSET LOCAL search_path=pg_catalog;\n"
+        "DO $pre$ BEGIN IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='" + nombre + "') "
+        "THEN RAISE EXCEPTION 'El preparador de gobierno ya existe'; END IF; END $pre$;\n"
+        "CREATE ROLE " + nombre + " LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION "
+        "NOBYPASSRLS PASSWORD '" + clave + "' VALID UNTIL '" + vence + "';\n"
+        "GRANT " + MIGRADOR + " TO " + nombre + " WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;\n"
+        "COMMIT;\n").encode(), "conexiones-oh.log")
+    return ("postgresql://" + quote(nombre) + ":" + quote(clave) + "@localhost:" + str(puerto) +
+            "/postgres?" + urlencode({"sslmode": "verify-full", "sslrootcert": str(ca)}))
+
+
+def retirar_preparador_gobierno(copia) -> None:
+    nombre = _rol(_nombre_instancia(copia), PREPARADOR_GOBIERNO)
+    copia.sql_bytes(("DROP ROLE IF EXISTS " + nombre + ";\n").encode(), "conexiones-oh.log")

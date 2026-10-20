@@ -19,10 +19,23 @@ test("la cabecera pinta el nombre y las iniciales que envía el servidor", () =>
   assert.equal(datos.sesion.persona_ref, null);
 });
 
-test("sin nombre la cabecera sigue con la raya y sin rótulo", () => {
+test("sin nombre la cabecera no inventa nombre ni iniciales", () => {
   const datos = datosMinimosMiBolsa(validarRespuestaMiBolsa(respuestaPrueba()));
   assert.equal(datos.sesion.nombre_visible, "");
-  assert.equal(datos.sesion.iniciales, "—");
+  assert.equal(datos.sesion.iniciales, "");
+});
+
+test("sin nombre la cabecera rotula «Mi cuenta» con el icono de persona, sin raya", async () => {
+  const { readFile } = await import("node:fs/promises");
+  for (const [idioma, texto] of [["es", "Mi cuenta"], ["en", "My account"]]) {
+    const catalogo = JSON.parse(await readFile(new URL(`../textos/${idioma}/preferencias.json`, import.meta.url), "utf8"));
+    assert.equal(catalogo.areaPersonal.preferencias.miCuenta, texto);
+  }
+  const codigo = await readFile(new URL("./aplicacion.js", import.meta.url), "utf8");
+  assert.match(codigo, /nombreSesion\.textContent = nombre \|\| traducir\("areaPersonal\.preferencias\.miCuenta"\)/u);
+  const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
+  assert.match(html, /<span class="avatar" id="avatar-sesion" aria-hidden="true"><svg /u);
+  assert.doesNotMatch(html, /id="avatar-sesion"[^>]*>—/u);
 });
 
 test("el contrato rechaza un nombre vacío, demasiado largo o sin iniciales", () => {

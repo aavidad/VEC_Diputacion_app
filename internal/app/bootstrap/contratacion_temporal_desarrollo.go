@@ -107,6 +107,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
 	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	sesionOrganizacionHistorica                      *proveedorSesionConsultaRRHHDesarrollo
+	configurarPersonalLlamamiento                    func(*montajeOrganizacionHistoricaCombinada)
 	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
@@ -1306,11 +1307,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var envolverBorrador func(http.Handler) http.Handler
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
-	cerrarClienteM10CT := func() {}
-	cerrarClienteM10CTPendiente := true
+	var configurarPersonalLlamamiento func(*montajeOrganizacionHistoricaCombinada)
+	cerrarOfertasCT := func() {}
+	cerrarOfertasCTPendiente := true
 	defer func() {
-		if cerrarClienteM10CTPendiente {
-			cerrarClienteM10CT()
+		if cerrarOfertasCTPendiente {
+			cerrarOfertasCT()
 		}
 	}()
 	personalizacionB7 := &fuentePersonalizacionB7{}
@@ -1367,11 +1369,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, seleccion.puente, bolsa.preparador, configuracionAuditoriaLecturasCT.Proceso, configuracionAuditoriaLecturasCT.Canal)); err != nil {
 				return nil, nil, nil, err
 			}
-			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
-			cerrarOfertas := configurarSeleccionOfertaOpcionalCT(cfg, &alta, seleccion,
+			configurarPersonalLlamamiento = func(m *montajeOrganizacionHistoricaCombinada) {
+				configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora, m)
+			}
+			cerrarOfertasCT = configurarSeleccionOfertaOpcionalCT(cfg, &alta, seleccion,
 				bolsa.preparador, catalogoFronteras, derivador, reloj)
-			cerrarDatos := cerrarClienteM10CT
-			cerrarClienteM10CT = func() { cerrarOfertas(); cerrarDatos() }
 		}
 		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
 			incorporacion[0].nominales.montajeB2 != nil {
@@ -1619,6 +1621,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialOrganizacionHistorica:                    alta.postgresql.materialOrganizacionHistorica,
 		proveedorMaterialOrganizacionHistorica:           alta.postgresql.proveedorMaterialOrganizacionHistorica,
 		sesionOrganizacionHistorica:                      consultasRRHH.identidad,
+		configurarPersonalLlamamiento:                    configurarPersonalLlamamiento,
 		presentadorCobertura:                             coberturaReal.presentador,
 		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
@@ -1646,7 +1649,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarFronteraAuditoria()
 		cerrarAuditoria()
 		cerrarBorrador()
-		cerrarClienteM10CT()
+		cerrarOfertasCT()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
@@ -1655,7 +1658,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarCobertura = false
 	cerrarAlta = false
 	cerrarBorradorPendiente = false
-	cerrarClienteM10CTPendiente = false
+	cerrarOfertasCTPendiente = false
 	cerrarAuditoriaPendiente = false
 	cerrarFronteraAuditoriaPendiente = false
 	cerrarAutoridadesPlantillasPendiente = false
@@ -1675,8 +1678,8 @@ func advertirSeleccionConstituidaCT(etapa string, err error) {
 		causa = "ruta_no_admitida"
 	case etapa == "rpt_publicacion" && errors.Is(err, personal.ErrRPTPublicaNoDisponible):
 		causa = "publicacion_no_verificada"
-	case etapa == "m10_configuracion" && errors.Is(err, puertosbolsa.ErrEmisionLlamamientoNoDisponible):
-		causa = "material_privado_no_admitido"
+	case etapa == "personal_consulta" && errors.Is(err, puertosbolsa.ErrEmisionLlamamientoNoDisponible):
+		causa = "consulta_no_compuesta"
 	case etapa == "datos_emision" && errors.Is(err, ports.ErrIntegracionBolsaNoDisponible):
 		causa = "proveedor_no_compuesto"
 	case (etapa == "lector_origen" || etapa == "preflight_origen") && errors.Is(err, puertosbolsa.ErrOrigenLlamamientoCTNoDisponible):
@@ -1707,44 +1710,44 @@ func configurarOrigenConstituidoOpcionalCT(pool *pgxpool.Pool, c configuracionAu
 	}
 }
 
-// Un material M10 opcional defectuoso deja el puente nativo sin datos de
-// emisión. El emisor ya está configurado: no puede reabrir la fuente fija.
+// Personal es opcional: sin su montaje no se emite un llamamiento nativo.
 func configurarDatosEmisionConstituidaOpcionalCT(cfg config.Config, puente *puenteBolsaLlamamientoDesarrollo,
-	resolutor *reglas.Resolutor, ahora func() time.Time,
-) func() {
-	cerrar := func() {}
-	if os.Getenv(rutaClienteM10LlamamientoCT) == "" || puente == nil {
-		return cerrar
+	resolutor *reglas.Resolutor, ahora func() time.Time, montaje *montajeOrganizacionHistoricaCombinada,
+) {
+	if puente == nil {
+		return
 	}
 	if cfg.RPTCatalogoPath == "" {
 		advertirSeleccionConstituidaCT("rpt_ruta", personal.ErrConsultaRPTPublicaInvalida)
-		return cerrar
+		return
 	}
 	perfilRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
 	if err != nil {
 		advertirSeleccionConstituidaCT("rpt_fuente", err)
-		return cerrar
+		return
 	}
 	ctxRPT, cancelarRPT := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
 	_, err = perfilRPT.ObtenerRPTPublica(ctxRPT)
 	cancelarRPT()
 	if err != nil {
 		advertirSeleccionConstituidaCT("rpt_publicacion", err)
-		return cerrar
+		return
 	}
-	clienteM10, organismoRef, err := cargarClienteM10LlamamientoCT()
-	if err != nil {
-		advertirSeleccionConstituidaCT("m10_configuracion", err)
-		return cerrar
+	if montaje == nil || montaje.consulta == nil {
+		advertirSeleccionConstituidaCT("personal_consulta", puertosbolsa.ErrEmisionLlamamientoNoDisponible)
+		return
 	}
-	resolverPuesto := nuevoResolutorPuestoRPTConstituidoCT(clienteM10, organismoRef, ahora)
-	if err := puente.configurarDatosEmisionConstituidaCT(nuevoProveedorDatosEmisionConstituidaCT(
-		perfilRPT, resolutor, ahora, resolverPuesto)); err != nil {
-		clienteM10.Cerrar()
+	proveedor := func(ctx context.Context, d preparacionLlamamientoDesarrollo) (puertosbolsa.ConfiguracionLlamamiento, puestoRPTConstituidoCT, vecdomain.ReferenciaEntradaCatalogo, error) {
+		consulta, organismo, err := montaje.consultaParaCT(ctx, puente, d)
+		if err != nil {
+			return puertosbolsa.ConfiguracionLlamamiento{}, puestoRPTConstituidoCT{}, vecdomain.ReferenciaEntradaCatalogo{}, err
+		}
+		resolver := nuevoResolutorPuestoRPTConstituidoCT(consulta, organismo, ahora)
+		return nuevoProveedorDatosEmisionConstituidaCT(perfilRPT, resolutor, ahora, resolver)(ctx, d)
+	}
+	if err := puente.configurarDatosEmisionConstituidaCT(proveedor); err != nil {
 		advertirSeleccionConstituidaCT("datos_emision", err)
-		return cerrar
 	}
-	return clienteM10.Cerrar
 }
 
 func debeComponerBorradorLlamamientoDesarrollo(cfg config.Config) bool {

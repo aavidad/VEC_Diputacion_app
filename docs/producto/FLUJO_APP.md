@@ -326,8 +326,8 @@ conveniente».
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
 | 7b | Carmen y después Jefatura (firmantes) | Ficha, Firma | Firman con sus certificados el informe de remisión a Intervención, en ese orden; la fiscalización exige ambas firmas verificadas | Un recibo por firma y el PDF con las dos firmas verificadas |
 | 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6. Con el resultado favorable explícito, la ficha orienta al llamamiento sin cambiar esa fase ni pedir otra fiscalización |
-| 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
-| 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
+| 9 | Carmen | Ficha, Llamamiento y comunicación; ficha de Antonio en Bolsa | Abre el llamamiento desde la bolsa Administrativo; tras la llamada, registra el contacto efectivo con Antonio | Recibo del llamamiento y del contacto; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas). El contacto efectivo abre la respuesta y su plazo según las reglas vigentes |
+| 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo que muestra el llamamiento abierto | Recibo de su respuesta |
 | 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
 | 11 | Carmen | Ficha, Llamamiento | Resuelve la aceptación | Recibo de resolución del llamamiento |
 | 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
@@ -342,8 +342,12 @@ conveniente».
 | 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
 | 21 | Carmen | Ficha, Cierre | Cierra el expediente | `nombramiento/completado` |
 
-La vía del aspirante es Mi Bolsa interna (HZ37); la entrada externa propia solo
-si el ensayo la valida (corte 17:00 del 13/10).
+La entrada externa propia a Mi Bolsa está comprobada en la copia local del
+20/10, con respuesta 200 antes y después de reiniciar aplicación y PostgreSQL.
+La cuenta nueva no tenía participaciones; no se recorrieron aquí los actos de
+los pasos e1–e5 ni 10–10a. Las admisiones y asignaciones ficticias de esa copia
+no acreditan su gobierno por Administración.
+[Ensayo y límites de F1-46](../estudio_requisitos/cuenta_externa_f1_46_20261020.md).
 
 **Documentos.** Los que genera hoy el código desde la ficha, con el expediente en
 v7 o posterior (4.3.4; el informe definitivo, en v5 con el catálogo v4), y el orden de firma del catálogo
@@ -513,8 +517,12 @@ BC15 del propietario de convocatorias que consume la decisión V3 y llama a la
 declaración en la misma transacción, ruta
 `/api/vec/bolsa/convocatorias/publicaciones-oficiales` y pantalla. Declarante
 y motivo salen de la decisión; los ámbitos, de la política de la versión. La
-ruta deniega (503) hasta que el núcleo tenga el consumidor (AD301, entrega
-aparte para el equipo de permisos) y el rol de RRHH la concesión.
+entrega B añade el consumidor AD301 y BC17 coteja el recurso completo mediante
+su huella firmada, incluidos los ámbitos de la versión. La activación requiere
+publicar el permiso del rol de RRHH con dos administradores y reiniciar la
+aplicación. Sin ese permiso, la declaración queda denegada. Al repetir la
+misma petición y clave desde el mismo perfil se recupera el recibo original;
+un perfil distinto da conflicto.
 `ConfirmarPublicacion`,
 el puerto de la publicación gobernada borrador→publicada, no se usa en este
 corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
@@ -665,9 +673,10 @@ Estado: **en cidonia** con el llamamiento actual; con la bolsa constituida
 real, falta acreditar el recorrido.
 
 1. RRHH abre el llamamiento (4.3). Le llega un correo; hoy sale por un buzón de
-   pruebas, no por el correo de la Diputación.
-2. En Mi Bolsa aparece el formulario con su fecha límite. El plazo es de dos
-   días desde la notificación (decisión de RRHH del 02/10).
+   pruebas, no por el correo de la Diputación. RRHH registra después el contacto
+   efectivo desde la ficha de Bolsa. El correo enviado no lo acredita.
+2. En Mi Bolsa aparece el formulario con su fecha límite, calculada desde el
+   contacto efectivo según las reglas vigentes de esa bolsa.
 3. La aspirante elige (`POST /api/vec/bolsa/mi-bolsa/respuestas`):
    - **Aceptar**: sin pantalla de revisión.
    - **Renunciar**: pasa por «Revise su renuncia» y «Confirmar renuncia».
@@ -909,8 +918,10 @@ pantalla son las actuales.
 
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
-(`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
-arranca). Exige que la solicitud conserve la necesidad de la RPT publicada.
+y la consulta de puestos de Personal en proceso. F1-104 liga esa consulta al
+perfil de Personal de la misma cuenta que tramita la selección, con sus
+ámbitos y su recibo de auditoría. Sin la consulta configurada responde 503
+y el resto arranca. Exige que la solicitud conserve la necesidad de la RPT publicada.
 Lo que hay en cidonia todavía usa el puente anterior.
 
 El primer corte de la conexión añade a Bolsa el inicio de plazo por publicación
@@ -1051,8 +1062,13 @@ Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
   historial los junta por fecha. Un contacto añadido no reinicia el plazo, salvo
   que lo diga la regla configurable.
 - Anotar «contactado» tras una llamada abre la respuesta en «Mi Bolsa» y pone en
-  marcha el plazo, igual que el correo (regla b29). Los demás resultados de una
-  llamada no reinician el plazo.
+  marcha el plazo (regla b29). El correo con resultado «enviado» no es contacto
+  efectivo y no abre ese plazo. RRHH registra la llamada desde la ficha con
+  «Registrar intento telefónico»; VEC guarda la fecha del servidor. Registrar
+  contacto y responder al llamamiento son actuaciones distintas. Los demás
+  resultados de una llamada no reinician el plazo.
+  Activación y comprobaciones de la respuesta interna en
+  [`contacto_respuesta_interna_f1_123.md`](../../deploy/principal/contacto_respuesta_interna_f1_123.md).
 
 El corte F1-21 separa la unidad que gestiona el expediente de la unidad a la que
 pertenece el puesto. La comprobación de Personal usa la unidad del puesto en la
@@ -1198,7 +1214,14 @@ El historial nombra la propuesta, la confirmación y el rechazo.
 
 Con la bolsa constituida real el recorrido completo, también tras reiniciar,
 falta acreditarlo (CT213 y B115, equipo K). El justificante del cese aún no se
-guarda en Documentos.
+guarda en Documentos. La variante de cese recibido antes de vincular al
+candidato se ha comprobado en copia local: «Mi Bolsa» muestra «No disponible»
+sin fecha de vuelta y conserva las fechas tras reiniciar. El relevo procesa
+el cese pendiente tras aparecer el vínculo, sin repetir la proyección ni la
+restricción. El ensayo
+reutiliza un contrato histórico con cese futuro; no acredita el cese actual
+del caso 4.0. Evidencia y límites en
+[el acta de F1-30](../estudio_requisitos/recorrido_f1_30_cese_sin_vinculo_20261020.md).
 
 #### Reglas globales de situación de Bolsa — candidata F1-04/05
 
@@ -1209,6 +1232,14 @@ La consulta exige un permiso propio y deja un apunte de acceso. Publicar requier
 Tras una respuesta incierta, «Comprobar la misma publicación» conserva el cuerpo y la clave originales, también si otro reintento es denegado. El recibo recuperado corresponde al acto original; una consulta posterior muestra las reglas vigentes. En la copia causal con los permisos completos se publicaron desde Chrome las versiones 7 y 8. Después de reiniciar aplicación y PostgreSQL, la consulta conserva la versión 8 y el reintento devuelve el recibo y la fecha originales de la 7. Otro contenido con la misma clave devuelve conflicto; otro certificado sin permiso recibe denegación. Sin selección o con una inválida el portal sigue disponible y solo esta función queda indisponible. La carga de catálogo y concesiones de la copia no acredita su publicación administrativa; no cambia el caso único del apartado 4.0.
 
 ### 4.4 Administración
+
+F1-106 incorpora el conjunto 7 de capacidades para publicar roles nuevos con
+el gobierno existente: una persona administradora propone un rol desde una
+entrada admitida del catálogo y otra aprueba esa propuesta. Se conserva el
+recibo del cierre al recuperar la misma operación y tras reiniciar. La
+activación requiere publicar las dos claves y montar la configuración de
+roles; la asignación a personas es un acto posterior. Guía:
+`deploy/principal/admin7_roles_nuevos_f1_106_20261020.md`.
 
 | Tarea | Cómo se hace hoy | Estado |
 | --- | --- | --- |
@@ -1385,6 +1416,21 @@ efecto.
 - Una concesión de Bolsa no sirve en Cronos.
 - Cada decisión permite reconstruir persona, perfil, acción, recurso,
   finalidad, versiones e instante sin copiar datos personales de más.
+
+### 6.7 Consulta de Organización histórica en la copia local
+
+Antes de activar la consulta, una persona administradora propone el rol
+`consulta_organizacion_historica_rrhh:v1` y otra persona administradora distinta
+lo aprueba mediante AUT60 y el conjunto 7. La publicación conserva su acto y
+recibo. Después, `copia_local.sh organizacion-historica --equipo o --instancia f106`
+prepara solo identidades y asignaciones ficticias con ámbitos `organismo_ref` y
+`unidad_clave`, y monta la consulta. Cada técnica consulta con su propia cuenta, persona y perfil; las cuentas de RRHH
+no sustituyen a las dos personas administradoras.
+La asignación gobernada por Administración queda para una entrega posterior.
+Sin publicación ni activación, la aplicación arranca y esta consulta no se puede
+consumir. La copia acredita el acto de dos administradores y la consulta de dos
+técnicas: 200 en su centro y 403 fuera, antes y después de reiniciar. Guía:
+`deploy/principal/organizacion_historica_f1_106_20261020.md`.
 
 ## 7. Resumen de estado por tramo
 

@@ -131,6 +131,17 @@ func EscribirOverlayVersionBolsaExternaAdmin(salida *os.Root, d DestinoOverlayVe
 		[2]string{gobiernoperfiles.AudienciaVersionarRolBolsaExternaProponer, gobiernoperfiles.AudienciaVersionarRolBolsaExternaAprobar}, archivos)
 }
 
+// EscribirOverlayGobiernoRolesAdmin usa solo las dos claves de AUT60 ya
+// publicadas por el conjunto 7 y su acuse. No crea autoridad al arrancar.
+func EscribirOverlayGobiernoRolesAdmin(salida *os.Root, d DestinoOverlayVersionBolsaAdmin, nombreAcuse string, reloj ports.Reloj) error {
+	archivos := map[string]string{
+		gobiernoperfiles.AudienciaGobiernoRolProponer: "gobierno-roles-propuesta.bin",
+		gobiernoperfiles.AudienciaGobiernoRolAprobar:  "gobierno-roles-cierre.bin",
+	}
+	return escribirOverlayVersionBolsaAdmin(salida, d, nombreAcuse, reloj, "gobierno-roles.json",
+		[2]string{gobiernoperfiles.AudienciaGobiernoRolProponer, gobiernoperfiles.AudienciaGobiernoRolAprobar}, archivos)
+}
+
 func escribirOverlayVersionBolsaAdmin(salida *os.Root, d DestinoOverlayVersionBolsaAdmin, nombreAcuse string,
 	reloj ports.Reloj, archivoOverlay string, par [2]string, archivos map[string]string) error {
 	if salida == nil || dependenciaBootstrapNula(reloj) || !nombreAcuseGobiernoUsuariosValido(nombreAcuse) || validarDestinoOverlayVersionBolsa(d, par) != nil {

@@ -10,7 +10,7 @@ test("Mi bolsa vacía no fabrica persona, iniciales ni referencias para el área
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-24T09:00:00Z", participaciones: [] });
   assert.equal(datos.meta.presentacion, false);
   assert.equal(datos.sesion.nombre_visible, "");
-  assert.equal(datos.sesion.iniciales, "—");
+  assert.equal(datos.sesion.iniciales, "");
   assert.equal(datos.sesion.persona_ref, null);
   assert.equal(datos.perfil.referencia, null);
   assert.equal(datos.perfil.nombre_visible, "");

@@ -44,22 +44,17 @@ func (e ejecutorSeleccionConstituidaDegradadaCT) SeleccionarYLlamarParaAdaptador
 }
 
 func TestSeleccionConstituidaConfigRotaDevuelve503SinAbortarMontajeOpcional(t *testing.T) {
-	rutaM10 := filepath.Join(t.TempDir(), "m10-invalido.json")
-	if err := os.WriteFile(rutaM10, []byte(`{"version":`), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	rutaRPTRota := filepath.Join(t.TempDir(), "rpt-invalida.json")
 	if err := os.WriteFile(rutaRPTRota, []byte(`{"esquema":"invalido"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(rutaClienteM10LlamamientoCT, rutaM10)
 	for _, caso := range []struct {
 		nombre, rpt, etapa, causa string
 	}{
 		{nombre: "rpt_ausente", etapa: "rpt_ruta", causa: "fuente_ausente"},
 		{nombre: "rpt_rota", rpt: rutaRPTRota, etapa: "rpt_publicacion", causa: "publicacion_no_verificada"},
-		{nombre: "m10_invalido", rpt: filepath.Join("..", "..", "..", "data", "catalogos", "rpt", "v1.rpt-2026.json"),
-			etapa: "m10_configuracion", causa: "material_privado_no_admitido"},
+		{nombre: "personal_ausente", rpt: filepath.Join("..", "..", "..", "data", "catalogos", "rpt", "v1.rpt-2026.json"),
+			etapa: "personal_consulta", causa: "consulta_no_compuesta"},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			if caso.rpt != "" {
@@ -90,18 +85,17 @@ func TestSeleccionConstituidaConfigRotaDevuelve503SinAbortarMontajeOpcional(t *t
 			if puente.origenNativo != nil {
 				t.Fatal("canal ajeno compuso el lector B110")
 			}
-			// Aisla la degradación M10 en el consumidor: aun con fuente B110
+			// Aisla la ausencia de Personal en el consumidor: aun con fuente B110
 			// presente, los datos no publicados impiden abrir un llamamiento.
 			puente.origenNativo = &postgresbolsa.LectorOrigenLlamamientoCTAuditadoPostgreSQL{}
-			cerrar := configurarDatosEmisionConstituidaOpcionalCT(config.Config{RPTCatalogoPath: caso.rpt}, puente, nil,
-				func() time.Time { return time.Now().UTC() })
-			defer cerrar()
+			configurarDatosEmisionConstituidaOpcionalCT(config.Config{RPTCatalogoPath: caso.rpt}, puente, nil,
+				func() time.Time { return time.Now().UTC() }, nil)
 			if puente.configuracionNativa != nil {
-				t.Fatal("se configuraron datos de una fuente privada inválida")
+				t.Fatal("se configuraron datos de una consulta Personal ausente")
 			}
 			traza := salidaLog.String()
 			if !strings.Contains(traza, "etapa="+caso.etapa) || !strings.Contains(traza, "causa="+caso.causa) ||
-				strings.Contains(traza, rutaM10) || strings.Contains(traza, rutaRPTRota) ||
+				strings.Contains(traza, rutaRPTRota) ||
 				strings.Contains(traza, `{"version":`) || strings.Contains(traza, `{"esquema":`) {
 				t.Fatalf("registro de degradación incompleto o con material privado: %q", traza)
 			}

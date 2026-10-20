@@ -39,7 +39,7 @@
 1032 deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
 1869 deploy/postgresql/identidad_sesiones_v1/migraciones/000006_politica_certificado_personal_desarrollo.up.sql
 1317 deploy/principal/composicion_interna/aprovisionar.py
-819 internal/app/bootstrap/composicion_desarrollo.go
+822 internal/app/bootstrap/composicion_desarrollo.go
 806 internal/app/server/server.go
 802 internal/app/composicion/interna/identidad_test.go
 987 internal/app/incorporacionejercicio/servicio_test.go
@@ -109,14 +109,14 @@
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
 1806 web/static/portal-empleado/portal-modulos-coordinador.js
 1894 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
-1131 web/static/portal-empleado/portal-componentes.css
-2355 web/static/portal-empleado/portal.js
-1638 web/static/portal-empleado/portal-bolsas-api.js
-1013 web/static/portal-empleado/portal-bolsas.test.mjs
+1139 web/static/portal-empleado/portal-componentes.css
+2372 web/static/portal-empleado/portal.js
+1684 web/static/portal-empleado/portal-bolsas-api.js
+1109 web/static/portal-empleado/portal-bolsas.test.mjs
 1160 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 1448 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
-959 web/static/portal-empleado/portal-panel-interno.js
+963 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
 2020 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 782 internal/app/server/server_test.go
@@ -210,6 +210,7 @@
 1054 web/static/portal-empleado/portal-bolsas-ofertas.test.mjs
 3397 deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql
 3481 deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql
+3528 deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql
 851 internal/app/bootstrap/portal_externo_mi_bolsa.go
 816 deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql
 1078 deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sql

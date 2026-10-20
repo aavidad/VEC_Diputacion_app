@@ -80,8 +80,9 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     textos: textosDiferidos, marco }));
   const avatar = crearAvatarCabecera(porId("sesion-visible")?.querySelector(".avatar"));
   let iniciales = "";
-  const imagen = aplazarCarga(crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/mi-imagen", fetchImpl: enSerie }),
-    textos: textosDiferidos, marco, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => iniciales }));
+  const imagenBase = crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/mi-imagen", fetchImpl: enSerie }),
+    textos: textosDiferidos, marco, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => iniciales });
+  const imagen = aplazarCarga(imagenBase);
   const clientePreferencias = crearClientePreferencias({ fetchImpl: enSerie });
   const superficie = crearSuperficiePreferenciasPortal({
     cliente: clientePreferencias,
@@ -91,6 +92,9 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
       aplicarVisual(actual.valores);
       aplicarFilas(actual.valores.filas);
       aplicarIdioma(actual.valores);
+      // La cabecera muestra la imagen elegida en todas las vistas, no solo tras
+      // abrir Mis preferencias. Sin panel montado, la carga no usa textos.
+      if (imagenBase.leerCarga() === "sin_cargar") void imagenBase.cargar();
     },
     alGuardar: (recibo) => {
       aplicarVisual(recibo.valores);
