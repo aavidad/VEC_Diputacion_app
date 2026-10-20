@@ -83,29 +83,31 @@ func comprobarSQLPreferenciasModalidades(ctx context.Context, pool *pgxpool.Pool
 // lecturaModalidadesPortalExterno compone la lectura propia de modalidades.
 // Devuelve nil si falta B138, AD300, el catálogo o la fuente de concesiones;
 // entonces la consulta de modalidades responde 503 y la vista de ofertas se
-// sirve sin filtrar. El registro solo nombra la etapa, nunca el error.
+// sirve sin filtrar. El registro nombra la etapa y un código cerrado, nunca el texto del error.
 func lecturaModalidadesPortalExterno(d dependenciasMiBolsaPortalExterno) *mibolsa.LecturaPreferenciasModalidades {
 	if d.catalogoModalidades == nil || !d.modalidadesSQL || d.proveedorPreferencias == nil || d.fuentePreferencias == nil {
 		return nil
 	}
 	lecturaPG, err := bolsapg.NuevaLecturaPreferenciasModalidadesPostgreSQL(d.bolsa)
 	if err != nil {
-		return falloComposicionModalidades()
+		return falloComposicionModalidades(err)
 	}
 	auditoriaPG, err := bolsapg.NuevaAuditoriaIntentosPreferenciasBolsasPostgreSQL(d.bolsa)
 	if err != nil {
-		return falloComposicionModalidades()
+		return falloComposicionModalidades(err)
 	}
 	lectura, err := mibolsa.NuevaLecturaPreferenciasModalidades(
 		lecturaPG, auditoriaPG, d.fuentePreferencias, d.catalogoModalidades, d.reloj)
 	if err != nil {
-		return falloComposicionModalidades()
+		return falloComposicionModalidades(err)
 	}
 	return lectura
 }
 
-func falloComposicionModalidades() *mibolsa.LecturaPreferenciasModalidades {
-	slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion")
+// El registro solo lleva la etapa y un código cerrado de la causa.
+func falloComposicionModalidades(err error) *mibolsa.LecturaPreferenciasModalidades {
+	slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion",
+		"causa", causaFalloPostgreSQLCTDesarrollo(err))
 	return nil
 }
 
@@ -120,19 +122,19 @@ func handlerPreferenciasModalidadesPortalExterno(d dependenciasMiBolsaPortalExte
 	}
 	escrituraPG, err := bolsapg.NuevaEscrituraPreferenciasModalidadesPostgreSQL(d.bolsa)
 	if err != nil {
-		falloComposicionModalidades()
+		falloComposicionModalidades(err)
 		return noDisponible
 	}
 	escritura, err := mibolsa.NuevoServicioPreferenciasModalidades(
 		escrituraPG, d.catalogoModalidades, d.autorizador,
 		proveedorPreferenciasBolsasPortalExterno{delegado: d.proveedorPreferencias}, d.reloj)
 	if err != nil {
-		falloComposicionModalidades()
+		falloComposicionModalidades(err)
 		return noDisponible
 	}
 	manejador, err := bolsahttp.NuevoHandlerPreferenciasModalidades(d.preparador, escritura, lectura)
 	if err != nil {
-		falloComposicionModalidades()
+		falloComposicionModalidades(err)
 		return noDisponible
 	}
 	return manejador
