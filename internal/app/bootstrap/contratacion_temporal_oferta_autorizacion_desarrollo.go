@@ -44,27 +44,29 @@ type fuenteRolSeleccionOfertaCTDesarrollo struct {
 type politicaPerfilOfertaCTDesarrollo struct {
 	accion, modulo, tipo, finalidad, audiencia string
 	ambitos                                    map[string]string // vacío exige clave, pero deja su valor a la asignación publicada.
+	obligaciones                               []string
+	ruta, claveFrontera                        string
 }
 
 func politicaVinculoOfertaCTDesarrollo() politicaPerfilOfertaCTDesarrollo {
-	return politicaPerfilOfertaCTDesarrollo{ports.AccionVincularOfertaBolsaCT,
-		ports.ModuloContratacion, ports.TipoRecursoVinculoOfertaBolsaCT,
-		ports.FinalidadVincularOfertaBolsaCT, ports.AudienciaVincularOfertaBolsaCT,
-		map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+	return politicaPerfilOfertaCTDesarrollo{accion: ports.AccionVincularOfertaBolsaCT,
+		modulo: ports.ModuloContratacion, tipo: ports.TipoRecursoVinculoOfertaBolsaCT,
+		finalidad: ports.FinalidadVincularOfertaBolsaCT, audiencia: ports.AudienciaVincularOfertaBolsaCT,
+		ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
 			"unidad_ref": ""}}
 }
 
 func politicaCierreOfertaBolsaCTDesarrollo(unidad, ambito string) politicaPerfilOfertaCTDesarrollo {
-	return politicaPerfilOfertaCTDesarrollo{"bolsa.oferta.intencion.cerrar", "bolsa", "bolsa_constituida",
-		"gestion_llamamientos_bolsa", descriptorMaterialCierreIntencionOfertaCTDesarrollo().Audiencia,
-		map[string]string{"unidad_ref": unidad, "ambito_ref": ambito}}
+	return politicaPerfilOfertaCTDesarrollo{accion: "bolsa.oferta.intencion.cerrar", modulo: "bolsa", tipo: "bolsa_constituida",
+		finalidad: "gestion_llamamientos_bolsa", audiencia: descriptorMaterialCierreIntencionOfertaCTDesarrollo().Audiencia,
+		ambitos: map[string]string{"unidad_ref": unidad, "ambito_ref": ambito}}
 }
 
 func politicaDescarteOfertaCTDesarrollo() politicaPerfilOfertaCTDesarrollo {
-	return politicaPerfilOfertaCTDesarrollo{"contratacion_temporal.bolsa.oferta.descartar",
-		ports.ModuloContratacion, "seleccion_oferta_expediente", ports.FinalidadVincularOfertaBolsaCT,
-		descriptorMaterialDescarteSeleccionOfertaCTDesarrollo().Audiencia,
-		map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+	return politicaPerfilOfertaCTDesarrollo{accion: "contratacion_temporal.bolsa.oferta.descartar",
+		modulo: ports.ModuloContratacion, tipo: "seleccion_oferta_expediente", finalidad: ports.FinalidadVincularOfertaBolsaCT,
+		audiencia: descriptorMaterialDescarteSeleccionOfertaCTDesarrollo().Audiencia,
+		ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
 			"unidad_ref": ""}}
 }
 
@@ -120,7 +122,7 @@ func concesionExactaPerfilOfertaCTDesarrollo(c core.ConcesionRol, p politicaPerf
 	return c.Accion == p.accion && c.ModuloID == p.modulo && c.TipoRecurso == p.tipo &&
 		len(c.Finalidades) == 1 && c.Finalidades[0] == p.finalidad &&
 		c.GarantiaMinima == core.AuthAssuranceHigh &&
-		len(c.CamposPermitidos) == 0 && len(c.Obligaciones) == 0
+		len(c.CamposPermitidos) == 0 && slices.Equal(c.Obligaciones, p.obligaciones)
 }
 
 // El sujeto del certificado que conserva el canal CT no es la referencia
@@ -206,6 +208,7 @@ func (a *autoridadSeleccionOfertaCTDesarrollo) contextoPerfilOferta(ctx context.
 	if a == nil || a.alta == nil || a.alta.soporte == nil || p == nil || p.sesion == nil ||
 		p.fuente == nil || ctx == nil || ctx.Err() != nil ||
 		(metodo != http.MethodPost || ruta != cthttp.RutaSeleccionLlamamiento) &&
+			(p.fuente.politica.ruta == "" || metodo != http.MethodPost || ruta != p.fuente.politica.ruta) &&
 			(p != a.vinculo || metodo != http.MethodGet || ruta != cthttp.RutaConsultaEstadoSeleccionOferta) {
 		return nil, vacio, ports.ErrAutorizacionDenegada
 	}
@@ -474,10 +477,18 @@ func errorAutorizacionOfertaCTDesarrollo(ctx context.Context, err error) error {
 func descriptoresPerfilOfertaCTDesarrollo(c perfilActivacionOfertaCT,
 	politica politicaPerfilOfertaCTDesarrollo, consultaEstado bool,
 ) ([]descriptorFronteraComunDesarrollo, error) {
+	if (politica.ruta == "") != (politica.claveFrontera == "") ||
+		(consultaEstado && politica.ruta != "") {
+		return nil, errActivacionOfertaCTDesarrollo
+	}
+	ruta, clave := cthttp.RutaSeleccionLlamamiento, claveFronteraSeleccionOfertaCTDesarrollo
+	if politica.ruta != "" && politica.claveFrontera != "" {
+		ruta, clave = politica.ruta, politica.claveFrontera
+	}
 	descriptores := []descriptorFronteraComunDesarrollo{{
-		Clave:      claveFronteraSeleccionOfertaCTDesarrollo,
+		Clave:      clave,
 		Superficie: superficieInternaSeguridadComunDesarrollo,
-		Metodo:     http.MethodPost, Ruta: cthttp.RutaSeleccionLlamamiento,
+		Metodo:     http.MethodPost, Ruta: ruta,
 		PerfilesActivosRef: []string{c.PerfilRef},
 		ClavePolitica:      clavePoliticaContratacionTemporalDesarrollo,
 		ClaveCapacidad:     politica.accion,
