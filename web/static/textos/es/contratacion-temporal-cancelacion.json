@@ -44,6 +44,8 @@
     "motivo_cobertura_otra_via": "Se cubre por otra vía",
     "motivo_error_solicitud": "Error en la solicitud",
     "motivo_solicitud_duplicada": "Solicitud duplicada",
-    "motivo_falta_credito": "Sin crédito disponible"
+    "motivo_falta_credito": "Sin crédito disponible",
+    "motivo_elegir": "Seleccione un motivo",
+    "motivo_obligatorio": "Motivo de la cancelación (obligatorio)"
   }
 }

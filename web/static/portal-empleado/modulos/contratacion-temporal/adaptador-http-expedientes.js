@@ -541,11 +541,12 @@ function railFasesDesdeHitos(detalle, traducir) {
     }
     fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
     // El análisis confirmado es una actuación terminada aunque Solicitud siga
-    // abierta. Un retorno o una versión antigua no conserva esa marca.
-    const ultimo = detalle.hitos.at(-1);
+    // abierta (o se cancele después). Un retorno o una versión antigua no conserva esa marca.
+    const cancelado = detalle.resumen.estado_clave === "cancelado";
+    const ultimo = detalle.hitos.at(cancelado ? -2 : -1);
     const analisis = indice("analisis_rrhh");
-    if (detalle.resumen.fase_clave === "solicitud" && detalle.resumen.estado_clave === "en_curso"
-      && ultimo?.version_expediente === detalle.resumen.version
+    if (detalle.resumen.fase_clave === "solicitud" && (cancelado || detalle.resumen.estado_clave === "en_curso")
+      && ultimo?.version_expediente === detalle.resumen.version - (cancelado ? 1 : 0)
       && ACCIONES_FASES_VISUALES_COMPLETADAS[ultimo.accion_clave]?.includes("analisis_rrhh")
       && analisis >= 0) fases[analisis].estado_clave = ESTADO_FASE_COMPLETADO;
   }

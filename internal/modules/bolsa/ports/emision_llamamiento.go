@@ -21,7 +21,44 @@ var (
 	ErrEmisionLlamamientoNoDisponible = errors.New("bolsa: emision de llamamiento no disponible")
 	ErrEmisionLlamamientoInvalida     = errors.New("bolsa: emision de llamamiento invalida")
 	ErrEmisionLlamamientoConflicto    = errors.New("bolsa: clave de emision reutilizada con otro comando")
+	// ErrLlamamientoFueraDeOrden: la selección deja atrás a alguien disponible
+	// y sin llamar que va antes (regla b01). Se devuelve como *LlamamientoFueraDeOrden.
+	ErrLlamamientoFueraDeOrden = errors.New("bolsa: llamamiento fuera de orden")
+	// ErrMotivoSaltoNoAdmitido: el motivo de salto no está en el catálogo vigente.
+	ErrMotivoSaltoNoAdmitido = errors.New("bolsa: motivo de salto no admitido")
 )
+
+// LlamamientoFueraDeOrden identifica a la primera persona que va antes por
+// su participación y su número de orden vigente, y ofrece los motivos de
+// salto del catálogo vigente (vacío si no hay ninguno).
+type LlamamientoFueraDeOrden struct {
+	ParticipacionRef string
+	OrdenVigente     int64
+	Motivos          []MotivoSaltoOrden
+}
+
+func (e *LlamamientoFueraDeOrden) Error() string { return ErrLlamamientoFueraDeOrden.Error() }
+func (e *LlamamientoFueraDeOrden) Unwrap() error { return ErrLlamamientoFueraDeOrden }
+
+// MotivoSaltoOrden es una entrada «b01.salto.*» del catálogo de reglas.
+type MotivoSaltoOrden struct {
+	Clave    string `json:"clave"`
+	Etiqueta string `json:"etiqueta"`
+}
+
+// SaltoOrdenLlamamiento es el motivo resuelto que se guarda con el
+// llamamiento: clave, referencia versionada de la regla y huella del catálogo.
+type SaltoOrdenLlamamiento struct {
+	Clave          string `json:"clave"`
+	ReglaRef       string `json:"regla_ref"`
+	HuellaCatalogo string `json:"huella_catalogo"`
+}
+
+// CatalogoMotivosSaltoOrden lee los motivos de salto del catálogo de reglas.
+type CatalogoMotivosSaltoOrden interface {
+	MotivosSaltoOrden(context.Context) ([]MotivoSaltoOrden, error)
+	ResolverMotivoSaltoOrden(context.Context, string) (SaltoOrdenLlamamiento, error)
+}
 
 type ConfiguracionLlamamiento struct {
 	Referencia       string `json:"referencia"`
@@ -47,6 +84,9 @@ type SolicitudEmitirLlamamiento struct {
 	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
 	// OrigenCT sólo se usa en la reserva nativa originada por Contratación.
 	OrigenCT *OrigenEmisionCT
+	// MotivoSalto es la clave «b01.salto.*» que justifica saltar el orden;
+	// vacía en el caso normal.
+	MotivoSalto string
 }
 
 type SolicitudRecuperarLlamamiento struct {
@@ -66,6 +106,7 @@ type ComandoEmitirLlamamiento struct {
 	Material                                                         puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	TokenFinalizacion                                                []byte
 	OrigenCT                                                         *OrigenEmisionCT
+	SaltoOrden                                                       *SaltoOrdenLlamamiento
 }
 
 type ResultadoContactoEmision struct {

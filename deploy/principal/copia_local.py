@@ -239,6 +239,9 @@ class Copia:
                 estado = self.leer()
                 estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
                 guardar(self.estado, estado)
+                # F1-113: Mis preferencias y Mi imagen, ya con Antonio como aspirante.
+                from copia_local_usuarios import preparar as preparar_usuarios
+                preparar_usuarios(self, args.rrhh_original, guardar, sha256)
                 # F1-103: permiso y montaje de la Organización histórica para llamar desde la ficha.
                 import copia_local_organizacion_historica as organizacion_historica
                 huella_oh = organizacion_historica.sembrar(self, REPO)
@@ -304,6 +307,9 @@ class Copia:
                          descriptores=(self.candado,), entorno={**os.environ,
                          'VEC_COPIA_PORTAL_ESTADO': str(privado_portal)})
             comprobar_conexiones(self)
+            # F1-113: Mis preferencias y Mi imagen, ya con el aspirante del portal.
+            from copia_local_usuarios import preparar as preparar_usuarios
+            preparar_usuarios(self, args.rrhh_original, guardar, sha256)
             estado = self.leer()
             estado['portal_externo_preparado'] = True
             guardar(self.estado, estado)

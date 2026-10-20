@@ -10,6 +10,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrCambioSituacionParticipacionNoDisponible = errors.New("bolsa: cambio de situacion de participacion no disponible")
@@ -176,6 +177,11 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 func errorDependenciaSituacion(err error) error {
 	if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrPermissionDenied) {
 		return err
+	}
+	// El emisor atestado devuelve la denegación ya registrada unida a «no
+	// disponible»; es una denegación y no una caída de la dependencia.
+	if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+		return dominiovec.ErrAutorizacionDenegada
 	}
 	return ErrCambioSituacionParticipacionNoDisponible
 }

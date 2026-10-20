@@ -36,7 +36,7 @@ type ResultadoRellenoVinculos struct {
 }
 
 // EjecutarRellenoVinculosBolsa recupera el acta desde el staging cifrado,
-// calcula las mismas referencias que constituir-bolsa y pide a Bolsa SQL que
+// calcula las mismas referencias que la constitución gobernada y pide a Bolsa SQL que
 // las vincule por fila_numero. Aplicar=false deja todo en ROLLBACK.
 func EjecutarRellenoVinculosBolsa(ctx context.Context, cfg config.Config, huella, categoria string, aplicar bool) (ResultadoRellenoVinculos, error) {
 	var vacio ResultadoRellenoVinculos

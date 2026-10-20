@@ -1,4 +1,4 @@
-"""La semilla de ámbito de bolsas solo traslada lo que declara el manifiesto."""
+"""La semilla de ámbito traslada el manifiesto y las bolsas de la carga gobernada."""
 import importlib.util
 import json
 from pathlib import Path
@@ -17,7 +17,7 @@ MANIFIESTO = {'unidad_ref': 'unidad:desarrollo:rrhh', 'ambito_ref': 'ambito:desa
 
 
 class AmbitoBolsasTest(unittest.TestCase):
-    def test_declara_solo_las_bolsas_del_manifiesto_como_propietario(self):
+    def test_declara_las_bolsas_del_manifiesto_y_las_cargadas_como_propietario(self):
         sql = ambito.sentencias(MANIFIESTO).decode()
         self.assertIn('SET LOCAL ROLE vec_bolsa_llamamientos_propietario;', sql)
         self.assertIn("ARRAY['bolsa:educador:2026-09-17','bolsa:operario:2026-09-17']", sql)
@@ -25,6 +25,8 @@ class AmbitoBolsasTest(unittest.TestCase):
         # Una bolsa del manifiesto que no está en la base no se declara.
         self.assertIn('WHERE EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida', sql)
         self.assertIn('\\if :b144', sql)
+        # Las bolsas que constituyó la carga gobernada antes de B144 también.
+        self.assertIn('UNION SELECT c.bolsa_ref FROM vec_bolsa_llamamientos.recibo_carga_convoca c', sql)
 
     def test_rechaza_referencias_que_romperian_el_sql(self):
         for campo, valor in (('ambito_ref', "x'); DROP TABLE t; --"), ('unidad_ref', ''),

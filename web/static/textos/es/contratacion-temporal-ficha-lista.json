@@ -187,6 +187,10 @@
     "ficha_siguiente_paso_cancelado": "Expediente cancelado",
     "ficha_siguiente_paso_cancelado_que": "El expediente está cancelado y no admite más actuaciones.",
     "hito_propuesta_formalizacion": "Propuesta de nombramiento o contrato registrada",
-    "hito_resolucion_formalizacion": "Resolución de nombramiento o contrato registrada"
+    "hito_resolucion_formalizacion": "Resolución de nombramiento o contrato registrada",
+    "hito_cancelacion_expediente": "Expediente cancelado",
+    "linea_fase_cancelado": "Cancelado en esta fase",
+    "linea_fase_sin_hacer": "No se hará",
+    "ficha_fases_resumen_cancelado": "{hechas} hechas · cancelado en «{fase}»"
   }
 }

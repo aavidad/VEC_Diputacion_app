@@ -1191,7 +1191,14 @@ El historial nombra la propuesta, la confirmación y el rechazo.
 
 Con la bolsa constituida real el recorrido completo, también tras reiniciar,
 falta acreditarlo (CT213 y B115, equipo K). El justificante del cese aún no se
-guarda en Documentos.
+guarda en Documentos. La variante de cese recibido antes de vincular al
+candidato se ha comprobado en copia local: «Mi Bolsa» muestra «No disponible»
+sin fecha de vuelta y conserva las fechas tras reiniciar. El relevo procesa
+el cese pendiente tras aparecer el vínculo, sin repetir la proyección ni la
+restricción. El ensayo
+reutiliza un contrato histórico con cese futuro; no acredita el cese actual
+del caso 4.0. Evidencia y límites en
+[el acta de F1-30](../estudio_requisitos/recorrido_f1_30_cese_sin_vinculo_20261020.md).
 
 #### Reglas globales de situación de Bolsa — candidata F1-04/05
 

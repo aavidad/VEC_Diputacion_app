@@ -119,8 +119,8 @@ EXCEPTION WHEN insufficient_privilege THEN NULL;
 END $ajeno$;
 
 -- Confirmaciones con material V3 ficticio. Se deniegan con 42501 de B144 antes
--- de AD218: otra unidad sobre una bolsa con ámbito, una bolsa existente sin
--- ámbito y una carga que sustituiría una bolsa vigente de otra unidad o sin
+-- de AD218 (B145 responde antes en la bolsa existente sin ámbito): otra unidad
+-- sobre una bolsa con ámbito, una bolsa existente sin ámbito y una carga que sustituiría una bolsa vigente de otra unidad o sin
 -- ámbito. Los casos correctos (incluida una bolsa de otra unidad ya sustituida)
 -- llegan hasta AD218 y caen allí.
 DO $confirmacion$
@@ -130,7 +130,7 @@ DECLARE actor text:='per_f160'; caso record; h text; acta text; a jsonb; b bytea
 BEGIN
  FOR caso IN SELECT * FROM (VALUES
    ('bolsa:f160','categoria:f160','unidad:desarrollo:otra','B144: bolsa de otro ámbito%'),
-   ('bolsa:f160:sin','categoria:f160b','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
+   ('bolsa:f160:sin','categoria:f160b','unidad:desarrollo:rrhh','B145: bolsa sin ámbito declarado%'),
    ('bolsa:f160:nueva','categoria:f160c','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
    ('bolsa:f160:d-nueva','categoria:f160d','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
    ('bolsa:f160:e-nueva','categoria:f160e','unidad:desarrollo:rrhh','AD218:%'),
