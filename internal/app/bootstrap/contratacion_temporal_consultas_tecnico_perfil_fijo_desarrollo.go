@@ -50,7 +50,7 @@ func nuevasInstantaneasConsultasRRHHDesarrollo(principalID, perfilRef string, ah
 // existentes: ninguna acción de escritura entra en este rol.
 func componerPerfilFijoConsultasTecnicoCTDesarrollo(s *soporteAltaContratacionTemporalDesarrollo, ahora time.Time) error {
 	if s == nil || s.lectorConsultasRRHH || s.principalID == "" || s.certificadoSHA256 == "" {
-		return ports.ErrConsultaRRHHNoDisponible
+		return registrarFalloMontajeCTDesarrollo("consultas_tecnico_soporte", ports.ErrConsultaRRHHNoDisponible)
 	}
 	// El contexto registrado solo conserva la identidad mínima; el soporte
 	// retiene la huella ya validada en la composición del técnico.
@@ -59,7 +59,7 @@ func componerPerfilFijoConsultasTecnicoCTDesarrollo(s *soporteAltaContratacionTe
 		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
 			"certificate_sha256": s.certificadoSHA256}}
 	if !principalContratacionTemporalDesarrolloValido(principal) {
-		return ports.ErrConsultaRRHHNoDisponible
+		return registrarFalloMontajeCTDesarrollo("consultas_tecnico_principal", ports.ErrConsultaRRHHNoDisponible)
 	}
 	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoConsultasTecnicoCTDesarrollo,
 		[]string{httpinterno.RutaConsultaCuadroRRHH, httpinterno.RutaConsultaDetalleRRHH},
@@ -68,7 +68,7 @@ func componerPerfilFijoConsultasTecnicoCTDesarrollo(s *soporteAltaContratacionTe
 				ports.AmbitoOrganizacionRRHH, organizacionAltaContratacionTemporalDesarrollo)
 			if err != nil || len(cuadro.VersionRol.Concesiones) != 1 || len(detalle.VersionRol.Concesiones) != 2 ||
 				!reflect.DeepEqual(cuadro.AsignacionPerfil.Ambitos, detalle.AsignacionPerfil.Ambitos) {
-				return dominiovec.InstantaneaAutorizacion{}, ports.ErrConsultaRRHHNoDisponible
+				return dominiovec.InstantaneaAutorizacion{}, registrarFalloMontajeCTDesarrollo("consultas_tecnico_instantaneas", ports.ErrConsultaRRHHNoDisponible)
 			}
 			return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
 				rolConsultasTecnicoCTDesarrollo, "Consulta de bandeja y expediente de desarrollo", rolConsultasTecnicoCTDesarrollo,
@@ -76,10 +76,10 @@ func componerPerfilFijoConsultasTecnicoCTDesarrollo(s *soporteAltaContratacionTe
 				cuadro.AsignacionPerfil.Ambitos)
 		})
 	if err != nil {
-		return err
+		return registrarFalloMontajeCTDesarrollo("consultas_tecnico_nuevo_perfil", err)
 	}
 	if err := s.registrarPerfilFijoCTDesarrollo(perfil); err != nil {
-		return err
+		return registrarFalloMontajeCTDesarrollo("consultas_tecnico_registrar_perfil", err)
 	}
 	return nil
 }
@@ -104,12 +104,12 @@ func ligarAutoridadConsultasTecnicoPerfilFijoDesarrollo(
 		a.soporte.perfilFijoParaRuta(httpinterno.RutaConsultaCuadroRRHH) != p ||
 		a.soporte.perfilFijoParaRuta(httpinterno.RutaConsultaDetalleRRHH) != p ||
 		p.contextoEsperadoRegistrado.Validar() != nil {
-		return ports.ErrConsultaRRHHNoDisponible
+		return registrarFalloMontajeCTDesarrollo("consultas_tecnico_ligar_perfil", ports.ErrConsultaRRHHNoDisponible)
 	}
 	proveedor, ok := p.sesionOperativa.(*proveedorSesionConsultaRRHHDesarrollo)
 	if !ok || proveedor == nil {
-		return ports.ErrConsultaRRHHNoDisponible
+		return registrarFalloMontajeCTDesarrollo("consultas_tecnico_ligar_sesion", ports.ErrConsultaRRHHNoDisponible)
 	}
 	a.perfilLectura = p
-	return a.configurarProveedorContextoConsultaRRHHDesarrollo(proveedor)
+	return registrarFalloMontajeCTDesarrollo("consultas_tecnico_ligar_proveedor", a.configurarProveedorContextoConsultaRRHHDesarrollo(proveedor))
 }
