@@ -327,8 +327,6 @@ class Copia:
             with (self.raiz / 'material.log').open('wb') as log:
                 ejecutar([REPO / 'scripts/generar_credenciales_desarrollo.sh', self.material],
                           salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '400' if completo else '90'})
-        from copia_local_ambito_bolsas import declarar as declarar_ambito_bolsas
-        declarar_ambito_bolsas(self)
         self.tls_pg()
         if args.modulos:
             from copia_local_conexiones import preparar
@@ -351,6 +349,9 @@ class Copia:
                 # F1-99: datos del caso 4.0 e identidad de Mi Bolsa de Antonio.
                 import copia_local_caso40 as caso40
                 caso40.aplicar_guiones(self, REPO)
+            from copia_local_ambito_bolsas import declarar as declarar_ambito_bolsas
+            declarar_ambito_bolsas(self)
+            if not args.portal_externo:
                 entorno_modulos = json.loads((self.raiz / 'entorno_modulos.json').read_text())
                 entorno_modulos = caso40.entorno_portal(entorno_modulos, caso40.preparar_antonio(self, REPO))
                 guardar(self.raiz / 'entorno_modulos.json', entorno_modulos)
