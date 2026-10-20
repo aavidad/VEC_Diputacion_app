@@ -216,4 +216,4 @@
 1078 deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sql
 831 internal/app/bootstrap/bolsa_inscripcion_autoridad.go
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000305_contrato_derivacion_nombramiento.up.sql 3500
+3500 deploy/postgresql/autorizacion_atestada_v3/migraciones/000305_contrato_derivacion_nombramiento.up.sql
