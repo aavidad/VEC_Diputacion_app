@@ -103,7 +103,27 @@ def autorizar_pantalla(auth, display, cookie):
         raise Corte("FALTA: autenticación privada de pantalla rechazada")
 
 
-def preparar(root, origin, binary, sha):
+def preparar_salida(root, fw):
+    if fw is None or not fw.is_absolute() or root == fw or root in fw.parents:
+        raise Corte("FALTA: --salida privada absoluta y separada de las fuentes")
+    ruta_privada(fw, "--salida")
+    if os.path.lexists(fw):
+        raise Corte("FALTA: salida ya existe; conservar su entorno")
+    parent = fw.parent
+    missing = []
+    while not parent.exists():
+        missing.append(parent)
+        parent = parent.parent
+    info = parent.stat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) & 0o022):
+        raise Corte("FALTA: directorio de salida ajeno o con escritura ajena")
+    for directory in reversed(missing):
+        directory.mkdir(mode=0o700)
+    return fw
+
+
+def preparar(root, origin, binary, sha, salida=None):
     if not re.fullmatch(r"[0-9a-f]{64}", sha):
         raise Corte("FALTA: huella SHA256 del manejador inválida")
     if not binary.is_absolute() or binary.is_symlink() or not binary.is_file():
@@ -134,10 +154,8 @@ def preparar(root, origin, binary, sha):
         if probe.returncode or not re.search(rb"grxfirma[- ]afirmauri", probe.stdout + probe.stderr, re.I):
             raise Corte("FALTA: el binario no es grxfirma-afirmauri")
         verified_bytes = verified.read_bytes()
-    fw = root / "firma-web"
-    if os.path.lexists(fw):
-        raise Corte("FALTA: firma-web ya existe; conservar su entorno")
     paths = fuentes(root)
+    fw = preparar_salida(root, salida)
     created = False
     process = None
     try:
@@ -217,8 +235,9 @@ def preparar(root, origin, binary, sha):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
-        epilog="Para Chrome use el número de firma-web/display y XAUTHORITY=firma-web/Xauthority del mismo entorno. La firma se realiza en el navegador.")
+        epilog="--salida guarda firma-web en un directorio privado separado de las fuentes. Para Chrome use --salida/display y XAUTHORITY=--salida/Xauthority. La firma se realiza en el navegador.")
     parser.add_argument("--raiz-instancia", type=Path, required=True)
+    parser.add_argument("--salida", type=Path, required=True, help="directorio privado absoluto nuevo para firma-web")
     parser.add_argument("--origen", required=True, help="origen HTTPS loopback de la copia")
     parser.add_argument("--binario-afirmauri", type=Path, required=True)
     parser.add_argument("--sha-afirmauri", required=True)
@@ -226,7 +245,7 @@ def main(argv=None):
     os.umask(0o077)
     root = ruta_privada(args.raiz_instancia, "--raiz-instancia")
     origin = exigir_origen(args.origen)
-    preparar(root, origin, args.binario_afirmauri, args.sha_afirmauri)
+    preparar(root, origin, args.binario_afirmauri, args.sha_afirmauri, args.salida)
     return 0
 
 

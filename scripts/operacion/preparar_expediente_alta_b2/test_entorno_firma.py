@@ -33,6 +33,9 @@ class EntornoFirmaTest(unittest.TestCase):
         self.root = Path(self.temp.name) / "instancia con %"
         self.root.mkdir(mode=0o755)
         self.root.chmod(0o755)
+        self.output_parent = Path(self.temp.name) / "salida privada con %"
+        self.output_parent.mkdir(mode=0o700)
+        self.fw = self.output_parent / "firma-web"
         self.binary = self.root / "binario-ficticio"
         self.binary.write_bytes(b"grxfirma-afirmauri-ficticio")
         self.binary.chmod(0o700)
@@ -55,7 +58,8 @@ class EntornoFirmaTest(unittest.TestCase):
             self.inputs[role] = (p12, password)
 
     def argv(self, sha=None):
-        return ["--raiz-instancia", str(self.root), "--origen", "https://127.0.0.1:18428",
+        return ["--raiz-instancia", str(self.root), "--salida", str(self.fw),
+                "--origen", "https://127.0.0.1:18428",
                 "--binario-afirmauri", str(self.binary), "--sha-afirmauri", sha or self.sha]
 
     def version(self, command, **kwargs):
@@ -86,20 +90,23 @@ class EntornoFirmaTest(unittest.TestCase):
             with self.assertRaises(firma.Corte):
                 firma.main(self.argv("0" * 64))
             probe.assert_not_called()
-        self.assertFalse((self.root / "firma-web").exists())
+        self.assertFalse(self.fw.exists())
         self.inputs["secretaria"][1].chmod(0o644)
         with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen") as xvfb:
             with self.assertRaises(firma.Corte):
                 firma.main(self.argv())
             xvfb.assert_not_called()
-        self.assertFalse((self.root / "firma-web").exists())
+        self.assertFalse(self.fw.exists())
 
     def test_cuatro_entornos_distintos_y_confianza_solo_origen(self):
+        original = {role: p12.read_bytes() for role, (p12, _) in self.inputs.items()}
         with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen", side_effect=self.xvfb):
             self.assertEqual(firma.main(self.argv()), 0)
-        fw = self.root / "firma-web"
+        fw = self.fw
         self.assertEqual(self.root.stat().st_mode & 0o777, 0o755)
         self.assertEqual(fw.stat().st_mode & 0o777, 0o700)
+        self.assertFalse((self.root / "firma-web").exists())
+        self.assertEqual({role: p12.read_bytes() for role, (p12, _) in self.inputs.items()}, original)
         self.assertEqual((fw / "display").read_text().strip(), "42")
         self.assertEqual(len(self.probes), 1)
         self.assertEqual(len(self.xauth_calls), 2)
@@ -119,7 +126,7 @@ class EntornoFirmaTest(unittest.TestCase):
             self.assertTrue(json.loads((cfg / "settings.json").read_text())["confirmToSign"])
             desktop = (base / "xdg-data/applications/grxfirma-copia.desktop").read_text()
             self.assertIn('Exec="', desktop)
-            self.assertIn("instancia con %%", desktop)
+            self.assertIn("salida privada con %%", desktop)
             self.assertIn(" %u", desktop)
         self.assertEqual(len(set(p12s)), 4)
         launcher = (fw / "lanzar-grxfirma.py").read_text()
@@ -129,7 +136,7 @@ class EntornoFirmaTest(unittest.TestCase):
         self.assertNotIn("clave-tecnico", launcher)
 
     def test_no_reescribe_y_limpia_xvfb_propiedad_propia(self):
-        fw = self.root / "firma-web"
+        fw = self.fw
         fw.mkdir()
         (fw / "conservar").write_text("original")
         with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen") as xvfb:
@@ -145,6 +152,27 @@ class EntornoFirmaTest(unittest.TestCase):
                 firma.main(self.argv())
         self.assertTrue(process.terminated)
         self.assertFalse(fw.exists())
+
+    def test_salida_obligatoria_y_parent_inseguro_o_enlace_rechazados(self):
+        args = self.argv()
+        with self.assertRaises(SystemExit):
+            firma.main(args[:2] + args[4:])
+        self.assertFalse(self.fw.exists())
+        self.output_parent.chmod(0o777)
+        try:
+            with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen") as xvfb:
+                with self.assertRaises(firma.Corte):
+                    firma.main(args)
+                xvfb.assert_not_called()
+            self.assertFalse(self.fw.exists())
+        finally:
+            self.output_parent.chmod(0o700)
+        self.fw.symlink_to(self.root, target_is_directory=True)
+        with patch.object(firma.subprocess, "run", side_effect=self.version):
+            with self.assertRaises(firma.Corte):
+                firma.main(args)
+        self.assertTrue(self.fw.is_symlink())
+        self.fw.unlink()
 
 
 if __name__ == "__main__":
