@@ -395,6 +395,9 @@ class Copia:
         estado['preparada'] = True
         guardar(self.estado, estado)
         self.arrancar()
+        if completo:
+            from recorrido_copia.conductor import provisionar_perfiles
+            provisionar_perfiles(self)
         if args.modulos and not args.portal_externo:
             caso40.registrar_contacto(self, REPO)
         if admin or completo:
