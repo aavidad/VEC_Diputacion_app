@@ -63,3 +63,12 @@ en revisión. Semgrep local: cuatro reglas JavaScript y 42 Go, sin hallazgos.
 GoSec analizó los paquetes: 82 avisos existentes, ninguno en los tres archivos
 Go modificados. No se ha ejecutado la puerta completa en local: corresponde
 al trabajo de calidad de la integración continua.
+
+El último ajuste de cabecera se capturó sobre `c044f8ddf`, a 1440 y 390
+píxeles, con los archivos reales y el montaje visual local de las pruebas.
+Las imágenes `plazos-panel-final-*` muestran ese resultado, sin errores
+JavaScript ni desbordes. Esta comprobación de aspecto no usa la base ni
+registra actos. El código Go del lector, manejador y composición coincide
+con el de la copia `016fd30ef`; la actualización de la principal no lo cambió.
+La preparación de otra copia completa se interrumpió por memoria insuficiente
+antes de compilar o arrancar la app, y se retiró. No se presenta como ensayo.
