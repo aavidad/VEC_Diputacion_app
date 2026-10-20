@@ -29,6 +29,8 @@ import subprocess
 DATOS = 'deploy/principal/candidata_hz39/datos'
 GUIONES = ('organizacion_520_administrativo.sql', 'antonio_disponible.sql', 'cargo_manuel.sql')
 PREPARADOR = 'deploy/principal/preparar_candidato_desarrollo.sh'
+# Catálogo versionado de reglas de Bolsa que exige el portal del candidato.
+REGLAS_BOLSA = 'data/catalogos/bolsa/reglas.v7.json'
 IDENTIDAD = 'antonio-reyes'
 # Contacto ficticio. El buzón de la copia solo admite el dominio reservado
 # example.test (copia_local_correo.py), así que el aviso nunca sale fuera.
@@ -66,6 +68,10 @@ def aplicar_guiones(copia, repo):
 def preparar_antonio(copia, repo):
     """Identidad de Mi Bolsa de Antonio ligada a su candidatura de la bolsa vigente."""
     sel = seleccion(repo)
+    # Se comprueba antes de crear la identidad para no dejar material a medias.
+    reglas = repo / REGLAS_BOLSA
+    if not reglas.is_file():
+        raise ValueError('Falta el catálogo versionado de reglas de Bolsa')
     estado = copia.leer()
     entorno = {**os.environ,
                'VEC_DEVELOPMENT_MATERIAL_DIR': str(copia.material),
@@ -80,8 +86,24 @@ def preparar_antonio(copia, repo):
     manifiesto = json.loads((copia.material / 'identidad/bolsa-candidato.json').read_text())
     if manifiesto.get('candidato_ref') != sel['candidato']:
         raise ValueError('La identidad de Antonio no quedó ligada a su candidatura vigente')
-    # Con el portal del candidato, Antonio puede responder al llamamiento desde Mi Bolsa.
-    return {'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true'}
+    # Con el portal del candidato, Antonio puede responder al llamamiento desde
+    # Mi Bolsa. El servidor solo admite ese selector con el catálogo de reglas
+    # de Bolsa que rige sus acciones; sin él se detiene en selectores_bolsa_ct.
+    return {'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true', 'VEC_BOLSA_REGLAS_SOURCE_PATH': str(reglas)}
+
+
+def entorno_portal(entorno, propuesto):
+    """Añade al entorno de módulos lo propuesto sin pisar lo que el kit ya fijó.
+
+    Un valor vacío cuenta como ausente (igual que en la cancelación): con la
+    ruta del catálogo vacía el arranque volvería a pararse. Un «false» puesto
+    a propósito en el selector sí se respeta.
+    """
+    nuevo = dict(entorno)
+    for variable, valor in propuesto.items():
+        if not nuevo.get(variable):
+            nuevo[variable] = valor
+    return nuevo
 
 
 def peticion_contacto(sel):

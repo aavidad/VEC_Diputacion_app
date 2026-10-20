@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 27 {
-		t.Fatalf("fronteras = %d, se esperan 27 con CONVOCA, política de cese y confirmación directa B128", len(fronteras))
+	if len(fronteras) != 29 {
+		t.Fatalf("fronteras = %d, se esperan 29 con CONVOCA, política de cese, confirmación directa B128 y publicación oficial F1-95", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -78,6 +78,14 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBorradoresLlamamiento); !ok {
 		t.Fatal("POST crear no quedó declarado")
+	}
+	for _, metodo := range []string{http.MethodGet, http.MethodPost} {
+		if descriptor, ok := catalogo.resolver(metodo, bolsahttp.RutaPublicacionesOficialesBases); !ok || descriptor.ClaveCapacidad != claveCapacidadPublicacionOficialBolsa {
+			t.Fatalf("%s publicación oficial sin capacidad F1-95 propia: %+v", metodo, descriptor)
+		}
+	}
+	if _, ok := catalogo.resolver(http.MethodPut, bolsahttp.RutaPublicacionesOficialesBases); ok {
+		t.Fatal("PUT publicación oficial quedó declarado")
 	}
 	for _, ruta := range []string{bolsahttp.RutaVistaPreviaCargaConvoca, bolsahttp.RutaConfirmarCargaConvoca} {
 		if descriptor, ok := catalogo.resolver(http.MethodPost, ruta); !ok || descriptor.ClaveCapacidad != claveCapacidadCargaConvocaBolsa {

@@ -80,7 +80,7 @@ Para corregir el análisis antes de decidir la cobertura, use **Rectificar anál
 
 La cabecera de la ficha indica también el paso de la fase en el que está el expediente. Tras la asignación muestra «Fase 3 de 8: Gestión de bolsa · Asignación de unidad» y, cuando se prepara el informe jurídico, «Fase 3 de 8: Gestión de bolsa · Informe jurídico».
 
-Con la unidad asignada, **Siguiente paso** dice «preparar el informe jurídico». **Ir al trámite de esta fase** lleva al apartado **Preparar informe jurídico**, que nombra el expediente por su número (por ejemplo, «Expediente 2026/94010, versión 4.»). Al confirmar el informe, la cabecera y **Siguiente paso** cambian en el momento a «revisar las firmas del informe». No hace falta volver a abrir la ficha, y el recibo y el historial siguen en pantalla. En los dos historiales la fase se escribe igual que en la cabecera, por ejemplo «Gestión de bolsa · Informe jurídico».
+Con la unidad asignada, **Siguiente paso** dice «preparar el informe jurídico». **Ir al trámite de esta fase** lleva al apartado **Preparar informe jurídico**, que nombra el expediente por su número (por ejemplo, «Expediente 2026/94010, versión 4.»). Al confirmar el informe, la cabecera y **Siguiente paso** cambian en el momento a «revisar las firmas del informe». No hace falta volver a abrir la ficha: el recibo sigue en pantalla y el **Historial** de la ficha ya incluye el informe. En los dos historiales la fase se escribe igual que en la cabecera, por ejemplo «Gestión de bolsa · Informe jurídico».
 
 ![Propuesta de Bolsa vigente y comprobaciones que la acompañan.](img/rrhh-20261009-cobertura.webp)
 
@@ -111,6 +111,12 @@ Compruebe la franja que muestra la ficha. En el recorrido era de **09:00 a 14:00
 ![Resultado Contactado y hora del intento registrada por la aplicación.](img/rrhh-20261009-contacto.webp)
 
 **Contactado** no significa que la persona haya aceptado o renunciado. Su respuesta se consulta por el cauce que le corresponde.
+
+## Cancelar un expediente antes de la fiscalización
+
+Mientras el expediente no se haya fiscalizado, la ficha muestra el apartado **Cancelación del expediente**. Pulse **Cancelar expediente**, elija el motivo y, si quiere, escriba una observación. Después pulse **Cancelar el expediente**. La ventana de confirmación nombra el expediente por su número, por ejemplo «Expediente 2026/CT-000022, versión 3.».
+
+Al confirmar, el apartado dice «Expediente cancelado.» y muestra la fecha, la fase en la que se canceló y el justificante, que se puede copiar. **Siguiente paso** pasa a «Expediente cancelado», y el **Historial** añade «Expediente cancelado». Con la pantalla en inglés, los motivos también salen en inglés.
 
 ## Si algo sale mal
 

@@ -234,7 +234,7 @@ class Copia:
                 import copia_local_caso40 as caso40
                 caso40.aplicar_guiones(self, REPO)
                 entorno_modulos = json.loads((self.raiz / 'entorno_modulos.json').read_text())
-                entorno_modulos.update(caso40.preparar_antonio(self, REPO))
+                entorno_modulos = caso40.entorno_portal(entorno_modulos, caso40.preparar_antonio(self, REPO))
                 guardar(self.raiz / 'entorno_modulos.json', entorno_modulos)
                 estado = self.leer()
                 estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
