@@ -68,7 +68,7 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 ### 1. Cerrar la búsqueda de estructura ya producida
 
 - Propietario: M; hoja `vista-estructura-organizativa-publica.js` y su prueba.
-- Dependencia: turno compartido F→M para importadores, padres y versiones de caché.
+- Dependencia: integrar importadores, padres y versiones de caché.
 - SQL/servidor: ninguno. No cambiar fuentes, permisos ni estructura de datos.
 - Cierre: misma búsqueda por nombre/adscripción desde el portal, caché anterior
   superada, teclado y Chrome PC/móvil; GO del conjunto y PR de producto aparte.
@@ -160,7 +160,6 @@ capacidad fijada por Dirección no autoriza dos escritores del mismo archivo.
 | B | Persona, relación de servicio, ficha, servicios y actos personales; `relacion_empleado*`, `ficha_propia*`, registro e incorporación del empleado. Publica su contrato mínimo para M. |
 | Mixtos, escritor acordado | `registro_empleado_b2*`, `interna/personal_b2_montaje.go`, `registro-b2*` y manifiesto Personal. Personal conserva la edición actual; M acuerda con B la extracción/transición de ocupaciones y vacantes antes de tocar estos archivos. |
 | D/común | Identidad, contexto y autorización; consume la fuente histórica de responsables, delegaciones y suplencias de Organización. El Portal del empleado I solo consume esa capacidad. |
-| En turno M | Padres, manifiestos web, importadores y `dudas.md`, tras LIBERO F→M y con un solo escritor. Dirección revisa e integra. |
 
 Propuesta posterior: estudiar un módulo enchufable `organizacion` al estabilizar
 los puertos con Personal. Hoy se conservan ubicación, contratos e historia;
@@ -174,7 +173,7 @@ ni estimación para ellos en este corte; no producen decisiones automáticas.
 
 ## Decisiones pendientes de RRHH y Sistemas
 
-Propuestas pendientes de numerar en `dudas.md` al recibir el turno M:
+Preguntas pendientes de contrastar con `dudas.md`:
 
 - Fuente maestra, diccionario y significado de códigos de plaza, puesto y datos de reserva.
 - Identidades estables, cambios/reutilización de códigos y conciliación plaza–puesto–dotación.
