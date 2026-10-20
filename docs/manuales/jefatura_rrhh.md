@@ -190,6 +190,11 @@ Cuando alguien acepta, el técnico registra la propuesta de nombramiento y la re
 
 ### Paso 9. Firma
 
+Con un perfil de firma, abra Contratación temporal y la ficha del expediente.
+Desde el panel de firma puede consultar y descargar el documento que le
+corresponde. Las acciones de preparación y cancelación quedan en la vista
+de tramitación de RRHH.
+
 Cada documento se firma con certificado, en el orden que fija la configuración:
 
 | Documento | Quién firma, por orden |
