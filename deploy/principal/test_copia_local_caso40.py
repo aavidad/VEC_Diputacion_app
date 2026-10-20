@@ -35,8 +35,9 @@ class Caso40Test(unittest.TestCase):
 
     def test_la_seleccion_del_repositorio_es_la_candidatura_vigente(self):
         sel = caso40.seleccion(REPO)
-        self.assertTrue(sel['candidato'].startswith('can_Vxd6'))
-        self.assertTrue(sel['participacion'].startswith('participacion:'))
+        # Fila 5 del acta vigente, la que lleva el nombre de Antonio (F1-100).
+        self.assertEqual(sel['candidato'], 'can_dJo5qQLf4agrD4c3jkIlHUkga2uQ-BusRCLCYPzKLyY')
+        self.assertEqual(sel['participacion'], 'participacion:iedpeeeebddemcmgdefieokgpkcoepap')
 
     def test_rechaza_referencias_que_saldrian_a_un_argumento_o_a_la_ruta(self):
         ruta = self.repo / caso40.DATOS / 'seleccion.json'

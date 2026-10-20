@@ -1,14 +1,27 @@
 import { renderizarResultadoBolsa } from "./resultado-bolsa.js?v=VEC_WEB_VERSION";
 import { renderizarLineaFases } from "./vista-expedientes-ficha.js?v=VEC_WEB_VERSION";
+import { consultarPersonasLlamamientos, textoPersonasLlamamiento } from "./personas-llamamiento-bolsa.js?v=VEC_WEB_VERSION";
+
+// Controles del apartado cuyo foco se recupera al repintar.
+const CONTROLES_FOCO = ["#ct-bolsa-emision", "form[data-ct-bolsa-vincular] button[type=submit]",
+  "[data-ct-bolsa-mas]", "[data-ct-bolsa-anterior]", "[data-ct-bolsa-vinculo-reintentar]"];
 
 /** Conserva el comando de un vínculo incierto en memoria; una navegación no lo sustituye. */
 export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, locale, zonaHoraria,
-  confirmarOperacion, repintar, generarClave = () => globalThis.crypto?.randomUUID?.() } = {}) {
+  confirmarOperacion, repintar, generarClave = () => globalThis.crypto?.randomUUID?.(),
+  consultarPersonas = consultarPersonasLlamamientos } = {}) {
   const pendientes = new Map();
   let montado = true;
   let ocupado = false;
   let paginas = null;
   let lectura = null;
+  // Emisiones del último pintado: el valor del desplegable es su índice.
+  let pintadas = [];
+  // Nombres de las personas llamadas, por llamamiento: se piden solo los que
+  // faltan, se conservan al paginar y uno que falló se vuelve a pedir después.
+  const nombres = new Map();
+  const pedidos = new Set();
+  const lecturasNombres = new Set();
   function expedienteActual() {
     const estado = presentador.obtenerEstado();
     return estado.vista === "expediente" && estado.carga === "listo" && !estado.ocupado
@@ -26,8 +39,15 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
     if (!paginas) paginas = { expediente_ref: expediente.expediente_ref, base: expediente.resultado_bolsa,
       resultado: expediente.resultado_bolsa, cursor: null, anteriores: [] };
     const pendiente = pendientes.get(expediente.expediente_ref);
+    cargarPersonas(paginas.resultado);
+    // Repintar no debe perder lo que la persona ya eligió ni dónde estaba el foco.
+    const previa = zona.querySelector("#ct-bolsa-emision");
+    const elegido = previa?.value ? pintadas[Number(previa.value)]?.llamamiento_ref : null;
+    const activo = raiz.ownerDocument?.activeElement;
+    const foco = activo && zona.contains?.(activo) ? CONTROLES_FOCO.find((s) => activo.matches?.(s)) : null;
+    pintadas = expediente.resultado_bolsa.emisiones_vinculables ?? [];
     zona.innerHTML = renderizarResultadoBolsa(expediente, t, locale, zonaHoraria,
-      { ocupado: ocupado || Boolean(lectura) || typeof cliente?.vincularLlamamientoBolsa !== "function" || Boolean(pendiente?.incierto),
+      { personas: nombres, ocupado: ocupado || Boolean(lectura) || typeof cliente?.vincularLlamamientoBolsa !== "function" || Boolean(pendiente?.incierto),
         mensaje: pendiente?.mensaje ?? paginas.mensaje,
         vinculos: paginas.resultado.vinculos, siguiente_cursor: paginas.resultado.siguiente_cursor,
         anterior: paginas.anteriores.length > 0 });
@@ -38,6 +58,28 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
       boton.textContent = t("resultado_bolsa_reintentar");
       zona.querySelector("[data-ct-bolsa-estado]")?.after(boton);
     }
+    const indice = elegido ? pintadas.findIndex((e) => e.llamamiento_ref === elegido) : -1;
+    const nueva = zona.querySelector("#ct-bolsa-emision");
+    if (indice >= 0 && nueva) nueva.value = String(indice);
+    if (foco) zona.querySelector(foco)?.focus?.();
+  }
+  function cargarPersonas(resultado) {
+    if (typeof consultarPersonas !== "function") return;
+    const faltan = [...(resultado.emisiones_vinculables ?? []), ...(resultado.vinculos ?? [])]
+      .filter((l) => !nombres.has(l.llamamiento_ref) && !pedidos.has(l.llamamiento_ref));
+    if (!faltan.length) return;
+    const control = new AbortController();
+    lecturasNombres.add(control);
+    for (const l of faltan) pedidos.add(l.llamamiento_ref);
+    const terminar = (mapa) => {
+      lecturasNombres.delete(control);
+      // Sin la lectura de Bolsa el selector sigue con referencia y fecha.
+      for (const l of faltan) if (!mapa.has(l.llamamiento_ref)) pedidos.delete(l.llamamiento_ref);
+      if (!montado || control.signal.aborted || !mapa.size) return;
+      for (const [ref, lista] of mapa) nombres.set(ref, lista);
+      actualizar();
+    };
+    consultarPersonas(faltan, { signal: control.signal }).then(terminar, () => terminar(new Map()));
   }
   async function enviar(expediente, pendiente) {
     if (ocupado || !montado || typeof cliente?.vincularLlamamientoBolsa !== "function") return;
@@ -74,8 +116,10 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
     const emision = expediente.resultado_bolsa?.emisiones_vinculables?.[Number(valor)];
     if (!emision) return;
     const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria }).format(new Date(emision.emitido_en));
+    const persona = textoPersonasLlamamiento(nombres.get(emision.llamamiento_ref), t);
     if (!await confirmarOperacion({ titulo: t("resultado_bolsa_vincular"),
-      advertencia: t("resultado_bolsa_confirmar", { referencia: emision.referencia_visible, fecha }),
+      advertencia: persona ? t("resultado_bolsa_confirmar_persona", { referencia: emision.referencia_visible, fecha, persona })
+        : t("resultado_bolsa_confirmar", { referencia: emision.referencia_visible, fecha }),
       referencia: emision.referencia_visible })) return;
     // La confirmación puede ser asíncrona: no enviar sobre otra ficha o versión.
     const actual = expedienteActual();
@@ -132,6 +176,7 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
   return Object.freeze({ actualizar, desmontar() {
     montado = false;
     lectura?.abort(); lectura = null;
+    for (const control of lecturasNombres) control.abort();
     raiz.removeEventListener("submit", enviarFormulario);
     raiz.removeEventListener("click", reintentar);
     raiz.removeEventListener("click", paginar);

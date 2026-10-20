@@ -9,7 +9,7 @@ Estos guiones preparan el puesto, la plaza, la participación de Antonio y la de
 | Puesto | 9/01, revisión 1 |
 | Plaza | 2026/0033, revisión 1 |
 | Bolsa | `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk`, versión 1, ya constituida |
-| Aspirante | Antonio Reyes Álvarez; disponible desde el inicio, orden de acta y turno vigente 1 |
+| Aspirante | Antonio Reyes Álvarez; puesto 5 del acta y turno vigente 1, porque los cuatro anteriores no están disponibles |
 
 Las referencias del organismo del recorrido están en [seleccion.json](seleccion.json).
 El guion añade únicamente el Administrativo que faltaba en Personal: un
@@ -27,14 +27,20 @@ catálogos publicados `regimen:funcionario_interino` v1 y `modalidad:vacante` v1
 
 P conserva la preparación de la identidad de Antonio con los guiones existentes en
 [inscripcion_recorrido_20261013](../../inscripcion_recorrido_20261013/LEEME.md).
-[antonio_disponible.sql](antonio_disponible.sql) reutiliza su participación
-importada del primer puesto del acta vigente y la bolsa constituida v1.
-La misma persona de Antonio se vincula a ese candidato mediante una nueva
-versión de su proyección común; la anterior permanece en la historia. Añade una
-situación **Disponible** con una clave fija y conserva la bolsa sustituida y el
-orden del acta. La fuente de Bolsa que usa el llamamiento CT debe devolverlo
-como primer candidato disponible; si no lo hace, la transacción se revierte.
-No se crean otra persona, candidatura, bolsa ni inscripción.
+[antonio_disponible.sql](antonio_disponible.sql) parte de la fila del acta
+vigente que lleva el nombre de Antonio, la del puesto 5, «Antonio Reyes
+Álvarez». Sus referencias de candidatura y participación están en
+`seleccion.json`. Las cuatro personas de los puestos 1 a 4 pasan a **No disponible** con una
+clave fija, así que el primer turno es el de Antonio. El guion solo las marca
+si siguen disponibles; si alguna ya cambió de situación (por ejemplo, porque el
+recorrido la llamó o la contrató), se para sin tocar nada. No comprueba
+llamamientos u ofertas abiertos a esas personas: se ejecuta antes de llamar a
+nadie. Se conservan la bolsa
+sustituida y el orden del acta. La fuente de Bolsa que usa el llamamiento CT
+debe devolverlo como primer candidato disponible, con orden de acta 5; si no
+lo hace, la transacción se revierte.
+Este guion no crea otra persona, candidatura, bolsa ni inscripción, ni mueve
+vínculos de personas.
 
 El recorrido principal empieza en la petición del centro, con Antonio ya en la
 bolsa. Los pasos e1 a e5 son una demostración aparte, no bloqueante, como indica
@@ -122,9 +128,17 @@ no se utiliza como clave.
 
 Dirección cambió la referencia del caso a la bolsa vigente: la del 17/09 ya
 estaba sustituida por el acta del 12/10. Esa sustitución y ambas actas se
-conservan. Se reutiliza la primera participación de la bolsa vigente para los
-datos ficticios de Antonio; no se añaden integrantes al acta ni se cambian
-canónicos o huellas.
+conservan. No se añaden integrantes al acta ni se cambian canónicos o huellas.
+
+Hasta F1-100, `seleccion.json` y este guion tomaban como de Antonio la fila 1
+del acta, que es de Isabel Ramírez Vargas. La lista de la bolsa mostraba ese
+nombre en la participación de Antonio, y su propia fila, la del puesto 5,
+aparecía como de otra persona. El nombre visible sale del acta protegida, que
+solo la aplicación puede descifrar; por eso `seleccion.json` y el guion fijan
+las referencias de la fila que lleva su nombre, y el nombre no se puede
+comprobar en SQL. En una copia preparada con la versión anterior, este guion
+añade las cuatro situaciones y no deshace nada, pero la identidad de Antonio
+de esa copia sigue ligada a la fila 1: hay que crear la copia de nuevo.
 
 Desde F1-99 el guion de Bolsa ya no mueve el vínculo de la persona de origen
 (`persona_ref` de `seleccion.json`) a la candidatura vigente. Esa persona
@@ -132,7 +146,7 @@ conserva su permiso de Mi Bolsa ligado a la candidatura de la bolsa sustituida,
 y la aplicación no admite cambiar sus ámbitos: Mi Bolsa respondía 403. En su
 lugar, `copia_local.py crear --modulos` llama a `preparar_candidato_desarrollo.sh
 --candidato-ref` y crea una identidad nueva de Antonio, con su certificado,
-ligada a `candidato_ref`. El permiso lo publica la aplicación al arrancar. El
+ligada a `candidato_ref`, la candidatura del puesto 5. El permiso lo publica la aplicación al arrancar. El
 apartado 2 de `LEEME_copia_local.md` explica el resto de la preparación.
 
 Comprobación del ajuste de Antonio en PostgreSQL 18.4, sobre la copia actual de
