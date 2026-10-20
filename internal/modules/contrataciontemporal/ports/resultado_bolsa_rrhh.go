@@ -22,6 +22,8 @@ type ParticipacionResultadoBolsaRRHH struct {
 	SituacionActual    *string    `json:"situacion_actual"`
 	ReciboSituacionRef *string    `json:"recibo_situacion_ref"`
 	SituacionDesde     *time.Time `json:"situacion_desde"`
+	// Hecho de origen acreditado por CT; no concede una operación posterior.
+	OrigenCTConfirmado bool `json:"origen_ct_confirmado"`
 }
 
 type VinculoResultadoBolsaRRHH struct {

@@ -19,6 +19,7 @@
 .pc-tabla tr[aria-selected=true] { background:var(--portal-azul-100); }
 .pc-tabla button { color:var(--portal-azul-800); font-weight:700; }
 .pc-estado { display:inline-block; padding:4px 8px; border-radius:5px; font-size:.78rem; font-weight:750; }
+.pc-motivo { display:block; margin-top:4px; max-width:36ch; color:var(--portal-muted); font-size:.85rem; line-height:1.35; }
 .pc-estado-pendiente { background:var(--portal-aviso-suave); color:var(--portal-aviso); }
 .pc-estado-preparada { background:var(--portal-cian-suave); color:var(--portal-azul-800); }
 .pc-estado-confirmada { background:var(--portal-exito-suave); color:var(--portal-exito); }

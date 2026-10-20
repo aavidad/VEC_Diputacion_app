@@ -117,10 +117,13 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
     if (!emision) return;
     const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria }).format(new Date(emision.emitido_en));
     const persona = textoPersonasLlamamiento(nombres.get(emision.llamamiento_ref), t);
+    const propia = emision.referencia_visible === expediente.expediente_ref;
+    const referencia = propia ? t("resultado_bolsa_emision_este_expediente", { fecha }) : emision.referencia_visible;
     if (!await confirmarOperacion({ titulo: t("resultado_bolsa_vincular"),
-      advertencia: persona ? t("resultado_bolsa_confirmar_persona", { referencia: emision.referencia_visible, fecha, persona })
-        : t("resultado_bolsa_confirmar", { referencia: emision.referencia_visible, fecha }),
-      referencia: emision.referencia_visible })) return;
+      advertencia: propia ? t("resultado_bolsa_confirmar_este_expediente", { fecha })
+        : persona ? t("resultado_bolsa_confirmar_persona", { referencia, fecha, persona })
+          : t("resultado_bolsa_confirmar", { referencia, fecha }),
+      referencia })) return;
     // La confirmación puede ser asíncrona: no enviar sobre otra ficha o versión.
     const actual = expedienteActual();
     if (!montado || actual?.expediente_ref !== expediente.expediente_ref || actual.version !== expediente.version || ocupado) return;

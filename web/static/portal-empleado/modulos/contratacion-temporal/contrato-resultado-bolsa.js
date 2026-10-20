@@ -29,7 +29,8 @@ function opcional(valor, validar) { return valor === null ? null : validar(valor
 function participacion(valor) {
   objeto(valor, ["participacion_ref", "respuesta", "modo", "recibo_respuesta_ref", "respondida_en",
     "justificante_ref", "contacto_resultado", "recibo_contacto_ref", "contacto_en",
-    "situacion_actual", "recibo_situacion_ref", "situacion_desde"]);
+    "situacion_actual", "recibo_situacion_ref", "situacion_desde",
+    ...(Object.hasOwn(valor ?? {}, "origen_ct_confirmado") ? ["origen_ct_confirmado"] : [])]);
   referencia(valor.participacion_ref);
   if (valor.respuesta !== null && (!RESPUESTAS.has(valor.respuesta) || !MODOS.has(valor.modo)
     || valor.recibo_respuesta_ref === null || valor.respondida_en === null)) {
@@ -52,6 +53,11 @@ function participacion(valor) {
   opcional(valor.situacion_actual, (x) => referencia(x, /^[a-z][a-z0-9_]{1,63}$/u));
   opcional(valor.recibo_situacion_ref, referencia);
   opcional(valor.situacion_desde, fecha);
+  if (Object.hasOwn(valor, "origen_ct_confirmado")
+    && (typeof valor.origen_ct_confirmado !== "boolean"
+      || valor.origen_ct_confirmado && (valor.respuesta !== "acepta" || valor.modo !== "firme"))) {
+    throw new TypeError("origen CT no válido");
+  }
   return Object.freeze({ ...valor });
 }
 
@@ -71,6 +77,15 @@ function vinculo(valor) {
   if (new Set(participaciones.map((p) => p.participacion_ref)).size !== participaciones.length) {
     throw new TypeError("participaciones Bolsa repetidas");
   }
+  if (participaciones.length !== 1 && participaciones.some((p) => p.origen_ct_confirmado === true)) {
+    throw new TypeError("origen CT con varias participaciones");
+  }
+  const orden = (instante) => instante.replace(/(?:\.(\d+))?Z$/u,
+    (_final, fraccion = "") => `.${fraccion.padEnd(9, "0")}Z`);
+  if (participaciones[0]?.origen_ct_confirmado === true
+    && orden(participaciones[0].respondida_en) < orden(valor.emitido_en)) {
+    throw new TypeError("respuesta CT anterior al llamamiento");
+  }
   return Object.freeze({ ...valor, participaciones: Object.freeze(participaciones) });
 }
 
@@ -79,7 +94,7 @@ function emision(valor) {
   referencia(valor.bolsa_ref);
   referencia(valor.llamamiento_ref, LLAMAMIENTO);
   referencia(valor.recibo_emision_ref, RECIBO_EMISION);
-  if (typeof valor.referencia_visible !== "string" || valor.referencia_visible.length > 80) {
+  if (typeof valor.referencia_visible !== "string" || valor.referencia_visible.length > 160) {
     throw new TypeError("referencia visible Bolsa no válida");
   }
   fecha(valor.emitido_en);

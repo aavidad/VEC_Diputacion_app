@@ -38,7 +38,25 @@ export function reciboAntecedenteSiguiente(estado) {
   return estado.expiracion?.recibo?.respuesta === RESPUESTA_EXPIRACION ? estado.expiracion.recibo : null;
 }
 
-export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
+/** Hechos de Bolsa vinculados nominalmente al origen O6 de este expediente. */
+export function renderizarAceptacionPortal(filas, t, fecha) {
+  if (!filas.length) return "";
+  const instante = (valor) => `<time datetime="${e(valor)}">${e(fecha.format(new Date(valor)))}</time>`;
+  return `<section class="ct-alta ct-llamamiento" data-ct-portal-origen
+    aria-labelledby="ct-portal-origen-titulo">
+    <header class="ct-cabecera"><div><h2 id="ct-portal-origen-titulo">${e(t("llamamiento_portal_titulo"))}</h2></div></header>
+    ${filas.map(({ vinculo, persona }) => `<article class="ct-llamamiento-paso">
+      <dl class="ct-exp-datos">
+        <div><dt>${e(t("llamamiento_portal_origen"))}</dt><dd>${e(t("llamamiento_portal_origen_ct"))}</dd></div>
+        <div><dt>${e(t("llamamiento_portal_emitido_en"))}</dt><dd>${instante(vinculo.emitido_en)}</dd></div>
+        <div><dt>${e(t("llamamiento_portal_respondida_en"))}</dt><dd>${instante(persona.respondida_en)}</dd></div>
+        <div><dt>${e(t("llamamiento_portal_recibo_respuesta"))}</dt><dd>${justificanteTraducido(persona.recibo_respuesta_ref, e, t)}</dd></div>
+      </dl>
+    </article>`).join("")}
+  </section>`;
+}
+
+export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { soloConsulta = false } = {}) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
   function tiempoVisible(valor) {
@@ -122,6 +140,10 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         data-ct-comunicaciones-reintentar>${e(t("llamamiento_comunicaciones_reintentar"))}</button>` : ""}
     </section>`;
   }
+  if (soloConsulta) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
+    aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div>
+      <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2>
+    </div></header>${listaComunicaciones()}${consultaRespuesta()}</section>`;
   function resumenResultado() {
     const esSucesor = Boolean(estado.siguiente?.recibo
       || estado.comunicaciones?.seleccionada?.antecedente_tipo === "continuacion_confirmada");

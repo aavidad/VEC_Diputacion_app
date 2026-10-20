@@ -11,3 +11,23 @@ La necesidad de la petición usa el contexto publicado por CT215. El JSON privad
 Se admite `VEC_B2_NECESIDAD_EJEMPLO` para indicar la ruta del JSON, y `VEC_B2_MATERIAL` y `VEC_B2_ESTADO` para evitar repetir las dos rutas privadas. El guion también acepta `--origen`, `--launcher`, `--config`, `--motor` y `--contenedor`. Use el `servidor.json` del lanzador activo si hay varias instalaciones de Personal. La fecha de inicio que calcula este guion es un dato futuro de preparación; el equipo del recorrido usa las fechas de su propio caso de aceptación.
 
 Los antiguos `fixture_firma.sql` y `fixture_anclaje.sql` se han retirado. Si un estado anterior indica que los usó, el guion se detiene para revisión administrativa. No borre ese estado ni fabrique recibos para continuar.
+
+## Entornos separados para firmar en Chrome
+
+`entorno_firma.py` prepara los cuatro firmantes con sus paquetes nominales de
+la copia. Indique `--raiz-instancia`, `--salida`, `--origen`,
+`--binario-afirmauri` y `--sha-afirmauri`. La salida debe ser nueva, privada y
+separada de la instancia. Su ruta absoluta solo admite letras sin acentos,
+números, barras, puntos, guiones y guiones bajos; el preparador rechaza las
+demás antes de ejecutar la sonda o crear archivos.
+
+El campo `Exec` del manejador se escribe sin comillas para que `xdg-mime`
+reconozca el programa propio. La prueba focal consulta el resolvedor instalado
+con los cuatro entornos y comprueba ese resultado. Una salida anterior no se
+reescribe: cierre sus navegadores y su pantalla virtual, conserve el material
+anterior y genere otra salida con el preparador corregido. Compruebe
+`xdg-mime query default x-scheme-handler/afirma` en el entorno del firmante:
+debe devolver `grxfirma-copia.desktop`.
+
+La firma se solicita desde el panel real del expediente y se confirma en
+GrxFirma. La preparación del entorno no registra ninguna firma.

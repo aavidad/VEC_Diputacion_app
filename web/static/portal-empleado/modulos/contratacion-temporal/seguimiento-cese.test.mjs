@@ -4,7 +4,7 @@ import {
   CONFLICTOS_SEGUIMIENTO_CESE, RUTA_CESES_NOMBRAMIENTO, RUTA_SEGUIMIENTO_CESE, crearClienteSeguimientoCeseHTTP,
   validarConsultaSeguimientoCese, validarReciboSeguimiento, validarSolicitudCese, validarSolicitudCierre, validarSolicitudModificacion,
 } from "./cliente-http-seguimiento-cese.js";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese, rutaSeguimientoCeseNoMontada } from "./seguimiento-cese.js";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js";
 
 const EXP = "expediente:cese:001";
 const cese = Object.freeze({ expediente_ref: EXP, version_esperada: 7, clave_idempotencia: "123e4567-e89b-42d3-a456-426614174000",
@@ -165,26 +165,33 @@ test("sin incorporación el cese queda deshabilitado con su motivo y un fallo de
   desmontar();
 });
 
-test("si el servidor no compone el seguimiento (404 de ruta) el panel no se monta; un 404 del módulo sí es un fallo", async () => {
-  const c = contenedorFalso();
-  // Error tal como lo lanza el cliente ante {"error":"vec route not found"}: 404 sin sobre del módulo.
-  let error = { estado: 404, codigo: "respuesta_error_no_valida", envelopeValido: false };
-  const cliente = { consultarSeguimientoCese: async () => { throw error; } };
-  let desmontar = montarPanelSeguimientoCese({ contenedor: c, cliente, contexto });
-  await esperar();
-  assert.equal(c.innerHTML, "");
-  assert.equal(c.hidden, true);
-  assert.doesNotMatch(c.innerHTML, /data-ct-seg-reintentar/u);
-  desmontar();
-
-  error = { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true };
-  const otro = contenedorFalso();
-  desmontar = montarPanelSeguimientoCese({ contenedor: otro, cliente, contexto });
-  await esperar();
-  assert.match(otro.innerHTML, /data-ct-seg-reintentar/u);
-  desmontar();
-  assert.equal(rutaSeguimientoCeseNoMontada({ estado: 503, envelopeValido: false }), false);
-  assert.equal(rutaSeguimientoCeseNoMontada(new Error("red")), false);
+test("un 404 mantiene el seguimiento visible y permite recuperar la lectura sin registrar actos", async () => {
+  for (const envelopeValido of [false, true]) {
+    const c = contenedorFalso();
+    let lecturas = 0;
+    const comunicadas = [];
+    const cliente = { consultarSeguimientoCese: async () => {
+      if (++lecturas === 1) throw { estado: 404, envelopeValido };
+      return validarConsultaSeguimientoCese(consulta(), EXP);
+    } };
+    const desmontar = montarPanelSeguimientoCese({ contenedor: c, cliente, contexto,
+      alConsultar: (datos) => comunicadas.push(datos) });
+    await esperar();
+    assert.equal(c.hidden, false);
+    assert.match(c.innerHTML, /role="alert"/u);
+    assert.match(c.innerHTML, /No se ha podido consultar el seguimiento/u);
+    assert.match(c.innerHTML, /data-ct-seg-reintentar/u);
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form=/u);
+    assert.equal(comunicadas.length, 0);
+    c.eventos.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-ct-seg-reintentar]" }) } });
+    await esperar();
+    assert.equal(lecturas, 2);
+    assert.equal(comunicadas.length, 1);
+    assert.equal(c.hidden, false);
+    assert.match(c.innerHTML, /data-ct-seg-form="cese"/u);
+    assert.doesNotMatch(c.innerHTML, /role="alert"/u);
+    desmontar();
+  }
 });
 
 test("tras registrar, el panel pinta el recibo y lo conserva al volver a montarse", async () => {
