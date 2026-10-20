@@ -93,6 +93,8 @@ type ProcedenciaIntegracionBolsa struct {
 	// La lectura constituida conserva el estado real de la política B6. En el
 	// canon nativo se firma también false; los recibos legados no cambian.
 	PoliticaProvisional bool `json:"politica_provisional,omitempty"`
+	// Referencias originales de cada página de Personal que justificó el puesto.
+	ConsultasPersonal ConsultasPersonalLlamamiento `json:"consultas_personal,omitempty"`
 }
 
 func (p ProcedenciaIntegracionBolsa) validarNominalEn(instante time.Time) bool {
@@ -106,7 +108,8 @@ func (p ProcedenciaIntegracionBolsa) validarNominal() bool {
 		p.ContratoVersion == VersionContratoIntegracionBolsa &&
 		p.Fuente.Validar() == nil &&
 		p.Evidencia.validarSintaxis(dominioSelloRespuestaBolsa, p.SinRetencionDeclarada) &&
-		(p.SinRetencionDeclarada || !p.PoliticaProvisional)
+		(p.SinRetencionDeclarada || !p.PoliticaProvisional) &&
+		p.consultasPersonalValidas()
 }
 
 func enteroSeguroBolsa(valor uint64) bool {
@@ -169,4 +172,15 @@ func dependenciaIntegracionBolsaNula(valor any) bool {
 	default:
 		return false
 	}
+}
+
+func (p ProcedenciaIntegracionBolsa) consultasPersonalValidas() bool {
+	if p.ConsultasPersonal == "" {
+		return true
+	}
+	if !p.SinRetencionDeclarada {
+		return false
+	}
+	_, err := p.ConsultasPersonal.MarshalJSON()
+	return err == nil
 }

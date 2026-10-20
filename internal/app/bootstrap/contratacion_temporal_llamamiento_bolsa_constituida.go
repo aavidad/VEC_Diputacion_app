@@ -33,7 +33,7 @@ type emisorNativoLlamamientoCT interface {
 }
 
 type proveedorConfiguracionEmisionCT func(context.Context, preparacionLlamamientoDesarrollo) (
-	puertosbolsa.ConfiguracionLlamamiento, string, vecdomain.ReferenciaEntradaCatalogo, error,
+	puertosbolsa.ConfiguracionLlamamiento, puestoRPTConstituidoCT, vecdomain.ReferenciaEntradaCatalogo, error,
 )
 
 type registradorLecturaOrdenCT func(context.Context, preparacionLlamamientoDesarrollo,
@@ -150,14 +150,15 @@ type origenConstituidoVerificadoCT struct {
 }
 
 type preparacionOrigenConstituidoCT struct {
-	origen        origenConstituidoVerificadoCT
-	necesidad     dominiobolsa.NecesidadCobertura
-	configuracion puertosbolsa.ConfiguracionLlamamiento
-	motivo        vecdomain.ReferenciaEntradaCatalogo
-	seleccion     puertosbolsa.EntradaOrigenLlamamientoCT
-	refNecesidad  ports.ReferenciaVersionadaIntegracionBolsa
-	refBolsa      ports.ReferenciaVersionadaIntegracionBolsa
-	refPolitica   ports.ReferenciaVersionadaIntegracionBolsa
+	origen            origenConstituidoVerificadoCT
+	necesidad         dominiobolsa.NecesidadCobertura
+	configuracion     puertosbolsa.ConfiguracionLlamamiento
+	consultasPersonal ports.ConsultasPersonalLlamamiento
+	motivo            vecdomain.ReferenciaEntradaCatalogo
+	seleccion         puertosbolsa.EntradaOrigenLlamamientoCT
+	refNecesidad      ports.ReferenciaVersionadaIntegracionBolsa
+	refBolsa          ports.ReferenciaVersionadaIntegracionBolsa
+	refPolitica       ports.ReferenciaVersionadaIntegracionBolsa
 }
 
 type claveEstadoOrigenConstituidoCT struct{}
@@ -551,6 +552,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarLlamamientoConstituidoCT(
 		LlamamientoRecuperado: r.EmitidoEn.Before(c.SolicitadaEn),
 		Procedencia:           p.procedenciaOrigenConstituidoCT(c, preparado.origen, "llamamiento", ahora),
 	}
+	recibo.Procedencia.ConsultasPersonal = preparado.consultasPersonal
 	return p.emisorRespuesta.FirmarLlamamiento(ctx, comando, recibo, ahora)
 }
 
@@ -886,7 +888,11 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoSinCacheCT(
 		return vacio, err
 	}
 	configuracion, puesto, motivo, err := p.configuracionNativa(ctx, d)
-	if err != nil || !puertosbolsa.ReferenciaOpacaLlamamientoValida(puesto) || motivo.Validar() != nil {
+	if err != nil || !puertosbolsa.ReferenciaOpacaLlamamientoValida(puesto.PuestoRef) || motivo.Validar() != nil {
+		return vacio, ports.ErrIntegracionBolsaNoDisponible
+	}
+	consultasPersonal, err := ports.NuevasConsultasPersonalLlamamiento(puesto.Evidencias)
+	if err != nil {
 		return vacio, ports.ErrIntegracionBolsaNoDisponible
 	}
 	reserva := origen.reserva
@@ -908,7 +914,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoSinCacheCT(
 	necesidad, err := dominiobolsa.NuevaNecesidadCobertura(dominiobolsa.AltaNecesidadCobertura{
 		NecesidadRef: d.necesidad, Version: 6, BolsaRef: origen.bolsa.BolsaRef,
 		VersionBolsa: origen.bolsa.Version, HuellaBolsaSHA256: origen.registro.HuellaBolsaSHA256,
-		CategoriaRef: d.categoria, PuestoRef: puesto, UnidadRef: d.unidad,
+		CategoriaRef: d.categoria, PuestoRef: puesto.PuestoRef, UnidadRef: d.unidad,
 		TipoCoberturaRef: string(e.Analisis.ModalidadClave), NumeroPuestos: 1,
 		InicioPrevisto: e.Analisis.Periodo.Inicio, FinPrevisto: fin,
 		CausaFinClave: string(e.Analisis.Periodo.CausaFin), CreadaEn: e.Fiscalizacion.FiscalizadaEn,
@@ -941,7 +947,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoSinCacheCT(
 	}
 	o := origen.registro
 	return preparacionOrigenConstituidoCT{
-		origen: origen, necesidad: necesidad, configuracion: configuracion, motivo: motivo, seleccion: seleccion,
+		origen: origen, necesidad: necesidad, configuracion: configuracion, consultasPersonal: consultasPersonal, motivo: motivo, seleccion: seleccion,
 		refNecesidad: referenciaVersionadaPuenteLlamamientoDesarrollo(necesidad.NecesidadRef, necesidad.Version, huellaNecesidad),
 		refBolsa:     referenciaVersionadaPuenteLlamamientoDesarrollo(o.BolsaRef, o.VersionBolsa, o.HuellaBolsaSHA256),
 		refPolitica:  referenciaVersionadaPuenteLlamamientoDesarrollo(o.PoliticaRef, o.VersionPolitica, o.HuellaPoliticaSHA256),
