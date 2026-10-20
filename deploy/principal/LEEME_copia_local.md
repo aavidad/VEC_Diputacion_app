@@ -587,6 +587,15 @@ consulta, y la selección fallaba.
   necesidad de la RPT. Hasta resolverlo, el llamamiento del paso 9 se emite
   desde el asistente de Bolsa.
 
+Para la firma por cargos, seguir también
+[`firma_por_cargos_f1_58_20261020.md`](firma_por_cargos_f1_58_20261020.md).
+La consulta histórica requiere su fila técnica de origen AD172, distinta de
+la descarga: cotejar la única terna y la huella del núcleo instalado, ensayar
+con `ROLLBACK` y comprobar que solo se añade esa fila. No concede permisos
+humanos ni cambia funciones. El guion separa los recibos reales de la semilla
+ficticia de asignaciones y documenta firma CLI, registro nominal y consulta
+desde Chrome; el selector de archivos del escritorio aislado sigue pendiente.
+
 ## 7. Arrancar `vec-server`
 
 Base común (`docs/producto/TRD.md`, apartado 4):
