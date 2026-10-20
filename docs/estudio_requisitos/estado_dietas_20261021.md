@@ -119,15 +119,15 @@ dietas». Es una comprobación previa en solo lectura; no se reinició la
 aplicación con configuración incompleta ni se afirma Dietas encendido.
 
 Faltan cuatro conexiones de entorno y siete conexiones del manifiesto, con
-identidades distintas, así como las cuentas, motivos y asignaciones que
-consumen. La composición exige también las cinco variables `VEC_OSRM_*` y
+identidades distintas, y las once cuentas técnicas. Los motivos y las
+asignaciones que deben consumir esas conexiones quedan sin acreditar. La composición exige también las cinco variables `VEC_OSRM_*` y
 material de autorización del gobierno común de Contratación
 (`internal/app/bootstrap/dietas_comisiones.go:469` y
 `internal/app/bootstrap/dietas_comprobacion_arranque.go:59`).
 `deploy/principal/03_entorno.md:3` prohíbe repetir el preparador histórico;
 la receta actual de `f4b_acceso_dietas/README.md:12` presupone ocho cuentas
-anteriores y la asignación retirada, ausentes en esta copia. Activar el
-selector o reinstalar las migraciones de tablas no produce ese material.
+anteriores y la asignación retirada. Las cuentas faltan en esta copia; la
+asignación requerida no se ha acreditado. Activar el selector o reinstalar las migraciones de tablas no produce ese material.
 No se improvisó otro productor, conforme a la orden de dirección.
 
 Chrome del sistema, manejado con Playwright y el certificado propio de la
