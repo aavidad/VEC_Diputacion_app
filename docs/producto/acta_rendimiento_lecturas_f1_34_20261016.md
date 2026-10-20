@@ -162,14 +162,15 @@ máquina seguiría fallando.
      El registro de la aplicación conserva 489 respuestas con
      `sqlstate=40001`, 2 con `40P01` y 850 con `etapa=autoridad_contexto`.
 
-   La lista y la ficha de CT ya reintentan los 40001: el adaptador
+   La lista y la ficha de CT ya reintentan los 40001 (los interbloqueos,
+   40P01, no): el adaptador
    (`consulta_rrhh_postgresql.go:527-553`) repite la transacción hasta 30
    veces con espera aleatoria creciente
    (`internal/shared/postgresql/reintento_serializable.go:27`). Por eso la
    lista no da errores, pero su mediana sube a 1,9 s. El cuadro con
    `resumen: true` usa otra consulta (`consultaCuadroResumenRRHHPostgreSQL`)
-   que no está en la lista de consultas reintentables; agotado el primer
-   intento devuelve 503, y de ahí los 374 de 500.
+   que no está en la lista de consultas reintentables; al primer 40001
+   devuelve 503, y de ahí los 374 de 500.
 
 Recomendación, sin implementarla. La tarea F1-105 ya se ocupa de la
 concurrencia y es la que hará estas recomendaciones, con revisión SQL y de
