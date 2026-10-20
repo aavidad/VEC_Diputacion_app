@@ -86,6 +86,42 @@ test("la reserva singular sin efecto ni ventana también reanuda el POST origina
   cerrar();
 });
 
+test("GET singular primero espera a comunicaciones; error permite recarga y denegación explica el bloqueo", async () => {
+  for (const fallo of ["error", "denegado"]) {
+    const raiz = raizPrueba(); let resolverLista, consultas = 0, post = 0;
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: async () => intencionSingular(),
+      consultarComunicacionesExpediente: async () => {
+        consultas++;
+        if (consultas === 1) return new Promise((resolve) => { resolverLista = resolve; });
+        return { expediente_ref: EXPEDIENTE, comunicaciones: [] };
+      },
+      seleccionarLlamamiento: async () => { post++; return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+    await asentarse();
+    assert.match(raiz.innerHTML, /Cargando los llamamientos/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(post, 0);
+    resolverLista(fallo === "denegado"
+      ? Promise.reject(Object.assign(new Error("denegado"), { estado: 403, envelopeValido: true }))
+      : Promise.reject(new Error("sin conexión")));
+    await asentarse();
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+    if (fallo === "denegado") {
+      assert.match(raiz.innerHTML, /No tiene permiso para ver estos llamamientos/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-comunicaciones-reintentar/u);
+    } else {
+      assert.match(raiz.innerHTML, /data-ct-comunicaciones-reintentar/u);
+      await click(raiz, "data-ct-comunicaciones-reintentar");
+      await asentarse();
+      assert.match(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+      assert.match(raiz.innerHTML, /Reanudar llamamiento/u);
+    }
+    cerrar();
+  }
+});
+
 test("la intención singular congelada conserva clave tras error y doble pulsación", async () => {
   const raiz = raizPrueba(), escritas = []; let liberar;
   const cerrar = montar(raiz, {
