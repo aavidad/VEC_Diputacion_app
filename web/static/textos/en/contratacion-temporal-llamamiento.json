@@ -339,6 +339,12 @@
     "llamamiento_confirmacion_expiracion": "You are about to treat the call-up as not accepted because there was no reply. You can then call the next person.",
     "llamamiento_revision_respuesta_rrhh_expiracion": "I have checked that no reply has arrived",
     "llamamiento_revision_plazo_rrhh_expiracion": "I have checked that the deadline has ended",
-    "llamamiento_confirmar_expiracion": "Confirm"
+    "llamamiento_confirmar_expiracion": "Confirm",
+    "llamamiento_portal_titulo": "Acceptance in My Pool",
+    "llamamiento_portal_origen": "Call-up origin",
+    "llamamiento_portal_origen_ct": "Started from this case",
+    "llamamiento_portal_emitido_en": "Call-up issued on",
+    "llamamiento_portal_respondida_en": "Replied on",
+    "llamamiento_portal_recibo_respuesta": "Response receipt"
   }
 }

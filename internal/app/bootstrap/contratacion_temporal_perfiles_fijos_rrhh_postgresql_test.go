@@ -335,8 +335,8 @@ func TestLectorRRHHPasaAPerfilFijoConProvisionPostgreSQL(t *testing.T) {
 	s := soporteLectorRRHHPostgreSQLPrueba(t, ctx, gobierno)
 	perfil := s.instantanea.AsignacionPerfil.PerfilActivoRef
 	// Estado del binario anterior: el lector con el rol del expediente.
-	if err := prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx, s); err != nil {
-		t.Fatal(err)
+	if estado, err := asegurarPerfilDinamicoCTDesarrollo(ctx, gobierno, s); err != nil || estado != perfilDinamicoPublicadoInicial {
+		t.Fatalf("perfil heredado no publicado: %s %v", estado, err)
 	}
 	if err := peticionRRHHPrueba(ctx, s, s.instantaneaDetalleRRHH); err != nil {
 		t.Fatal(err)

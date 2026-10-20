@@ -1,0 +1,2 @@
+# SHA256 4ba743fba6f9b6db7fb71102658bf672e5c3af552470cd401732c3f13716d4ea deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql
