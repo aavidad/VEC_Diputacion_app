@@ -404,9 +404,10 @@ export function montarFormularioLlamamiento({
   function repintar(operacion = "") {
     if (!montado) return;
     limpiarValidacion();
-    const soloPortal = estado.origenPortal.length > 0
-      && ["sin_contexto", "vacia"].includes(estado.comunicaciones.estado);
-    raiz.innerHTML = (soloPortal ? "" : renderizarLlamamiento(estado, t, fecha, ahora()))
+    const sinFlujoCT = estado.origenPortal.length > 0
+      && (estado.comunicaciones.estado !== "lista" || !estado.comunicaciones.seleccionada);
+    raiz.innerHTML = (sinFlujoCT && estado.comunicaciones.estado === "sin_contexto" ? ""
+      : renderizarLlamamiento(estado, t, fecha, ahora(), { soloConsulta: sinFlujoCT }))
       + renderizarAceptacionPortal(estado.origenPortal, t, fecha);
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",

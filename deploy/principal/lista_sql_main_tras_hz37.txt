@@ -221,4 +221,4 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion
 deploy/postgresql/bolsa_convocatorias/migraciones/000017_recuperacion_publicacion_mismo_perfil.up.sql c00e543f89fa22ca498feb797b79d437c7fb6148401b1a01463c5c293b5049d1
 
 # F1-125, primer corte — CT250: origen O6 acreditado de la aceptación firme en la ficha; tras CT201 vigente.
-deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql f291976b0ebcf6600e81858d904bd252c2f7b7a779abf60d23a12ee8138cc98c
+deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql 4ba743fba6f9b6db7fb71102658bf672e5c3af552470cd401732c3f13716d4ea

@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- CT250 / F1-125A. El origen del único participante procede de una O6
--- nativa confirmada y de la emisión B98 enlazada; no concede una mutación.
+-- confirmada y de la emisión B98 enlazada; no concede una mutación.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -87,10 +87,10 @@ BEGIN
  END IF;
  lote:=vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(entradas);
  -- O6 se recorre una vez para esta página; el mapa solo contiene emisiones
- -- con una selección nativa exacta y snapshot fiscalizado original.
+ -- con una selección exacta y snapshot fiscalizado original.
  WITH pagina AS MATERIALIZED (
   SELECT x.organizacion_ref,x.expediente_ref,x.bolsa_ref,x.llamamiento_ref,
-   x.recibo_emision_ref,x.version_expediente_esperada
+   x.recibo_emision_ref
   FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
   JOIN LATERAL jsonb_array_elements(entradas) item(valor)
    ON item.valor->>'llamamiento_ref'=x.llamamiento_ref
@@ -109,7 +109,6 @@ BEGIN
   WHERE e.situacion='confirmada'
    AND e.solicitud_json->>'expediente_ref'=d.expediente_ref
    AND e.recibo_json->'propuesta_generada'='true'::jsonb
-   AND e.recibo_json#>>'{procedencia,sin_retencion_declarada}'='true'
  ), exactas AS (
   SELECT x.llamamiento_ref,count(*) AS cantidad FROM pagina x
   JOIN o6 e ON e.organizacion_ref=x.organizacion_ref
@@ -119,9 +118,11 @@ BEGIN
    AND e.bolsa_ref=x.bolsa_ref AND e.llamamiento_ref=x.llamamiento_ref
    AND e.recibo_emision_ref=x.recibo_emision_ref
    AND e.version_recibo=e.version_solicitud
-   AND e.version_recibo=to_jsonb(x.version_expediente_esperada)
+   AND jsonb_typeof(e.version_recibo)='number'
   JOIN vec_contratacion_temporal.expediente_version_integral h
-   ON h.expediente_ref=x.expediente_ref AND h.version=x.version_expediente_esperada
+   ON h.expediente_ref=x.expediente_ref AND h.version=CASE
+      WHEN e.version_recibo#>>'{}' ~ '^[1-9][0-9]{0,15}$'
+      THEN (e.version_recibo#>>'{}')::numeric END
    AND h.agregado_json#>>'{via_cobertura,via_clave}'='bolsa_vigente'
    AND h.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}'='bolsa_vigente'
    AND h.agregado_json#>>'{analisis,categoria_ref}' IS NOT NULL
@@ -215,7 +216,7 @@ BEGIN
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-      IS DISTINCT FROM '00d03db4030cadeafafe7e95faebfcc98d68efa94329d0507e2732e63030f623' THEN
+      IS DISTINCT FROM 'd5c812acbb329273947de7a4b7f2ed400a82ba7c94f9c3e749772247fbad1c1d' THEN
   RAISE EXCEPTION 'CT250: lector final divergente' USING ERRCODE='55000'; END IF;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex')
      FROM pg_proc q WHERE q.oid=to_regprocedure(
