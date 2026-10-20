@@ -154,6 +154,13 @@ Carmen Molina Ortega (usuario web `rrhh`) es la técnica de RRHH del recorrido y
 usa el perfil fijo de técnico de RRHH. La aspirante del recorrido es el usuario
 web `candidato`.
 
+Los perfiles de cargo firmante abren el cuadro y la ficha de Contratación
+temporal con su panel de firma. Esa vista no monta el análisis, la cancelación,
+la generación de borradores, la lista común de Documentos ni el contexto de
+Bolsa propios de la tramitación de RRHH. Conserva el resumen de Inicio y las
+descargas del panel de firma. Las preferencias personales requieren su propio
+aprovisionamiento en Usuarios; este ajuste no lo modifica.
+
 ### 3.2 Portal interno de RRHH (`/portal-empleado/`)
 
 El lateral se arma así (`web/static/portal-empleado/index.html`,

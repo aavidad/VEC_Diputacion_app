@@ -49,6 +49,7 @@ export function localizacionAdmitida(locale, indice = INDICE_IDIOMAS) {
   catch { return false; }
 }
 const PERFILES_CT_MENU = new Set(["tecnico_rrhh", "intervencion", "ct_cargo_tecnico_firma_dev", "ct_cargo_jefatura_firma_dev", "ct_cargo_diputacion_firma_dev", "ct_cargo_secretaria_firma_dev"]);
+const PERFILES_CT_FIRMA = new Set(["ct_cargo_tecnico_firma_dev", "ct_cargo_jefatura_firma_dev", "ct_cargo_diputacion_firma_dev", "ct_cargo_secretaria_firma_dev"]);
 // El circuito se consulta al cargar CT. Un fallo transitorio de un catálogo no
 // debe quedar congelado en el módulo ni retrasar el arranque del portal.
 const cargarFasesCircuitoPredeterminado = async (idioma) =>
@@ -524,13 +525,17 @@ export function crearCoordinadorModulosPortal({
         return previa === null ? null : Promise.resolve(structuredClone(previa.valor));
       };
       let perfilIntervencion = false;
+      let perfilFirmante = false;
+      let rolSesionCT = null;
       if (consultarSesion !== null) {
         const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión CT");
         if (!Array.isArray(sesion?.roles) || sesion.roles.length !== 1
           || !PERFILES_CT_MENU.has(sesion.roles[0])) {
           throw new TypeError("perfil CT no acreditado");
         }
-        perfilIntervencion = sesion.roles[0] === ROL_INTERVENCION;
+        rolSesionCT = sesion.roles[0];
+        perfilIntervencion = rolSesionCT === ROL_INTERVENCION;
+        perfilFirmante = PERFILES_CT_FIRMA.has(rolSesionCT);
       }
       let promesaCuadro = null;
       let promesaCompleto = null;
@@ -575,7 +580,7 @@ export function crearCoordinadorModulosPortal({
         promesaCompleto ??= recursos.cargarCompleto().then((partes) => cargarContratacionTemporal({
           consultar, exigirVigente, notificar,
           recursosRecibidos: { ...recursos, ...partes, cargarCuadroLigero: null, tomarCuadroLista, tomarCatalogosAlta,
-            soloIntervencion: perfilIntervencion },
+            soloIntervencion: perfilIntervencion, soloFirmante: perfilFirmante, rolSesionCT },
         })).then(({ contratacionTemporal }) => contratacionTemporal)
           .catch((error) => { promesaCompleto = null; throw error; });
         return promesaCompleto;
@@ -596,7 +601,7 @@ export function crearCoordinadorModulosPortal({
         modoLigero: true, cliente, consultarCuadroLista, esperarCuadroLigero, activarCompleto, precargarFichaEnReposo,
         olvidarReutilizables: () => { reutilizables = null; },
         prepararNombresLista, nombreCentro, nombreCategoria,
-        alta: null, fiscalizacion: perfilIntervencion ? Object.freeze({ cliente }) : null,
+        alta: null, fiscalizacion: perfilIntervencion ? Object.freeze({ cliente }) : null, soloFirmante: perfilFirmante,
         prepararResumenInicio, obtenerCuadroInicio: () => cuadroInicio,
       }) };
     }
@@ -692,7 +697,9 @@ export function crearCoordinadorModulosPortal({
     // La lista ya acreditó que la sesión tiene solo el perfil de Intervención:
     // su pantalla es la fiscalización, que no usa alta, cuadro ni configuración
     // del análisis de RRHH. No se piden (el servidor las denegaría igualmente).
+    const rolSesionCT = recursos.rolSesionCT ?? await sesionRolCT(consultar);
     const soloIntervencion = recursos.soloIntervencion === true;
+    const soloFirmante = PERFILES_CT_FIRMA.has(rolSesionCT);
     const noUsadaPorIntervencion = () => Promise.reject(Object.assign(
       new Error("lectura de RRHH no usada por Intervención"), { codigo: "no_usada_intervencion" }));
     const promesaAlta = (soloIntervencion ? noUsadaPorIntervencion()
@@ -717,7 +724,7 @@ export function crearCoordinadorModulosPortal({
     // La portada solo necesita los recuentos de todo el cuadro, no sus filas.
     const consultaCuadro = soloIntervencion ? noUsadaPorIntervencion()
       : consultar((opciones) => fuente.resumenInicio(opciones));
-    const promesaConfiguracion = soloIntervencion ? noUsadaPorIntervencion()
+    const promesaConfiguracion = soloIntervencion || soloFirmante ? noUsadaPorIntervencion()
       : consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
     promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
     // Desde la lista (ficha, alta o filtros), la vista se va a montar: se
@@ -727,9 +734,8 @@ export function crearCoordinadorModulosPortal({
     // El perfil de la sesión decide qué actos se ofrecen: la fiscalización solo
     // la registra Intervención. Se pide a la vez que el cuadro (nunca falla:
     // sin sesión legible, el acto no se ofrece).
-    const promesaIntervencion = sesionDeIntervencion(consultar);
     const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
-    const perfilIntervencion = await promesaIntervencion;
+    const perfilIntervencion = rolSesionCT === null ? null : rolSesionCT === ROL_INTERVENCION;
     exigirVigente();
     const cuadroDisponible = cuadro.status === "fulfilled";
     const listadoCuadro = cuadroDisponible ? cuadro.value : null;
@@ -803,16 +809,17 @@ export function crearCoordinadorModulosPortal({
         crearPresentador: () => recursos.presentador
           .crearPresentadorExpedientesContratacionTemporal({
             fuente, capacidades: fuente.capacidades,
-            altaDisponible: alta !== null,
+            altaDisponible: alta !== null && !soloFirmante,
           }),
-        get alta() { return alta; },
+        get alta() { return soloFirmante ? null : alta; },
         esperarAlta: () => promesaAlta,
         analisis,
         fiscalizacion,
         // Actos de Intervención dentro de la ficha: solo con ese perfil.
         fiscalizacionEnFicha: perfilIntervencion,
+        soloFirmante,
         subsanacion,
-        continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
+        continuidad: fiscalizacion === null && !soloFirmante ? Object.freeze({ cliente }) : null,
         // Con la vista ya cargada (el montaje la espera antes de leer esto).
         get auditoriaComun() {
           return typeof partesVista?.auditoriaVista?.montarVistaAuditoria === "function"
@@ -826,7 +833,7 @@ export function crearCoordinadorModulosPortal({
         obtenerCuadroInicio: () => listadoCuadro,
         montar: async (opciones) => {
           const partes = await esperarVista();
-          return partes.vista.montarModuloContratacionTemporal({ ...opciones, clienteResultadoBolsa: cliente,
+          return partes.vista.montarModuloContratacionTemporal({ ...opciones, clienteResultadoBolsa: soloFirmante ? null : cliente,
             clienteFirmasV2: cliente.firmasV2, dependenciasFirma: partes.dependenciasFirma ?? {},
             mensajesRecuperacionFirmas: partes.mensajesRecuperacionFirmas ?? null,
             errorRecuperacionFirmas: partes.errorRecuperacionFirmas ?? null,
@@ -838,11 +845,11 @@ export function crearCoordinadorModulosPortal({
     };
   }
 
-  async function sesionDeIntervencion(consultar) {
+  async function sesionRolCT(consultar) {
     if (consultarSesion === null) return null;
     try {
       const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión");
-      return Array.isArray(sesion?.roles) ? sesion.roles.includes(ROL_INTERVENCION) : null;
+      return Array.isArray(sesion?.roles) && sesion.roles.length === 1 ? sesion.roles[0] : null;
     } catch {
       return null;
     }
@@ -1445,6 +1452,7 @@ export function crearCoordinadorModulosPortal({
       await temporal.esperarAlta?.();
       if (montaje !== secuenciaMontaje) return false;
       const esFiscalizacion = temporal.fiscalizacion !== null;
+      const soloFirmante = temporal.soloFirmante === true;
       const presentadorCT = temporal.crearPresentador();
       let controladorBolsaFicha = null;
       let claveBolsaFicha = "";
@@ -1512,7 +1520,7 @@ export function crearCoordinadorModulosPortal({
         { expedienteRef, version: opciones?.expedienteVersion ?? null },
         presentadorCT.obtenerEstado?.().cuadro,
       ) ? traducirPortal("ct_enlace_sin_version_no_recuperado") : "";
-      if (!esFiscalizacion) prepararFichaBolsa(presentadorCT.obtenerEstado?.());
+      if (!esFiscalizacion && !soloFirmante) prepararFichaBolsa(presentadorCT.obtenerEstado?.());
       await vistaLista;
       if (montaje !== secuenciaMontaje) return false;
       const moduloContratacion = esFiscalizacion
@@ -1543,19 +1551,20 @@ export function crearCoordinadorModulosPortal({
             : null,
           fiscalizacionAjena: temporal.fiscalizacionEnFicha === false,
           continuidad: temporal.continuidad,
+          soloFirmante,
           incorporacionPersonalB2: temporal.clienteIncorporacionB2,
           subsanacion: temporal.subsanacion,
           auditoriaComun: temporal.auditoriaComun,
           // Lista común de documentos en la ficha, solo si el portal publica
           // el módulo de Documentos para esta sesión (se consulta al pintar).
-          documentosComun: Object.freeze({
+          documentosComun: soloFirmante ? null : Object.freeze({
             montar: (opciones) => (typeof composicion?.documentos?.montar === "function"
               ? composicion.documentos.montar(opciones) : null),
           }),
           confirmarOperacion,
           anunciar,
-          resolverBolsa: typeof montajeBolsa?.resolverBolsa === "function" ? montajeBolsa.resolverBolsa : null,
-          prepararFichaBolsa,
+          resolverBolsa: !soloFirmante && typeof montajeBolsa?.resolverBolsa === "function" ? montajeBolsa.resolverBolsa : null,
+          prepararFichaBolsa: soloFirmante ? null : prepararFichaBolsa,
         });
       if (montaje !== secuenciaMontaje) {
         moduloContratacion.desmontar();

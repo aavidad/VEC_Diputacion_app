@@ -150,6 +150,7 @@ export async function montarModuloContratacionTemporal({
   analisis = null,
   fiscalizacion = null,
   fiscalizacionAjena = false,
+  soloFirmante = false,
   subsanacion = null,
   continuidad = null,
   incorporacionPersonalB2 = null,
@@ -222,7 +223,7 @@ export async function montarModuloContratacionTemporal({
     && typeof subsanacion.cliente?.registrarSubsanacionReparos === "function"
     ? subsanacion.cliente : null;
   const subsanacionDisponible = clienteSubsanacion !== null;
-  const clienteLlamamiento = continuidad?.cliente ?? llamamiento?.cliente ?? clienteFiscalizacion
+  const clienteLlamamiento = soloFirmante ? null : continuidad?.cliente ?? llamamiento?.cliente ?? clienteFiscalizacion
     ?? composicionAnalisis?.cliente;
   const llamamientoDisponible = [
     "seleccionarLlamamiento",
@@ -321,6 +322,7 @@ export async function montarModuloContratacionTemporal({
   function montarDocumentosComunSiProcede(estado) {
     const zona = raiz.querySelector("[data-ct-exp-documentos-comun]");
     if (!zona) return;
+    if (soloFirmante) { zona.hidden = true; return; }
     if (typeof documentosComun?.montar !== "function" || !["expediente", "documentos"].includes(estado.vista)
       || estado.carga !== "listo" || estado.expediente?.demostracion !== false
       || estado.expediente.expediente_ref !== estado.expediente_ref) {
@@ -362,6 +364,7 @@ export async function montarModuloContratacionTemporal({
     const zona = raiz.querySelector("[data-ct-exp-borradores-publicados]");
     const legado = raiz.querySelector("[data-ct-exp-borradores-legados]");
     if (!zona) return;
+    if (soloFirmante) { zona.hidden = true; if (legado) legado.hidden = true; return; }
     zona.hidden = false;
     if (!contexto || typeof raiz.ownerDocument?.createElement !== "function") {
       if (legado) legado.hidden = true;
@@ -633,7 +636,7 @@ export async function montarModuloContratacionTemporal({
   });
 
   const gestorResultadoBolsa = crearGestorResultadoBolsa({ raiz, presentador,
-    cliente: clienteResultadoBolsa ?? composicionAnalisis?.cliente, t: traducirExpedientes, locale, zonaHoraria,
+    cliente: soloFirmante ? null : clienteResultadoBolsa ?? composicionAnalisis?.cliente, t: traducirExpedientes, locale, zonaHoraria,
     confirmarOperacion, repintar });
 
   async function refrescarDetalleTrasPropuesta(recibo, solicitud) {
@@ -726,7 +729,7 @@ export async function montarModuloContratacionTemporal({
     retirarDocumentosComun();
     retirarBorradoresPublicados();
     const estado = presentador.obtenerEstado();
-    prepararFichaBolsa?.(estado, actualizarBolsaFicha);
+    if (!soloFirmante) prepararFichaBolsa?.(estado, actualizarBolsaFicha);
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
       mensajes,
@@ -750,6 +753,12 @@ export async function montarModuloContratacionTemporal({
       resolverBolsa: typeof resolverBolsa === "function" ? resolverBolsa : null,
       filtroLista,
     });
+    if (soloFirmante) {
+      for (const vista of ["alta", "documentos"]) {
+        const control = raiz.querySelector(`[data-ct-exp-vista="${vista}"]`);
+        if (control) control.hidden = true;
+      }
+    }
     // En móvil los filtros secundarios empiezan plegados si no hay ninguno activo.
     const masFiltros = raiz.querySelector?.("[data-ct-exp-mas-filtros]:not([data-activos])");
     if (masFiltros && globalThis.matchMedia?.("(max-width: 760px)")?.matches) masFiltros.open = false;
@@ -851,7 +860,7 @@ export async function montarModuloContratacionTemporal({
     if (reintentarBolsa && raiz.contains(reintentarBolsa)) {
       evento.preventDefault();
       reintentarBolsa.disabled = true;
-      prepararFichaBolsa?.(presentador.obtenerEstado(), actualizarBolsaFicha, true);
+      if (!soloFirmante) prepararFichaBolsa?.(presentador.obtenerEstado(), actualizarBolsaFicha, true);
       return;
     }
     const consultarAuditoria = evento.target?.closest?.("[data-ct-exp-auditoria-comun]");
