@@ -17,7 +17,7 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 Estado comprobado sobre `origin/main` `0a62a3ea6` el 1 de octubre de 2026. El catálogo funcional es `docs/producto/PRD.md`; este plan no da por emitido ningún certificado ni por registrada una descarga.
 
@@ -42,37 +42,15 @@ Estado comprobado sobre `origin/main` `0a62a3ea6` el 1 de octubre de 2026. El ca
 
 **Fuera del corte actual:** ANA-003 (transparencia) y ANA-004 (informes regulatorios/ISPA). Requieren proyección, plantillas, autoridad y decisiones propias; no están incluidas en las horas siguientes ni se deducen del cuadro CT.
 
-## Estimación
-
-Estimación inicial de los cortes descritos, pendiente de contrastar con los equipos dueños: un equipo Codex con varios subagentes, PR pequeñas de 1–3 horas, revisión independiente y CI; jornada de referencia de ocho horas. Las horquillas incluyen consumidores, integración y pruebas de J, **suponiendo disponibles** fuentes, decisiones y servicios externos. No estiman el cierre completo del gobierno ANA-001, del cuadro transversal ANA-002 ni las alertas ANA-005 sin regla aprobada.
-
-| Minitarea | Horas de un equipo |
-| --- | ---: |
-| 1. ANA-001: montaje, Chrome, revisión y CI restantes | 3–5 h |
-| 2. CER-001: revisión final, calidad y PR del borrador ya preparado | 3–5 h |
-| 3. ANA-002: contexto visible del cuadro existente | 5–8 h |
-| 4. CER-001: emisión por cortes de fuente, permisos, revisión, firma, verificación y recuperación | 48–72 h |
-| 5. ANA-005: permiso, registro atómico, exportación separada, pantalla y recuperación | 40–64 h |
-
-**Total de implementación pendiente:** 99–154 horas, unas **13–20 jornadas de un equipo**. Con dos equipos que trabajen en paralelo en Certificados y Analítica, con D/Personal/F como dueños de sus contratos y una integración final, **8–13 jornadas de calendario de trabajo**. No se ganan todas las horas en paralelo: ANA-005 depende de la frontera CT y CER emisión depende de Personal y Documentos.
-
-**Fuera de nuestro control:** Personal B debe aportar servicios autorizados (8–16 h de su equipo tras acordar el contrato); D/F deben fijar perfiles, orden SQL y transacción de estadísticas (16–24 h de sus equipos, coordinadas con la minitarea 5); Documentos/firma y servidor deben aportar el circuito de firma/verificación (16–32 h de sus equipos si faltan adaptadores); RRHH debe decidir fuentes, plantillas, firmantes, gobierno y finalidades. Son **5–9 jornadas agregadas de esfuerzo ajeno**, que pueden solaparse con nuestras 8–13 jornadas y no se suman sin más al plazo. Las horas se conciliarán con los dueños para no contar dos veces un mismo contrato. La espera de decisiones institucionales y de disponibilidad del servidor no tiene fecha acreditada; no cabe convertirla en días de calendario cerrados.
-
 ## Decisiones pendientes de RRHH
 
-Se trasladarán a `dudas.md` con números consecutivos **solo en el turno J**, después de las preguntas que añadan los equipos precedentes:
+Las preguntas se contrastan con `dudas.md` antes de añadirlas, conservando su numeración:
 
 1. ¿Qué certificados de servicios y plantillas aprueba RRHH, quién revisa y firma/sella cada tipo, y qué datos de oficio son obligatorios?
 2. ¿Qué fuentes acreditan periodos, jornada e interrupciones y cómo se distinguen los servicios declarados, comprobados y reconocidos?
 3. ¿Quién responde de cada indicador, aprueba su fórmula y fija calidad, periodicidad, umbrales de revelación y ámbitos del cuadro?
 4. ¿Qué finalidades y perfiles permiten consultar y descargar agregados, cuánto se conserva la traza y quién revisa alertas de uso anómalo?
 
-## Por dónde empezar mañana y trabajo en curso
+## Condiciones funcionales conservadas
 
-Primero: cerrar **ANA-001** en `trabajo/codexj-ana001-ficha-20261001` (`ff8b18ea7`, fuente remota conservada; falta cadena de versiones, Chrome y puerta), después revisar el borrador **CER-001** en `trabajo/codexj-cer001-borrador-20261001` (`a1d263a84`, fuente remota conservada; dos revisiones en curso) y abrir PR separada solo si supera sus puertas. No hay PR J abierta en este corte. ANA-002 y ANA-005 no tienen rama de implementación; no abrirlas antes de cerrar esas piezas y sus dependencias. La cola de compartidos vigente es B → A → E → G → F → M → H → I → J; A liberó a E con `749f3567e` y J aún no tiene turno.
-
-## Consenso Astra
-
-Astra y J acordamos que Personal conserva la autoridad de servicios; Certificados prepara y gobierna su expediente; Documentos aporta PDF, firma y custodia mediante contratos propios. El ensayo CER es solo un borrador. El [SAS distingue consulta de servicios sin firma de certificado oficial firmado](https://www.sspa.juntadeandalucia.es/servicioandaluzdesalud/profesionales/guia-laboral/servicios-previosprestados), y la [Seguridad Social permite verificar documentos por código](https://sede.seg-social.gob.es/wps/portal/sede/sede/Inicio/Serviciosverficacion?changeLanguage=es); VEC necesita su propia aprobación sobre qué muestra esa verificación y no expondrá la ficha Personal.
-
-ANA-001 y ANA-002 son cortes parciales del cuadro CT: faltan responsable/fórmula aprobados, modelo transversal y reglas de revelación. Las [fichas metodológicas del INE](https://ine.es/dynt3/metadatos/es/RespuestaDatos.html?oe=30800) muestran el valor de fuente, periodo, unidad y control de identificación indirecta. [Mi Carpeta Ciudadana](https://estaticoscarpeta.carpetaciudadana.gob.es/) ilustra consulta desde organismos fuente; VEC conservará esa separación entre módulos. Para ANA-005 acordamos confirmar autorización y traza durable antes de responder, con alertas solo cuando RRHH apruebe su regla. Este acuerdo orienta el plan; no es GO de código, SQL, emisión ni firma.
+Personal conserva la autoridad de los servicios; Certificados gobierna su expediente; Documentos aporta generación, firma y custodia por contrato. Los indicadores necesitan fuente, periodo, fórmula aprobada y control de identificación indirecta. Toda consulta o descarga se autoriza y registra antes de responder. Un borrador no es un certificado oficial.

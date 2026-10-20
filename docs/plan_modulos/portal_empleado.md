@@ -107,38 +107,6 @@ de I. Si B/D requieren SQL para proyecciones o competencia, su dueño reserva el
 número y fija su dependencia en `ORDEN_SQL_NUCLEO.md`. Solo borrador; ensayo en
 clon y revisiones antes de instalar. El portal no consulta tablas ajenas.
 
-## Estimación
-
-Horas de trabajo de un equipo Codex con varios subagentes, PR de 1–3 horas,
-una revisión independiente —dos en SQL, permisos o datos personales— y CI.
-Incluyen programación, comprobación y corrección; no son fechas de compromiso.
-
-| Minitarea | Horas de un equipo |
-| --- | --- |
-| I-01 · Accesos y navegación propia | 3–5 |
-| I-02 · Verificar/corregir vista WIP | 2–4 |
-| I-03 · Composición de trámites | 3–5 |
-| I-04 · Consumir actos y documentos de B | 3–5 |
-| I-05 · Tareas y plazos recibidos | 6–10 |
-| I-06 · Justificantes y notificaciones | 8–14 |
-| I-07 · Consumir competencia M/D | 6–10 |
-| I-08 · Primer trámite gobernado | 12–20 |
-| I-09 · i18n de solicitudes existente | 2–4 |
-| **Total propio** | **45–77** |
-
-Con jornadas de ocho horas: **6–10 días de un equipo**. Con dos equipos:
-**4–7 días**, repartiendo vistas/contratos propios; no se paralelizan escritores
-sobre padres ni se adelantan I-03 o gestión sin sus dependencias.
-
-Este total completa el trabajo del portal previsto aquí cuando las capacidades
-propietarias existen. No incluye terminar Personal, Cronos, Dietas ni el núcleo.
-RRHH, B, M, E/G/F y D deben resolver campos, procedimientos,
-plazos, registro/documentos y servidor. B produce actos/documentos propios; M produce responsables, delegaciones y suplencias; D aplica su autorización. I solo estima sus consumidores, sin contar las tareas de esos equipos. Si las fuentes ya están disponibles,
-prever **2–5 días adicionales** de acuerdos y coordinación. Sin autoridad común,
-conector o respuesta de RRHH no hay fecha global fiable: la espera puede ser
-indefinida y se estima de nuevo al fijar cada contrato. Los tiempos de nuevos
-adaptadores/SQL propietarios los confirma su equipo, no se atribuyen al portal.
-
 ## Decisiones pendientes de RRHH
 
 Se conservan aquí para llevarlas a `dudas.md` con los siguientes números libres
@@ -154,57 +122,6 @@ cerrar este plan.
 - Qué cobertura y tareas necesita la jefatura y qué campos admite el DPD.
   No se habilita una ficha completa por ocupar un puesto de responsabilidad.
 
-## Por dónde empezar mañana
+## Condiciones funcionales conservadas
 
-**I-01: montar los accesos existentes**, retomando
-`trabajo/codexi-emp001-accesos-20261001@d5fac944c2d927c2fd4993daa3308f00b5523d51`.
-Leer antes el último FIN de Codex-I, las PR abiertas y el LIBERO de compartidos;
-partir de la postimagen vigente sin repetir inventario ni reescribir hojas B/E/G.
-La navegación fue aprobada por dirección el 01/10 a las 16:10, conservando carga
-diferida y autorización. EMP-003 sigue esperando la fuente de M y la autorización de D.
-
-## Trabajo conservado y comprobaciones
-
-| Rama remota y hash | Qué hay y qué queda |
-| --- | --- |
-| `trabajo/codexi-emp001-accesos-20261001` · `d5fac944c2d927c2fd4993daa3308f00b5523d51` | Hoja y textos ES/EN. Siete Node verdes, Semgrep local e Impeccable sin hallazgos. Revisión estática favorable anterior al ajuste de estructura; Chrome confirmó la estructura final del componente a 1440/390, teclado y ampliación CSS al 200 %. No zoom nativo ni lector de pantalla. Falta consumidor, revisión de integración y puerta final; no PR de producto. |
-| `trabajo/codexi-emp002-fuente-20261001` · `2668e0bd1c7348050e950b785624bc6c822d567c` | Fuente de lecturas inyectadas, doce Node verdes, Semgrep local sin hallazgos y dos GO estáticos independientes exactos. Minimiza el modelo en JavaScript; la API Dietas existente devuelve más campos. No acredita minimización servidor, montaje ni recorrido real. No PR de producto. |
-| `trabajo/codexi-emp002-vista-20261001` · `7ce0bcfc11f5c8cd34466a19573c980659dd0f77` | Vista, textos ES/EN y trece pruebas escritas. WIP sin ejecutar Node, Semgrep, navegador ni revisión independiente por la orden de parada. Revisar antes de componer; no GO ni PR de producto. |
-
-Los tres hashes se han subido; las ramas remotas conservan el trabajo para
-mañana. Los worktrees y ramas locales propios se retiran al entregar. No hubo
-contenedores, SQL, lectura de datos reales ni escritura en cidonia.
-
-Skills utilizadas: interfaz, usabilidad, aspecto, sistema visual, prioridad VEC
-de Impeccable, Humanizer, pruebas, revisión, entrega y seguridad focal. Consenso
-de arquitectura de solo lectura: el shell organiza tareas; cada módulo conserva
-datos y autorización. Los patrones de
-[Junta de Andalucía](https://ws45.juntadeandalucia.es/empleadopublico/),
-[Xunta](https://manualdeacollida.xunta.gal/portal-do-empregado-publico),
-[Generalitat Valenciana](https://sede.gva.es/es/detall-tramit?id_proc=22564) y
-[Madrid](https://www.comunidad.madrid/hospital/atencionprimaria/file/3022/download?token=_XdT6PH5)
-orientan navegación y separación del espacio responsable; no fijan reglas para VEC.
-
-## Consenso Astra
-
-Arquitectura acordada en revisión de solo lectura. La ronda documental sobre
-`41587ed570dae93ae898701bc783bcbe91ef152c` pidió aclarar el orden de dependencias,
-distinguir la parada de EMP-003 de un cierre funcional y registrar este consenso.
-Los tres puntos están incorporados. Falta el GO de dirección para entregar el plan.
-
-- Primero I-01, sobre la postimagen vigente y en turno I: accesos propios,
-  carga diferida y lista explícita de autoservicio.
-- Después, fuente WIP ya revisada → verificar/corregir vista → montaje I-03.
-  No existe dependencia de I-02 respecto al futuro montaje.
-- Cronos conserva consulta anual y Dietas su cursor, sin cronología ni total
-  conjuntos. Omitir `relacion_ref` no consulta todas las relaciones: el servidor
-  resuelve o rechaza; ante ambigüedad, se abre Mis dietas.
-- Inicio no consulta datos propios. Las nuevas hojas no escriben ni conceden
-  competencias; las bandejas RRHH requieren señal positiva específica.
-- EMP-003 consume la fuente de M y la autorización de D; I no las implementa. Ningún cargo o asignación de Personal crea delegación.
-  Los tres WIP siguen separados de una capacidad montada y comprobada.
-
-Revisión de dirección de las 17:40 incorporada: I-04 es consumidor de B,
-responsables/delegaciones/suplencias son fuente M con autorización D, I-09 migra
-los textos de Solicitudes y EMP-004/005 quedan fuera. La estimación propia se
-recalcula sin contar producción de otros equipos.
+El portal consume fuentes autorizadas de cada módulo, con carga diferida y una lista explícita de autoservicio. Cronos conserva su consulta anual y Dietas su cursor; no se fabrica una cronología ni un total conjunto. Inicio no consulta datos propios innecesarios. La autoridad de responsables, delegaciones y suplencias procede de Organización y de sus permisos; no nace del cargo mostrado en una ficha.
