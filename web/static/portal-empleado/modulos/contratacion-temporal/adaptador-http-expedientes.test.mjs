@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo, rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
@@ -203,7 +203,7 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   const detalle = await adaptador.obtener(resumen.expediente_ref);
 
   assert.equal(cuadro.demostracion, false);
-  assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
+  assert.equal(cuadro.expedientes[0].categoria, "No consta");
   assert.equal(cuadro.expedientes[0].estado_clave, "espera");
   assert.equal(cuadro.expedientes[0].fase_clave, "analisis");
   assert.equal(cuadro.expedientes[0].fase_actual, "Análisis RRHH");
@@ -303,8 +303,8 @@ test("la proyección autorizada localiza cabeceras, fase, estado y período sin 
     assert.equal(campo("modalidad").etiqueta, locale === "en-GB" ? "Type" : "Modalidad");
     assert.equal(campo("grupo_subgrupo").etiqueta, locale === "en-GB" ? "Group/Subgroup" : "Grupo/Subgrupo");
     assert.equal(campo("motivo").etiqueta, locale === "en-GB" ? "Reason" : "Motivo");
-    assert.equal(campo("centro").valor, "centro:001");
-    assert.equal(campo("categoria").valor, "categoria:auxiliar");
+    assert.equal(campo("centro").valor, locale === "en-GB" ? "Not recorded" : "No consta");
+    assert.equal(campo("categoria").valor, locale === "en-GB" ? "Not recorded" : "No consta");
     assert.equal(detalle.analisis_previo.observaciones, "Análisis de demostración RRHH C6-05; necesidad temporal verificada.");
   }
 });
@@ -867,7 +867,7 @@ test("adaptador obtiene catálogo por cliente.catalogosAlta si obtenerCatalogos 
   assert.equal(campoCentro?.valor, "Centro Municipal Uno");
 });
 
-test("adaptador ante error de cliente.catalogosAlta muestra referencias crudas", async () => {
+test("adaptador ante error de catálogo conserva la consulta sin mostrar referencias internas", async () => {
   const llamadas = [];
   const baseCliente = clienteFalso(llamadas);
   const cliente = {
@@ -883,18 +883,33 @@ test("adaptador ante error de cliente.catalogosAlta muestra referencias crudas",
   });
 
   const cuadro = await adaptador.listar();
-  assert.equal(cuadro.expedientes[0].centro, "centro:001");
-  assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
+  assert.equal(cuadro.expedientes[0].centro, "No consta");
+  assert.equal(cuadro.expedientes[0].categoria, "No consta");
 });
 
-test("el centro con la clave de la organización se nombra con su entrada del catálogo de alta", () => {
-  const centros = [{ referencia: "centro:rpt:520", etiqueta: "TRANSFORMACIÓN DIGITAL" },
-    { referencia: "centro:rpt:810A", etiqueta: "GESTIÓN Y ADMINISTRACIÓN DE OBRAS PÚBLICAS Y VIVIENDA" }];
-  assert.equal(etiquetaCatalogo(centros, "centro:rpt:520"), "TRANSFORMACIÓN DIGITAL");
-  assert.equal(etiquetaCatalogo(centros, "centro-520"), "TRANSFORMACIÓN DIGITAL");
-  assert.equal(etiquetaCatalogo(centros, "centro-810a"), "GESTIÓN Y ADMINISTRACIÓN DE OBRAS PÚBLICAS Y VIVIENDA");
-  assert.equal(etiquetaCatalogo(centros, "centro-999"), "centro-999");
-  assert.equal(etiquetaCatalogo(null, "centro-520"), "centro-520");
+test("lista y ficha nombran el centro por el catálogo sin exponer su código", async () => {
+  for (const [referencia, etiqueta] of [["centro:rpt:520", "Transformación Digital"],
+    ["centro:rpt:999", "No consta"]]) {
+    const cliente = clienteFalso([]);
+    const consultarCuadro = cliente.consultarCuadroRRHH;
+    const consultarDetalle = cliente.consultarDetalleRRHH;
+    cliente.consultarCuadroRRHH = async (...args) => {
+      const pagina = await consultarCuadro(...args);
+      return { ...pagina, expedientes: pagina.expedientes.map((fila) => ({ ...fila, centro_ref: "centro-520" })) };
+    };
+    cliente.consultarDetalleRRHH = async (...args) => {
+      const detalle = await consultarDetalle(...args);
+      return { ...detalle, resumen: { ...detalle.resumen, centro_ref: "centro-520" } };
+    };
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente,
+      obtenerCatalogos: () => ({ esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+        centros: [{ referencia, etiqueta: "Transformación Digital", contactos: [] }],
+        categorias: [], motivos: [], documentos: [] }) });
+    const cuadro = await adaptador.listar();
+    const detalle = await adaptador.obtener(resumen.expediente_ref);
+    assert.equal(cuadro.expedientes[0].centro, etiqueta);
+    assert.equal(detalle.cabecera.find((campo) => campo.clave === "centro").valor, etiqueta);
+  }
 });
 
 test("sin análisis, el expediente lleva los datos de la petición para prerrellenarlo", async () => {

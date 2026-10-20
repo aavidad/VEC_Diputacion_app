@@ -169,16 +169,9 @@ function equivalenteCatalogo(referencia) {
   return centro ? `centro:rpt:${centro[1].toUpperCase()}` : undefined;
 }
 
-function referenciaVisible(catalogos, tipo, referencia) {
+function referenciaVisible(catalogos, tipo, referencia, t) {
   const mapa = catalogos?.[tipo];
-  return mapa?.get(referencia) ?? mapa?.get(equivalenteCatalogo(referencia)) ?? referencia;
-}
-
-/** Etiqueta de una opción de catálogo de alta; sin ella, la referencia tal cual. */
-export function etiquetaCatalogo(lista, referencia) {
-  const opciones = Array.isArray(lista) ? lista : [];
-  const buscar = (valor) => opciones.find((opcion) => opcion.referencia === valor)?.etiqueta;
-  return buscar(referencia) ?? buscar(equivalenteCatalogo(referencia)) ?? referencia;
+  return mapa?.get(referencia) ?? mapa?.get(equivalenteCatalogo(referencia)) ?? t("etiqueta_no_consta");
 }
 
 // Sin plazo_fase (sin catálogo de reglas o fase sin plazo) la columna queda
@@ -241,8 +234,8 @@ function resumenVisual(entrada, catalogos, t, locale) {
   return {
     expediente_ref: entrada.expediente_ref,
     numero_visible: entrada.numero_visible,
-    centro: referenciaVisible(catalogos, "centros", entrada.centro_ref),
-    categoria: referenciaVisible(catalogos, "categorias", entrada.categoria_ref),
+    centro: referenciaVisible(catalogos, "centros", entrada.centro_ref, t),
+    categoria: referenciaVisible(catalogos, "categorias", entrada.categoria_ref, t),
     modalidad: etiquetaModalidad(entrada.modalidad_clave, catalogos, t, "—"),
     estado_clave: estadoClave,
     estado: etiqueta(entrada.estado_clave, t),
@@ -391,8 +384,8 @@ function costeEstimadoVisible(analisis, locale, t) {
 function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta, faseActual = "") {
   const { resumen, solicitud } = detalle;
   const campos = [
-    campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
-    campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
+    campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref, t)),
+    campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref, t)),
     campo("modalidad", t("cabecera_modalidad"), etiquetaModalidad(resumen.modalidad_clave, catalogos, t)),
     campo("fase", t("cabecera_fase_actual"), faseConSubfase(faseActual, resumen.fase_clave, t)),
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),

@@ -28,8 +28,9 @@ const PREIMAGEN = {
   },
   "i18n-borradores-publicados.js": {
     // Excepción a la preimagen: corrección EN de bp_subtitulo posterior al traslado.
-    "MENSAJES_BORRADORES_PUBLICADOS_EN": "bd0c9e68b006dd257bc9e6d78de80a69824dbe6b298fad2b270e9965ae5f2963",
-    "MENSAJES_BORRADORES_PUBLICADOS_ES": "bc98aa0b080c0008dfe99a1a7501da0649169422065c18758d1077a416754bc3"
+    // F1-88: bp_publicacion_recibo pasa a ser el rótulo del justificante, sin {recibo}.
+    "MENSAJES_BORRADORES_PUBLICADOS_EN": "518a57a6a28aed46668e6c47eb12bd4af93c79300a7c4b9119b48b4e9c62effc",
+    "MENSAJES_BORRADORES_PUBLICADOS_ES": "25f03d40911fc90b70d485958d2d73edd01f326a77b82e5c4a3ebc87d75d7086"
   },
   "i18n-cambios-expediente.js": {
     "MENSAJES_CAMBIOS_EXPEDIENTE_EN": "9a37c4630d4ed716d2b5176229ab039b5cfd4731828050ed3c2852dfbd5dd8a4",
@@ -153,7 +154,9 @@ const CLAVES_ADICIONALES = Object.freeze({
   "i18n-borradores-publicados.js": ["bp_documento_informe_definitivo", "bp_documento_resolucion",
     "bp_documento_diligencia", "bp_documento_toma_posesion", "bp_documento_notificacion",
     "bp_documento_comunicacion_centro", "bp_documento_contrato_laboral", "bp_documento_nombramiento",
-    "bp_documento_cese", "bp_documento_modificacion_nombramiento"],
+    "bp_documento_cese", "bp_documento_modificacion_nombramiento",
+    // F1-88: la huella del documento queda tras «Ver detalle técnico».
+    "bp_detalle_tecnico"],
   // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
   // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
   "i18n-llamamiento.js": [
@@ -184,7 +187,11 @@ const CLAVES_ADICIONALES = Object.freeze({
     "asignacion_recibo_descripcion", "informe_recibo_descripcion", "informe_historial_titulo",
     "informe_historial_descripcion", "informe_historial_tabla",
     // F1-96: la confirmación del informe nombra el expediente por su número.
-    "informe_resumen_numero"],
+    "informe_resumen_numero",
+    // F1-88: confirmaciones sin referencia interna (traslado de informe_resumen desde i18n.js)
+    // y rótulos claros de cobertura y asignación.
+    "informe_resumen", "cobertura_motivo_alternativa", "cobertura_estado_motivo_obligatorio",
+    "asignacion_confirmacion", "asignacion_confirmacion_advertencia"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle",
     // F1-89: orientación de la ficha tras preparar el informe jurídico.
