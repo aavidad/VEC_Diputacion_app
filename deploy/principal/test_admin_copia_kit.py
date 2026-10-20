@@ -30,7 +30,7 @@ class FakeProcess:
 
 class KitTest(unittest.TestCase):
     def setUp(self):
-        self.scratch = tempfile.TemporaryDirectory(dir=os.environ['VEC_TEST_SCRATCH'])
+        self.scratch = tempfile.TemporaryDirectory(dir=os.environ.get('VEC_TEST_SCRATCH'))
         self.addCleanup(self.scratch.cleanup)
         self.base = Path(self.scratch.name)
         os.chmod(self.base, 0o700)
@@ -231,7 +231,7 @@ class PreimagenTest(unittest.TestCase):
     SID = '1234567890123456789'
 
     def setUp(self):
-        self.scratch = tempfile.TemporaryDirectory(dir=os.environ['VEC_TEST_SCRATCH'])
+        self.scratch = tempfile.TemporaryDirectory(dir=os.environ.get('VEC_TEST_SCRATCH'))
         self.addCleanup(self.scratch.cleanup)
         self.output = Path(self.scratch.name) / 'preimagen.dump'
         os.chmod(self.output.parent, 0o700)

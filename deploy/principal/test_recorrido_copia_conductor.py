@@ -16,7 +16,7 @@ from recorrido_copia import conductor
 class ConductorTest(unittest.TestCase):
     def test_fallo_en_acto_detiene_plan_firma_y_provision(self):
         eventos = []
-        etapas = {'catalogo': 'preparar', 'roles_admin': 'preparar', 'certificados_base': 'preparar',
+        etapas = {'catalogo': 'preparar', 'roles_admin': 'preparar', 'corporativo': 'preparar', 'certificados_base': 'preparar',
                   'firmantes': 'preparar', 'montajes_firma': 'preparar',
                   'actos': 'preparar_actos', 'plan': 'preparar_plan', 'admisiones': 'preparar',
                   'configuracion_firma': 'preparar'}
@@ -43,7 +43,7 @@ class ConductorTest(unittest.TestCase):
             contexto.return_value.carpeta = Path('/tmp/recorrido')
             with self.assertRaisesRegex(ValueError, 'incierta'):
                 conductor.preparar(copia, argparse.Namespace(puerto_verificador=19881, config_personal=None))
-            self.assertEqual(eventos, ['catalogo', 'roles_admin', 'organizacion_historica', 'certificados_base', 'firmantes', 'montajes_firma', 'actos'])
+            self.assertEqual(eventos, ['catalogo', 'roles_admin', 'corporativo', 'organizacion_historica', 'certificados_base', 'firmantes', 'montajes_firma', 'actos'])
             copia.firma.assert_not_called()
             provisionar.assert_not_called()
 
