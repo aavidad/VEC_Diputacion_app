@@ -796,9 +796,11 @@ no aquí. Plan del módulo: `docs/plan_modulos/personal.md` y
 F1-104 reutiliza `consultar_organizacion_historica_v1` y su recibo desde el
 puerto en proceso de Contratación. La consulta lleva el perfil de Personal de
 la misma cuenta autenticada, con el organismo y las unidades de su asignación.
-No añade tablas, funciones ni roles PostgreSQL. La semilla de la copia local
-puede preparar un segundo perfil nominal con los vínculos de su propia cuenta;
-no acredita un acto de Administración en producción.
+No añade tablas, funciones ni roles PostgreSQL. El rol
+`consulta_organizacion_historica_rrhh:v1` se publica por AUT60 con dos
+administradores distintos. La semilla de la copia local prepara dos cuentas nominales, cada una
+con su persona y su perfil, con ámbitos `organismo_ref` y `unidad_clave`; esa asignación
+ficticia no es un acto de Administración. Su gobierno queda pendiente.
 
 ### 8.5 Autorización (`vec_autorizacion`)
 

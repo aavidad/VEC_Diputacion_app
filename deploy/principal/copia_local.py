@@ -242,12 +242,6 @@ class Copia:
                 # F1-113: Mis preferencias y Mi imagen, ya con Antonio como aspirante.
                 from copia_local_usuarios import preparar as preparar_usuarios
                 preparar_usuarios(self, args.rrhh_original, guardar, sha256)
-                # F1-103: permiso y montaje de la Organización histórica para llamar desde la ficha.
-                import copia_local_organizacion_historica as organizacion_historica
-                huella_oh = organizacion_historica.sembrar(self, REPO)
-                estado = self.leer()
-                estado['organizacion_historica_semilla_sha256'] = huella_oh
-                guardar(self.estado, estado)
         if args.segundo_rrhh:
             from copia_local_rrhh_adicional import preparar_copia
             huella_semilla = preparar_copia(self)
@@ -266,9 +260,6 @@ class Copia:
         with (self.raiz / 'compilacion.log').open('wb') as log:
             ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
                       cwd=REPO, salida=log, entorno=entorno_go)
-            if self.leer().get('organizacion_historica_semilla_sha256'):
-                ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-preparar-material-interno',
-                          './cmd/vec-preparar-material-interno'], cwd=REPO, salida=log, entorno=entorno_go)
         estado = self.leer()
         verificar_fuente(estado['revision'])
         estado['binario_sha256'] = sha256(self.raiz / 'vec-server')
@@ -288,19 +279,6 @@ class Copia:
             guardar(self.estado, estado)
             ejecutar_admin(self, 'arrancar')
             ejecutar_admin(self, 'comprobar')
-        if self.leer().get('organizacion_historica_semilla_sha256'):
-            # La clave OH se deriva cuando la aplicación ya la ha publicado; el
-            # reinicio carga la consulta con su material.
-            import copia_local_organizacion_historica as organizacion_historica
-            if args.segundo_rrhh:
-                from copia_local_organizacion_historica_actores import extender_contextos
-                huella_segunda = extender_contextos(self, REPO)
-                estado = self.leer()
-                estado['organizacion_historica_segunda_semilla_sha256'] = huella_segunda
-                guardar(self.estado, estado)
-            organizacion_historica.preparar_material(self, self.raiz / 'vec-preparar-material-interno')
-            self.parar()
-            self.arrancar()
         if args.portal_externo:
             # La app mantiene el sellado real mientras el productor provisiona
             # identidad, contexto y confianza. El reinicio carga su entorno.
@@ -599,7 +577,7 @@ def migraciones(listas):
 def main():
     os.umask(0o077)
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon', 'firma'])
+    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon', 'firma', 'organizacion-historica'])
     p.add_argument('--equipo', required=True)
     p.add_argument('--instancia', required=True)
     p.add_argument('--puerto-pg', type=int, default=55481)
@@ -656,6 +634,9 @@ def main():
                          '-v', f'{copia.raiz}/pgdata:/copia', '--entrypoint', 'sh', IMAGEN,
                          '-c', 'find /copia -mindepth 1 -delete', salida=subprocess.DEVNULL)
             shutil.rmtree(copia.raiz)
+        elif args.orden == 'organizacion-historica':
+            from copia_local_organizacion_historica_activacion import activar
+            activar(copia, REPO)
         elif args.orden == 'firma':
             if not args.manifiesto_firma or not args.manifiesto_firma.is_absolute():
                 p.error('firma requiere --manifiesto-firma con ruta absoluta')

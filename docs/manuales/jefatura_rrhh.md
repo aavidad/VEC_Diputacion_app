@@ -239,6 +239,14 @@ fiscalización favorable con su recibo.
 
 Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, qué falta y cómo queremos que funcione VEC cuando esté terminada.
 
+Para consultar la historia de la organización en la copia local, primero dos
+personas administradoras distintas deben proponer y aprobar el perfil de
+consulta. Después se preparan las cuentas y asignaciones ficticias de RRHH y se
+activa la consulta. Crear la copia con los módulos no hace esos pasos. La
+aplicación arranca aunque aún falten; la consulta queda pendiente de activación
+y de comprobación conjunta. La asignación de este perfil desde Administración
+todavía está por hacer.
+
 | Parte | Hoy | Falta | Al final |
 | --- | --- | --- | --- |
 | Entrada en la aplicación | Cada persona entra con un certificado de pruebas. | Conectar con el directorio de usuarios de la Diputación. Depende de Informática. | El personal entra con su usuario de la Diputación y su certificado. Los aspirantes, con DNI electrónico o certificado digital. |

@@ -1396,6 +1396,19 @@ efecto.
 - Cada decisión permite reconstruir persona, perfil, acción, recurso,
   finalidad, versiones e instante sin copiar datos personales de más.
 
+### 6.7 Consulta de Organización histórica en la copia local
+
+Antes de activar la consulta, una persona administradora propone el rol
+`consulta_organizacion_historica_rrhh:v1` y otra persona administradora distinta
+lo aprueba mediante AUT60 y el conjunto 7. La publicación conserva su acto y
+recibo. Después, `copia_local.sh organizacion-historica --equipo o --instancia f106`
+prepara solo identidades y asignaciones ficticias con ámbitos `organismo_ref` y
+`unidad_clave`, y monta la consulta. Cada técnica consulta con su propia cuenta, persona y perfil; las cuentas de RRHH
+no sustituyen a las dos personas administradoras.
+La asignación gobernada por Administración queda para una entrega posterior.
+Sin publicación ni activación, la aplicación arranca y esta consulta no se puede
+consumir. Guía: `deploy/principal/organizacion_historica_f1_106_20261020.md`.
+
 ## 7. Resumen de estado por tramo
 
 | Tramo | Funciona en la copia local | En main, sin subir | Falta |

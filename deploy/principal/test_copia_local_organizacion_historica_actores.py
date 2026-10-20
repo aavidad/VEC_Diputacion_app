@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent))
 import copia_local_organizacion_historica_actores as actores
+REPO = Path(__file__).parent.parent.parent
 
 
 ORG = 'org_' + 'a' * 32
@@ -58,8 +59,16 @@ def privado(ruta, dato):
 
 
 class TestSegundaOH(unittest.TestCase):
+    def test_semilla_original_no_acredita_rol_sin_cierre(self):
+        with tempfile.TemporaryDirectory() as t:
+            copia = Copia(Path(t))
+            with patch.object(actores.oh, '_consulta', return_value=['ausente']):
+                with self.assertRaisesRegex(ValueError, 'cierre AUT60'):
+                    actores.extender_contextos(copia, REPO)
+            self.assertEqual(copia.sql, [])
+
     def test_sql_perfil_propio_sin_republicar_rol_ni_motivos(self):
-        sql = actores.sql_segunda(CONTEXTO, CORPORATIVO, REFS, ORG)
+        sql = actores.sql_segunda(CONTEXTO, CORPORATIVO, REFS, ORG, REPO)
         self.assertEqual(sql.count('BEGIN ISOLATION LEVEL SERIALIZABLE'), 1)
         self.assertEqual(sql.count('COMMIT;'), 1)
         self.assertIn("'" + CUENTA + "'", sql)
@@ -67,6 +76,8 @@ class TestSegundaOH(unittest.TestCase):
         self.assertIn('"clave":"unidad_clave","valores":["unidad:centro:520"]', sql)
         self.assertIn('canon_asignacion_perfil_admin_v1', sql)
         self.assertNotIn('INSERT INTO vec_autorizacion.version_rol', sql)
+        self.assertIn('cierre_gobierno_rol_nuevo_v1', sql)
+        self.assertIn('c.aprobador_persona_ref<>p.proponente_persona_ref', sql)
         self.assertNotIn('publicar_motivos_autorizacion_v2', sql)
 
     def test_organizacion_original_no_presta_identidad_a_segundo(self):
@@ -93,7 +104,7 @@ class TestSegundaOH(unittest.TestCase):
 
     def test_otra_cuenta_se_rechaza_antes_de_sql(self):
         with self.assertRaisesRegex(ValueError, 'segunda cuenta'):
-            actores.sql_segunda(CONTEXTO, {**CORPORATIVO, 'cuenta_ref': 'cta_' + '9' * 32}, REFS, ORG)
+            actores.sql_segunda(CONTEXTO, {**CORPORATIVO, 'cuenta_ref': 'cta_' + '9' * 32}, REFS, ORG, REPO)
 
     def test_sin_proyeccion_f1_no_cambia_entrada(self):
         with tempfile.TemporaryDirectory() as t:
@@ -122,7 +133,8 @@ class TestSegundaOH(unittest.TestCase):
                      'gobierno_real_acreditado': False})
             entrada = copia.raiz / 'organizacion-historica/entrada/organizacion_historica_v3.json'
             privado(entrada, {'contextos': {'cta_' + '0' * 32: {}}})
-            with patch.object(actores.oh, 'organismo', return_value=ORG), \
+            with patch.object(actores.oh, 'comprobar_rol_publicado'), \
+                    patch.object(actores.oh, 'organismo', return_value=ORG), \
                     patch.object(actores.oh, '_consulta', return_value=[]), \
                     patch.object(actores.subprocess, 'run') as openssl:
                 openssl.return_value.stdout = b'der-sintetico'
@@ -139,10 +151,11 @@ class TestSegundaOH(unittest.TestCase):
                 'perfil_activo_ref': 'prf_' + '0' * 32, 'perfil_version': 1,
                 'organismo_ref': ORG, 'unidad_clave': ''}}})
             segundo = {'cuenta_ref': CUENTA, 'persona_ref': PERSONA}
-            with patch.object(actores.oh, 'organismo', return_value=ORG), \
+            with patch.object(actores.oh, 'comprobar_rol_publicado'), \
+                    patch.object(actores.oh, 'organismo', return_value=ORG), \
                     patch.object(actores, '_segundo', return_value=segundo), \
                     patch.object(actores, '_contexto_f1', return_value=(CONTEXTO, CORPORATIVO)):
-                huella = actores.extender_contextos(copia, Path(t))
+                huella = actores.extender_contextos(copia, REPO)
             contextos = json.loads(entrada.read_text())['contextos']
             self.assertEqual(len(contextos), 2)
             self.assertNotEqual(contextos[CUENTA]['perfil_activo_ref'],

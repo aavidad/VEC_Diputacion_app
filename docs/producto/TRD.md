@@ -556,6 +556,15 @@ sumarlo al perfil de Contratación. Conserva la ruta original, la autorización
 y la auditoría de Personal. El cliente M10 con certificado fijo deja de usarse
 en este recorrido. Si falta el montaje de Personal, falla solo la selección.
 
+F1-106 retira la publicación del rol de Organización histórica del arranque de
+la copia. `crear --modulos` no publica ese rol ni activa la consulta. El rol
+`consulta_organizacion_historica_rrhh:v1` requiere propuesta y aprobación de dos
+administradores distintos por AUT60 y el conjunto 7. Después se ejecuta
+`copia_local.sh organizacion-historica --equipo o --instancia f106` para sembrar
+identidades y asignaciones ficticias y montar la consulta. La aplicación arranca
+antes y después; falta acreditar el ensayo conjunto. Véase
+`deploy/principal/organizacion_historica_f1_106_20261020.md`.
+
 
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe
   el estado (apartado 7).
