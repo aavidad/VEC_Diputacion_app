@@ -635,7 +635,16 @@ se retira una, debe marcar «He revisado el orden» antes de guardar.
 Estado: el servidor guarda y lee la elección con versión y justificante
 (`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`) y la aplica
 a la vista de ofertas de Mi Bolsa y a los avisos por correo (F1-13, parte 4).
-Falta publicar el permiso de la aspirante y la pantalla para elegir (F1-14).
+La pantalla para elegir está en Mi Bolsa (F1-14): panel «Ofertas que me
+interesan» con tres opciones (todos los tipos, solo los marcados o ninguno).
+Al elegir «ninguno» avisa, antes de guardar, de que no verá ofertas nuevas ni
+recibirá avisos, y de que sigue en sus bolsas. Guarda con versión, clave de
+repetición y recibo; si otra ventana guardó antes (409) recarga la elección
+vigente y lo explica. Cuando la lista de ofertas ya aplica la elección, «Ver
+todas las ofertas» la consulta una vez sin filtro
+(`GET /api/vec/bolsa/mi-bolsa?ofertas=todas`) sin cambiar lo guardado.
+Si la persona no tiene el permiso (403) o la consulta no existe (404), el
+panel no aparece. Falta publicar el permiso de la aspirante (F0-28).
 
 En Mi Bolsa se ocultan las ofertas abiertas, todavía sin respuesta, cuya
 modalidad la aspirante no eligió. Las ofertas sin modalidad y las que ya
@@ -845,9 +854,14 @@ Intervención, resolución, GINPIX, firma de la persona, incorporación,
 seguimiento). Pero la secuencia persistida hace el llamamiento **después** de
 la fiscalización favorable, y la propuesta exige el expediente en
 `fiscalizacion/en_curso`. Mientras no se cambie, el orden real es el de la
-tabla anterior. Quién decide: dirección, con RRHH. Si el circuito v2 no está
-configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`), se pintan las ocho fases del
-flujo v1.
+tabla anterior. Quién decide: dirección, con RRHH. Los expedientes nuevos
+nacen siempre con el flujo v1 y se pintan sus ocho fases, aunque el circuito
+v2 esté configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`, que pone la orden
+`firma` de la copia). Con circuito, el análisis necesita una fuente que
+acredite la petición firmada y la autorización de RRHH, y ningún adaptador la
+aporta todavía; la fiscalización tampoco admite expedientes con circuito. La
+variable solo monta la consulta del circuito que usa la firma y su
+presentación (F1-98).
 
 Si la persona aún no ha empezado a trabajar y hay devolución, rechazo o
 sustitución, se repiten los trámites salvo volver a Intervención cuando no cambia

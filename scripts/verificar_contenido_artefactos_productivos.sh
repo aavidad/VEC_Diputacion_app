@@ -329,6 +329,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js
 	static/portal-empleado/modulos/dietas/cliente-rectificacion-admin-http.js
 	static/portal-empleado/organizacion/historico.js
+	# F1-100: nombres de las personas llamadas para vincular un llamamiento; GET
+	# a la ruta interna fija de candidatos de Bolsa, same-origin, no-store,
+	# redirect error y no-referrer; nada se guarda fuera de memoria.
+	static/portal-empleado/modulos/contratacion-temporal/personas-llamamiento-bolsa.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
