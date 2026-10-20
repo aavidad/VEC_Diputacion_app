@@ -5,7 +5,7 @@ Primer corte de F1-125, separado por dirección el 20/10 a las 12:56.
 La ficha muestra la aceptación firme, la fecha de emisión, la fecha de respuesta
 y el justificante original de Mi Bolsa cuando acredita su origen en una
 selección confirmada de Contratación. Este corte es de consulta; la resolución
-y su recuperación corresponden al segundo corte de F1-125.
+se incorpora en el segundo corte de F1-125; su recuperación corresponde a F1-127.
 
 ## Activación
 
