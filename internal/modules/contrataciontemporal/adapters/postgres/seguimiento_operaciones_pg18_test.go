@@ -123,7 +123,9 @@ func TestSeguimientoPostgreSQLContratoGoSQL(t *testing.T) {
 		t.Fatalf("confirmar cierre: %+v %v", reciboC, err)
 	}
 	estado, err := repo.ConsultarEstadoSeguimiento(ctx, org, expA)
-	if err != nil || estado.Cese == nil || estado.Cierre == nil || estado.Cese.CausaClave != "fin_sustitucion" || estado.Cierre.GINPIXNumero != "GX-2027-0099" {
+	if err != nil || estado.Cese == nil || estado.Cierre == nil || estado.Cese.CausaClave != "fin_sustitucion" || estado.Cierre.GINPIXNumero != "GX-2027-0099" ||
+		estado.VersionExpediente != 9 || estado.FaseClave != domain.FaseNombramiento || estado.EstadoClave != domain.EstadoCompletado ||
+		!domain.NumeroExpedienteValido(estado.NumeroExpediente) {
 		t.Fatalf("estado: %+v %v", estado, err)
 	}
 

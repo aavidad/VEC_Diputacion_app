@@ -50,6 +50,13 @@ function pdfValido(bytes) {
     && new TextDecoder().decode(bytes.subarray(-1024)).includes("%%EOF");
 }
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+// Pausas antes de repetir un registro que no obtuvo respuesta. Chrome corta las
+// peticiones en curso cuando cambia la red del equipo (net::ERR_NETWORK_CHANGED):
+// la misma clave y los mismos bytes hacen que el servidor confirme el registro
+// ya hecho (200) o lo haga ahora (201), nunca dos veces.
+const PAUSAS_REINTENTO_REGISTRO_MS = Object.freeze([1000, 3000]);
+// Plazo de cada intento: un envío que no termina no bloquea la ficha para siempre.
+const PLAZO_INTENTO_REGISTRO_MS = 90 * 1000;
 
 function claveError(error) {
   if (["acceso_denegado", "denegado", "recurso_no_encontrado"].includes(error?.codigo)) return "circuito_firma_error_denegado";
@@ -68,11 +75,16 @@ export function crearAccionesFirma({
   obtenerEstado, obtenerCircuito, t, clientePreflight, obtenerVinculoOriginal, obtenerOriginal,
   autofirma, registrarVec, registrarExterna, alCambiar, entornoDescarga = globalThis,
   crearClave = () => globalThis.crypto.randomUUID(),
+  esperar = (ms) => new Promise((resolver) => { globalThis.setTimeout(resolver, ms); }),
+  plazoIntento = (ms) => globalThis.AbortSignal?.timeout?.(ms),
 } = {}) {
   let sesion = null;
   let retirada = false;
   let pendiente = false;
   let recuperacion = null;
+  // Registro ya enviado. No cuelga de la señal de la sesión: abortar un POST
+  // enviado no deshace su efecto y solo deja la firma sin confirmar.
+  let envio = null;
 
   function contexto(bloque) {
     const estado = obtenerEstado?.(); const circuito = obtenerCircuito?.();
@@ -234,6 +246,26 @@ export function crearAccionesFirma({
     }
     decir(s, clave); ocupada(s, false); campo?.focus?.();
   }
+  /**
+   * Solo se repite el envío que se quedó sin respuesta; un rechazo del servidor
+   * se respeta. Cada intento recibe su propia copia de los bytes del reintento.
+   */
+  async function registrarConReintentos(registro, intento) {
+    for (let i = 0; ; i += 1) {
+      const enviada = Object.freeze({ ...intento.datos, firmado: intento.datos.firmado.slice(),
+        ...(intento.datos.original ? { original: intento.datos.original.slice() } : {}) });
+      const plazo = plazoIntento(PLAZO_INTENTO_REGISTRO_MS);
+      try { return await registro(enviada, plazo ? { signal: plazo } : {}); }
+      catch (error) {
+        // Agotar el plazo propio no es una cancelación de la persona: el envío queda sin respuesta.
+        const sinRespuesta = error?.codigo === "servicio_no_disponible"
+          || (plazo?.aborted === true && (error?.codigo === "operacion_abortada" || error?.codigo === undefined));
+        if (!sinRespuesta) throw error;
+        if (i >= PAUSAS_REINTENTO_REGISTRO_MS.length) throw { codigo: "servicio_no_disponible" };
+      }
+      await esperar(PAUSAS_REINTENTO_REGISTRO_MS[i]);
+    }
+  }
   async function registrar(s, via) {
     if (s.reintento && s.reintento.via !== via) {
       decir(s, "circuito_firma_recuperacion", {}, true); return;
@@ -288,11 +320,17 @@ export function crearAccionesFirma({
     const cancelacion = s.bloque.querySelector?.('[data-ct-firma-accion="cancelar"]');
     if (cancelacion) cancelacion.disabled = true;
     const intento = s.reintento;
-    const enviada = Object.freeze({ ...intento.datos, firmado: intento.datos.firmado.slice(),
-      ...(intento.datos.original ? { original: intento.datos.original.slice() } : {}) });
-    const respuesta = await registro(enviada, { signal: s.controlador.signal });
-    if (!vigente(s)) return;
+    const envioActual = registrarConReintentos(registro, intento);
+    envio = envioActual;
+    let respuesta;
+    try { respuesta = await envioActual; } finally { if (envio === envioActual) envio = null; }
     const recibo = validarRecibo(respuesta, intento);
+    if (!vigente(s)) {
+      // La interfaz que lo lanzó ya no está: solo se retira la recuperación de
+      // este mismo intento si el recibo es válido. No se pinta nada.
+      if (recibo && recuperacion?.reintento === intento) recuperacion = null;
+      return;
+    }
     if (!recibo) throw { codigo: "resultado_no_confiable" };
     s.recibo = recibo;
     recuperacion = null;
@@ -313,6 +351,12 @@ export function crearAccionesFirma({
     const actual = contexto(bloque);
     if (!actual) return;
     if (accion === "comprobar") {
+      if (envio) {
+        // Cancelar la sesión dejaría el registro enviado sin confirmar.
+        const aviso = bloque?.querySelector?.("[data-ct-firma-resultado]");
+        if (aviso) { aviso.textContent = t("circuito_firma_otra_en_curso"); aviso.focus?.({ preventScroll: true }); }
+        return;
+      }
       if (pendiente && sesion?.bloque === bloque) return;
       await comprobar(bloque, actual); return;
     }

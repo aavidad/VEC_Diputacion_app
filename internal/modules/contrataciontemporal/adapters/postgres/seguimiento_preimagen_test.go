@@ -92,6 +92,29 @@ func TestSeguimientoConservaPreimagenSQLConMicrosegundoFinalCero(t *testing.T) {
 	if tipada, err := json.Marshal(siguiente); err != nil || bytes.Contains(tipada, []byte(`"inicio":"2026-09-01"`)) {
 		t.Fatal("la muestra no distingue DTO de agregado físico", err)
 	}
+	// La no incorporación coteja el mismo agregado íntegro y al confirmar
+	// vuelve a fiscalización; ni la preimagen ni la historia cambian de forma.
+	for _, fase := range []domain.ClaveFase{domain.FaseNombramiento, domain.FaseFiscalizacion} {
+		siguiente.FaseActual, siguiente.EstadoActual = fase, domain.EstadoEnCurso
+		anterior, posterior, err := proyeccionesConfirmacionSeguimiento(ports.OrdenConfirmarOperacionSeguimiento{
+			Operacion:   ports.OperacionRegistrarNoIncorporacion,
+			Preparacion: ports.PreparacionOperacionSeguimiento{Expediente: *preparada.Expediente, ExpedienteAnteriorJSON: preparada.ExpedienteRaw},
+			Siguiente:   siguiente, InstanteEfecto: instanteNuevo,
+		}, preparada.Expediente.OrganizacionRef, preparada.Expediente.Referencia)
+		if err != nil {
+			t.Fatal(err)
+		}
+		antes, _ := json.Marshal(anterior)
+		despues, _ := json.Marshal(posterior)
+		var agregado map[string]json.RawMessage
+		if err := json.Unmarshal(despues, &agregado); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(antes, preparada.ExpedienteRaw) || !bytes.Contains(despues, []byte(instante)) ||
+			string(agregado["fase_actual"]) != `"`+string(fase)+`"` || string(agregado["version"]) != "2" {
+			t.Fatal("no incorporación alteró el original o perdió su retorno de fase")
+		}
+	}
 	for _, invalida := range []json.RawMessage{nil, []byte(`{"referencia":`), []byte(`{"referencia":"otro","version":1}`)} {
 		_, err := preimagenOriginalSeguimiento(ports.PreparacionOperacionSeguimiento{
 			Expediente: *preparada.Expediente, ExpedienteAnteriorJSON: invalida,

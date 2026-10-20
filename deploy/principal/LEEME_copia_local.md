@@ -668,6 +668,8 @@ mismo volcado y las listas necesarias.
 | Tras el acto, las convocatorias abiertas siguen en 403 y las propias dan 200 | La entrada del catálogo v6 no trae `modalidad_inscripcion` ni `solicitudes_propias[]`, y la autorización exige los mismos campos | Nueva versión de la fuente de inscripción y del rol (apartado 9); no tocar la concesión por SQL |
 | La segunda firma del informe da 422 `firma_no_verificada` | GrxFirma 0.0.105 duplica `/Version` al cofirmar y su primera firma bloquea los campos | Firmar las dos veces con GrxFirma 0.0.106 o posterior, en un expediente sin firmas de la 0.0.105 (apartado 11) |
 | GrxFirma rechaza el origen de la copia con 403 | Su configuración no tiene permisos 600 o la confianza por decisión está apagada | `chmod 600` a sus ficheros y activar la confianza por decisión con el origen admitido |
+| Chrome anota `net::ERR_NETWORK_CHANGED` y la aplicación, un 503 de una petición que el navegador ya cortó | Otro contenedor Docker del equipo arranca o se borra y Chrome corta lo que tiene en curso | Nada que arreglar en la copia. El registro de una firma se repite solo con la misma clave (F1-94); una lectura se repite con «Comprobar» |
+| `exportar_admisiones` no devuelve firmantes | La asignación del firmante acaba después de que se retire su certificado | Hacer que la asignación termine en la retirada del certificado (apartado 11) |
 | `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
 | `git worktree move` falla hacia `/dev/shm` | Cambio de dispositivo | Copiar la carpeta y `git worktree repair` |
 
@@ -707,15 +709,19 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    orden no cambie, y si una falla las siguientes no se ejecutan.
 2. Publica la v4 de plantillas (F1-86) con `publicar_informe.sh` sobre TLS
    verificado. Si ya estaba publicada, el recibo dice `replay`.
-3. Copia el circuito RRHH v2 y el catálogo v4 de esta revisión a
+3. Copia el circuito RRHH v2, el catálogo v4 y la política sintética de
+   subsanación de reparos de esta revisión a
    `material/identidad/firma-recursos/` y comprueba que `firma-vec.json`
    apunta al plan y a la CRL de esa carpeta y que no está retirado.
 4. Instala el verificador en `<copia>/verificador` (binario con su huella, CA
    y TLS de la copia, CRL de clientes y su credencial, que se crea la primera
    vez y se conserva después) y añade al
-   entorno de módulos las ocho variables de firma:
-   `VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
-   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`.
+   entorno de módulos diez variables: las de firma
+   (`VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
+   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`),
+   `VEC_CT_SUBSANACION_POLITICA_FILE` para registrar la subsanación de un
+   reparo y `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` para abrir la ruta
+   `#contratacion-temporal/plantillas-rrhh`.
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
    que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
    `borrar`) lo para. Solo se para el proceso
@@ -725,8 +731,18 @@ Después, aprueba la provisión de los perfiles fijos de RRHH
 (`firma_documento`, `lector_entrega_peticion`) como en la presentación y
 comprueba que el preflight ofrece `certificado_vec` a la persona del paso.
 
-Para firmar en Chrome hace falta GrxFirma 0.0.106 o posterior como lanzador
-de `afirma://`. Con la 0.0.105 la segunda firma del informe sale 422. Cada
+En copias nuevas (F1-94) el camino entero funciona con `firma` sin pasos a
+mano, si las etapas privadas cumplen estas condiciones: las asignaciones de
+los firmantes terminan cuando se retira su certificado; la correspondencia
+CA45 se publica antes del plan; la verificación del gobierno de
+Administración se reintenta hasta que esté disponible; y el kit de
+Administración usa la revisión de la copia nueva. Detalle en
+[`firma_jefatura_f1_94_20261020.md`](../../docs/estudio_requisitos/firma_jefatura_f1_94_20261020.md).
+
+**Aviso: GrxFirma debe ser la 0.0.106 o posterior.** Es el lanzador de
+`afirma://` para firmar en Chrome. Con la 0.0.105 (la instalada en
+`/usr/bin`) la segunda firma del informe sale 422, y un informe que el
+técnico firmó con ella ya no admite la firma de Jefatura. Cada
 persona usa su propia carpeta personal, con `afirma://` permitido en Chrome
 para el origen de la copia y la configuración de GrxFirma en `0600`, la
 confianza por decisión activada y el origen admitido.
