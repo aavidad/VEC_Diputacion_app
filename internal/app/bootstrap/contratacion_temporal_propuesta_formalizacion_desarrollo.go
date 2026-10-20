@@ -281,7 +281,7 @@ func acreditarCadenaSucesoraPropuestaDesarrollo(ctx context.Context, repo puerto
 		j.Resultado != referenciaVersionadaPuenteLlamamientoDesarrollo(j.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canones[0])) ||
 		j.Propuesta != referenciaVersionadaPuenteLlamamientoDesarrollo(raiz.Propuesta.PropuestaRef, 1, raiz.Propuesta.HuellaContenidoSHA256) ||
 		j.Orden != referenciaVersionadaPuenteLlamamientoDesarrollo(raiz.Instantanea.InstantaneaRef, raiz.Instantanea.Version, raiz.Instantanea.HuellaContenidoSHA256) ||
-		uint32(raiz.Propuesta.OrdenSeleccionado) != j.OrdenSeleccionado ||
+		raiz.Propuesta.OrdenSeleccionado != uint64(j.OrdenSeleccionado) ||
 		apertura.Tipo != "propuesta" || apertura.Propuesta == nil || apertura.Propuesta.Continuacion == nil || apertura.Llamamiento == nil ||
 		apertura.Llamamiento.LlamamientoRef != c.ReciboBolsa.LlamamientoRef || apertura.Propuesta.PropuestaRef != c.ReciboBolsa.PropuestaRef ||
 		huellaPuenteLlamamientoDesarrollo(canones[1]) != c.ReciboBolsa.RegistroSHA256 ||
