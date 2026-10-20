@@ -9,7 +9,7 @@ Estos guiones preparan el puesto, la plaza, la participación de Antonio y la de
 | Puesto | 9/01, revisión 1 |
 | Plaza | 2026/0033, revisión 1 |
 | Bolsa | `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk`, versión 1, ya constituida |
-| Aspirante | Antonio Reyes Álvarez; disponible desde el inicio, orden de acta y turno vigente 1 |
+| Aspirante | Antonio Reyes Álvarez; puesto 5 del acta y turno vigente 1, porque los cuatro anteriores no están disponibles |
 
 Las referencias del organismo del recorrido están en [seleccion.json](seleccion.json).
 El guion añade únicamente el Administrativo que faltaba en Personal: un
@@ -27,13 +27,15 @@ catálogos publicados `regimen:funcionario_interino` v1 y `modalidad:vacante` v1
 
 P conserva la preparación de la identidad de Antonio con los guiones existentes en
 [inscripcion_recorrido_20261013](../../inscripcion_recorrido_20261013/LEEME.md).
-[antonio_disponible.sql](antonio_disponible.sql) reutiliza su participación
-importada del primer puesto del acta vigente y la bolsa constituida v1.
-La misma persona de Antonio se vincula a ese candidato mediante una nueva
-versión de su proyección común; la anterior permanece en la historia. Añade una
-situación **Disponible** con una clave fija y conserva la bolsa sustituida y el
-orden del acta. La fuente de Bolsa que usa el llamamiento CT debe devolverlo
-como primer candidato disponible; si no lo hace, la transacción se revierte.
+[antonio_disponible.sql](antonio_disponible.sql) vincula a Antonio con su
+propia fila del acta vigente, la del puesto 5, que el acta da a «Antonio Reyes
+Álvarez». La misma persona de Antonio se vincula a ese candidato mediante una
+nueva versión de su proyección común; las anteriores permanecen en la historia.
+Las cuatro personas de los puestos 1 a 4 pasan a **No disponible** con una
+clave fija, así que el primer turno es el de Antonio. Se conservan la bolsa
+sustituida y el orden del acta. La fuente de Bolsa que usa el llamamiento CT
+debe devolverlo como primer candidato disponible, con orden de acta 5; si no
+lo hace, la transacción se revierte.
 No se crean otra persona, candidatura, bolsa ni inscripción.
 
 El recorrido principal empieza en la petición del centro, con Antonio ya en la
@@ -122,13 +124,20 @@ no se utiliza como clave.
 
 Dirección cambió la referencia del caso a la bolsa vigente: la del 17/09 ya
 estaba sustituida por el acta del 12/10. Esa sustitución y ambas actas se
-conservan. Se reutiliza la primera participación de la bolsa vigente para los
-datos ficticios de Antonio; no se añaden integrantes al acta ni se cambian
-canónicos o huellas.
+conservan. No se añaden integrantes al acta ni se cambian canónicos o huellas.
+
+La primera versión de este guion (F1-100) vinculaba a Antonio con la fila 1 del
+acta, que es de Isabel Ramírez Vargas. La lista de la bolsa mostraba su nombre
+en la participación de Antonio, y su propia fila, la del puesto 5, aparecía
+como de otra persona. El nombre visible sale del acta protegida, que solo la
+aplicación puede descifrar; por eso el guion fija las referencias de la fila
+del acta que lleva su nombre y no puede comprobar el nombre en SQL. Si el
+guion anterior ya se aplicó, este añade otra versión del vínculo y las cuatro
+situaciones; no deshace nada.
 
 CONFIG NUEVA: conservar la misma persona, cuenta y certificado de Antonio y
 actualizar `candidato_ref` a
-`can_Vxd6XlZE9ctNzw38AUSmgQbCcRyoFKhaojDaFsEKC1M` en los manifiestos privados
+`can_dJo5qQLf4agrD4c3jkIlHUkga2uQ-BusRCLCYPzKLyY` en los manifiestos privados
 `identidad/bolsa-candidato.json` que use la copia. No se añaden opciones de
 arranque ni credenciales.
 
