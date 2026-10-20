@@ -99,6 +99,24 @@ coincidir con los del caso escrito.
    en `bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go:957–997`.
    El diagnóstico actual no permite atribuirlo a datos, permisos o
    configuración. Se comunicó a dirección para el equipo de CT/Bolsa.
+5. **Recuperación singular tras cerrar Chrome.** El formulario conserva la
+   solicitud y su clave únicamente en memoria
+   (`formulario-llamamiento.js:773–792`). El botón de reintento reutiliza esa
+   solicitud mientras sigue montado; al abrir de nuevo el expediente se
+   crea otro estado y una clave nueva. La recuperación desde el servidor
+   se ejecuta solo para ofertas de varias personas (`:597–625`), y la clave
+   singular no tiene entrada visible (`renderizado-llamamiento.js:206–207`).
+   La intención original de E está conservada fuera de Git, pero no se ha
+   vuelto a pulsar selección tras el reinicio. Se solicitó a dirección una
+   vía de recuperación del mismo intento desde el producto.
+
+L reprodujo en su propia copia nueva un fallo de la vista previa del correo,
+antes de reservar o enviar: `RecuperarStaging` devuelve
+`ErrMaterialNoConfiable`; las doce participaciones de Administrativo declaran
+una clave distinta de la generada para esa copia. Dirección recibió el
+diagnóstico el 21/10 a las 00:55. Esa comprobación de L no cambia los datos de
+E ni recupera la causa que su ejecución anterior descartó. La regeneración
+del dato y la conservación de la causa siguen en el corte de L.
 
 También se observan un 404 de preferencias de Usuarios para la técnica
 operativa y un 401 para el técnico nominal; la receta nueva no activa ese
