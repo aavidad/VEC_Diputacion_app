@@ -209,6 +209,23 @@ function faseConOrden(clave, t) {
   }) : etiqueta(clave, t);
 }
 
+// Fases del servidor que son un paso dentro de una fase de RRHH. La cabecera
+// las nombra junto a ella («Fase 3 de 8: Gestión de bolsa · Informe jurídico»)
+// para que la ficha diga en qué punto está el expediente.
+const SUBFASES_VISIBLES = new Set(["asignacion_unidad", "informe_juridico", "subsanacion_unidad"]);
+
+function faseConSubfase(faseRail, faseServidor, t) {
+  const fase = faseConOrden(faseRail || faseServidor, t);
+  const rrhh = faseRRHH(faseRail || faseServidor);
+  if (!SUBFASES_VISIBLES.has(faseServidor) || !rrhh || faseRRHH(faseServidor)?.clave !== rrhh.clave) return fase;
+  return t("ficha_fase_con_subfase", { fase, subfase: etiqueta(faseServidor, t) });
+}
+
+/** Rótulo de la cabecera para una fase del servidor confirmada por un recibo. */
+export function rotuloFaseCabecera(faseServidor, mensajes = {}) {
+  return faseConSubfase("", faseServidor, crearTraductorExpedientesContratacion(mensajes));
+}
+
 function resumenVisual(entrada, catalogos, t, locale) {
   const estadoClave = estadoVisual(entrada.estado_clave);
   return {
@@ -285,6 +302,7 @@ function periodoVisible(inicio, fin, causa, locale, t) {
 }
 
 const MENSAJES_ACCIONES_HISTORIAL = new Map([
+  ["alta", "hito_solicitud"],
   ["contratacion_temporal.solicitud.crear", "hito_solicitud"],
   ["contratacion_temporal.analisis.registrar", "hito_analisis"],
   ["contratacion_temporal.analisis.rectificar", "hito_rectificacion_analisis"],
@@ -361,7 +379,7 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta, faseAct
     campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
     campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
     campo("modalidad", t("cabecera_modalidad"), etiquetaModalidad(resumen.modalidad_clave, catalogos, t)),
-    campo("fase", t("cabecera_fase_actual"), faseConOrden(faseActual || resumen.fase_clave, t)),
+    campo("fase", t("cabecera_fase_actual"), faseConSubfase(faseActual, resumen.fase_clave, t)),
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", t("cabecera_grupo_subgrupo"), solicitud.grupo_subgrupo),
     campo("motivo", t("cabecera_motivo"), etiqueta(solicitud.motivo_clave, t)),

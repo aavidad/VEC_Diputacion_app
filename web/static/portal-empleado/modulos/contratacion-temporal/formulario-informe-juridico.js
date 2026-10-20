@@ -199,7 +199,7 @@ function renderizarHistorial(estado, t, formateador, mensajes) {
         <tbody>${estado.historial.map((hito) => {
           const etiquetas = presentarEtiquetasHitoRRHH(hito, mensajes);
           return `<tr>
-          <th scope="row">${hito.secuencia}</th><td data-etiqueta="${escaparHTML(t("informe_historial_version"))}">${hito.version_expediente}</td>
+          <th scope="row" data-etiqueta="${escaparHTML(t("informe_historial_secuencia"))}">${hito.secuencia}</th><td data-etiqueta="${escaparHTML(t("informe_historial_version"))}">${hito.version_expediente}</td>
           <td data-etiqueta="${escaparHTML(t("informe_historial_accion"))}">${escaparHTML(etiquetas.accion)}</td>
           <td data-etiqueta="${escaparHTML(t("informe_historial_fase"))}">${escaparHTML(etiquetas.faseOrigen)} → ${escaparHTML(etiquetas.faseDestino)}</td>
           <td data-etiqueta="${escaparHTML(t("informe_historial_estado"))}">${escaparHTML(etiquetas.estadoOrigen)} → ${escaparHTML(etiquetas.estadoDestino)}</td>
