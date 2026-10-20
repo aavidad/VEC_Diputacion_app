@@ -1,4 +1,4 @@
-# Histórico de las instrucciones de desatasco de septiembre y octubre de 2026
+# Histórico de las instrucciones de desatasco de del 3 al 19 de septiembre de 2026
 
 Documento archivado el 20/10/2026 desde `origin/main@3ef7dee0b`.
 El contenido siguiente conserva decisiones y diagnósticos de su fecha.

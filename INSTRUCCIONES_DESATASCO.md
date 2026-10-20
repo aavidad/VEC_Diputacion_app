@@ -1,7 +1,7 @@
 # Desatascar el trabajo de VEC
 
 Actualizado el 20 de octubre de 2026. Las instrucciones de septiembre y sus
-ampliaciones están en el [archivo histórico](docs/historico/INSTRUCCIONES_DESATASCO_20260903_20261005.md).
+ampliaciones están en el [archivo histórico](docs/historico/INSTRUCCIONES_DESATASCO_20260903_20260919.md).
 No fijan la prioridad ni el método de trabajo actuales.
 
 La prioridad vigente es Bolsa y Contratación temporal, con las bases que
