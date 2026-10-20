@@ -633,8 +633,10 @@ desde la revisión limpia, prepara Administración y genera el montaje externo
 `version-bolsa-externa` de `vec-gobierno-usuarios-admin`). En `arrancar` lanza `vec-admin` con
 `VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE` y guarda PID e inicio del
 proceso. El ejecutor y el kit viven en `~/.local/state`, nunca en Git.
-La fuente de inscripción no se admite otra vez: el catálogo
-`catalogo:bolsa:carga_convoca:b1` v6 de la línea base ya trae sus entradas.
+El catálogo `catalogo:bolsa:carga_convoca:b1` v6 de la línea base trae la
+fuente de inscripción v1. Desde F1-101 se admite antes la v2 en un catálogo v7
+(guía en `candidata_hz39/aspirante/inscripcion_fuente_v2.md`) y el plan del
+aspirante toma de ahí sus cinco acciones.
 
 Orden del acto del aspirante, con el Chrome del sistema y un perfil por
 certificado (`admin/h10/fuentes/cliente-1` y `cliente-2`):
@@ -656,11 +658,11 @@ CA de la copia (`NODE_EXTRA_CA_CERTS`) y Chrome con la huella SPKI de su
 certificado; no se desactiva la verificación.
 
 Después del cierre, el aspirante lee `/api/vec/bolsa/inscripciones/propias`
-con 200. La lista de convocatorias abiertas y su ficha siguen en 403: las
-entradas del catálogo v6 no traen los campos que la aplicación pide desde
-F1-40 y F1-41 (`modalidad_inscripcion` y `solicitudes_propias[]`), y la
-autorización exige que coincidan. Hace falta otra versión de la fuente y del
-rol; además `vistas.json` mantiene apagada la pestaña de inscripción (F1-29).
+con 200. Con las entradas de la v1 (catálogo v6), la lista de convocatorias
+abiertas y su ficha responden 403: no traen los campos que la aplicación pide
+desde F1-40 y F1-41 (`modalidad_inscripcion` y `solicitudes_propias[]`), y la
+autorización exige que coincidan. Con la fuente v2 admitida (F1-101) las dos
+responden 200.
 
 El suplemento del segundo RRHH queda aparcado por dirección: el ámbito
 antiguo de Contratación necesita una tarea propia para usar organización y
@@ -707,7 +709,7 @@ mismo volcado y las listas necesarias.
 | Con la inscripción encendida, el arranque que sigue a `--portal-externo` se detiene en `inscripcion_rrhh_cuentas_lectores` | La copia no declaraba a la técnica de RRHH en `identidad/consultas-rrhh.json` | Arreglado en F1-90: el preparador escribe el manifiesto. Una copia anterior se crea de nuevo |
 | `--portal-externo` se detiene en `fuente_privada_divergente` | El material de origen ya traía un `identidad/consultas-rrhh.json` distinto (otros lectores u otro formato) | Crear la copia con un material sin ese fichero; el preparador no mezcla manifiestos |
 | El aspirante abre la inscripción y recibe 403 | Su rol aún no tiene las acciones `bolsa.inscripcion.*` | Actos de Administración de `inscripcion_recorrido_20261013/gobierno_inscripcion.md` (F0-28, F1-29) |
-| Tras el acto, las convocatorias abiertas siguen en 403 y las propias dan 200 | La entrada del catálogo v6 no trae `modalidad_inscripcion` ni `solicitudes_propias[]`, y la autorización exige los mismos campos | Nueva versión de la fuente de inscripción y del rol (apartado 9); no tocar la concesión por SQL |
+| Tras el acto, las convocatorias abiertas siguen en 403 y las propias dan 200 | El rol se publicó con la fuente v1 (catálogo v6), sin `modalidad_inscripcion` ni `solicitudes_propias[]`, y la autorización exige los mismos campos | Admitir antes la fuente v2 y publicar el rol desde ella (F1-101, apartado 9); en una copia que ya publicó la v1, crear otra copia. No tocar la concesión por SQL |
 | La segunda firma del informe da 422 `firma_no_verificada` | GrxFirma 0.0.105 duplica `/Version` al cofirmar y su primera firma bloquea los campos | Firmar las dos veces con GrxFirma 0.0.106 o posterior, en un expediente sin firmas de la 0.0.105 (apartado 11) |
 | GrxFirma rechaza el origen de la copia con 403 | Su configuración no tiene permisos 600 o la confianza por decisión está apagada | `chmod 600` a sus ficheros y activar la confianza por decisión con el origen admitido |
 | Chrome anota `net::ERR_NETWORK_CHANGED` y la aplicación, un 503 de una petición que el navegador ya cortó | Otro contenedor Docker del equipo arranca o se borra y Chrome corta lo que tiene en curso | Nada que arreglar en la copia. El registro de una firma se repite solo con la misma clave (F1-94); una lectura se repite con «Comprobar» |
@@ -764,6 +766,9 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    `VEC_CT_SUBSANACION_POLITICA_FILE` para registrar la subsanación de un
    reparo y `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` para abrir la ruta
    `#contratacion-temporal/plantillas-rrhh`.
+   El circuito RRHH v2 solo monta la consulta que usa la firma: los
+   expedientes nuevos siguen naciendo con el flujo de ocho fases y
+   pueden pasar el análisis (F1-98).
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
    que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
    `borrar`) lo para. Solo se para el proceso

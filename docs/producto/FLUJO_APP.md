@@ -139,7 +139,7 @@ No admite sesiones reanudadas ni identidad por cabeceras. Solo arranca en
 
 | Perfil | Rol técnico | Entra por | Ve y hace | Estado |
 | --- | --- | --- | --- | --- |
-| Aspirante | `candidato_bolsa` | `/area-personal/` | Mi Bolsa, perfil y contacto, méritos, alegaciones, inscripción (oculta), preferencias | En cidonia (Mi Bolsa); el resto, ver 4.1 |
+| Aspirante | `candidato_bolsa` | `/area-personal/` | Mi Bolsa, perfil y contacto, méritos, alegaciones, inscripción, preferencias | En cidonia (Mi Bolsa); el resto, ver 4.1 |
 | Centro solicitante | `solicitante_centro` | `/portal-empleado/peticiones-centro/` | Presenta peticiones, acredita la incorporación, cancela | En cidonia |
 | Ratificador del centro | `ratificador_centro` | `/portal-empleado/peticiones-centro/` | Ratifica las peticiones de su centro con motivo | En cidonia |
 | Técnico de RRHH | `tecnico_rrhh` | `/portal-empleado/` | Inicio con cuadro de mando, Bolsas, Contratación temporal, plantillas, reglas | En cidonia |
@@ -424,10 +424,22 @@ El orden del código y el orden que pidió RRHH no coinciden en un punto: ver
 
 #### Inscripción en una bolsa
 
-Estado: **en main, apagado**. El código, la API y la bandeja de RRHH existen;
-en cidonia hay tres convocatorias cargadas, pero falta encender la inscripción
-de RRHH (`VEC_BOLSA_INSCRIPCIONES_ENABLED` y `identidad/consultas-rrhh.json` con
-el perfil de técnico de RRHH) y poner `"inscripcion": true` en `vistas.json`.
+Estado: **encendido en la pantalla de la aspirante (F1-29)**. `vistas.json`
+lleva `"inscripcion": true` y el menú muestra **Inscribirme en una bolsa**. La
+lista y la ficha necesitan la fuente v2 de las acciones de inscripción y la
+versión del rol de la aspirante publicada desde ella (F1-101,
+`deploy/principal/candidata_hz39/aspirante/inscripcion_fuente_v2.md`); sin
+esos dos actos de Administración responden 403. La bandeja de RRHH sigue
+dependiendo de `VEC_BOLSA_INSCRIPCIONES_ENABLED` y del perfil de técnico de
+RRHH en `identidad/consultas-rrhh.json`.
+
+Recorrido comprobado en Chrome el 20/10 en una copia local (paso e1 del
+apartado 4.0): lista 200, ficha 200, presentación 201 con recibo, repetición
+con la misma clave 200 con el mismo recibo, otra clave para la misma categoría
+409 `solicitud_existente`, y Mis solicitudes y su detalle 200. Después de
+reiniciar aplicación, Administración y PostgreSQL se repitió todo con el mismo
+recibo y la misma fecha, sin otra solicitud, recibo ni historia; también a 390
+píxeles, sin cookies, almacenamiento web ni desbordamiento.
 
 1. La aspirante abre **Inscribirme** y ve las convocatorias con plazo abierto
    (`GET /api/vec/bolsa/inscripciones/convocatorias-abiertas`).
@@ -617,7 +629,16 @@ se retira una, debe marcar «He revisado el orden» antes de guardar.
 Estado: el servidor guarda y lee la elección con versión y justificante
 (`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`) y la aplica
 a la vista de ofertas de Mi Bolsa y a los avisos por correo (F1-13, parte 4).
-Falta publicar el permiso de la aspirante y la pantalla para elegir (F1-14).
+La pantalla para elegir está en Mi Bolsa (F1-14): panel «Ofertas que me
+interesan» con tres opciones (todos los tipos, solo los marcados o ninguno).
+Al elegir «ninguno» avisa, antes de guardar, de que no verá ofertas nuevas ni
+recibirá avisos, y de que sigue en sus bolsas. Guarda con versión, clave de
+repetición y recibo; si otra ventana guardó antes (409) recarga la elección
+vigente y lo explica. Cuando la lista de ofertas ya aplica la elección, «Ver
+todas las ofertas» la consulta una vez sin filtro
+(`GET /api/vec/bolsa/mi-bolsa?ofertas=todas`) sin cambiar lo guardado.
+Si la persona no tiene el permiso (403) o la consulta no existe (404), el
+panel no aparece. Falta publicar el permiso de la aspirante (F0-28).
 
 En Mi Bolsa se ocultan las ofertas abiertas, todavía sin respuesta, cuya
 modalidad la aspirante no eligió. Las ofertas sin modalidad y las que ya
@@ -827,9 +848,14 @@ Intervención, resolución, GINPIX, firma de la persona, incorporación,
 seguimiento). Pero la secuencia persistida hace el llamamiento **después** de
 la fiscalización favorable, y la propuesta exige el expediente en
 `fiscalizacion/en_curso`. Mientras no se cambie, el orden real es el de la
-tabla anterior. Quién decide: dirección, con RRHH. Si el circuito v2 no está
-configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`), se pintan las ocho fases del
-flujo v1.
+tabla anterior. Quién decide: dirección, con RRHH. Los expedientes nuevos
+nacen siempre con el flujo v1 y se pintan sus ocho fases, aunque el circuito
+v2 esté configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`, que pone la orden
+`firma` de la copia). Con circuito, el análisis necesita una fuente que
+acredite la petición firmada y la autorización de RRHH, y ningún adaptador la
+aporta todavía; la fiscalización tampoco admite expedientes con circuito. La
+variable solo monta la consulta del circuito que usa la firma y su
+presentación (F1-98).
 
 Si la persona aún no ha empezado a trabajar y hay devolución, rechazo o
 sustitución, se repiten los trámites salvo volver a Intervención cuando no cambia

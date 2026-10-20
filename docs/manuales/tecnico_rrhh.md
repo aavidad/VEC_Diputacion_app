@@ -71,6 +71,8 @@ En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**
 
 ![Jornada y retención de crédito en el análisis del ejemplo.](img/rrhh-20261009-analisis-rc.webp)
 
+Para corregir el análisis antes de decidir la cobertura, use **Rectificar análisis de RRHH** en la misma ficha. El formulario se abre con los datos del último análisis, también el grupo y la retención de crédito. Si alguna opción ya no está en las listas vigentes, aparece sin elegir y hay que seleccionarla de nuevo. Cambie lo que haga falta, elija el motivo de la rectificación y pulse **Rectificar análisis**.
+
 ## Decidir la cobertura y asignar la unidad
 
 1. En **Decidir la vía de cobertura**, lea las comprobaciones de la bolsa. Si la pantalla propone **Bolsa vigente** como vía viable para la categoría, selecciónela y pulse **Confirmar vía de cobertura**. Revise el aviso de confirmación antes de aceptarlo. La pantalla muestra **Decisión confirmada**.

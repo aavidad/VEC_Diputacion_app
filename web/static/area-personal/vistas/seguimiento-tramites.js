@@ -12,6 +12,21 @@ const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${cla
 const g = (clave, variables) => traducir(`areaPersonal.vista.alegaciones.${clave}`, variables);
 const h = (texto) => escaparHTML(texto);
 
+// renderizarSeccionOfertasMiBolsa pinta las ofertas publicadas. Si la lista
+// ya aplica la elección de modalidades, ofrece «Ver todas» para consultarlas
+// una vez sin cambiar la elección; y desde «todas», volver a las elegidas.
+// `ninguna` indica que la elección guardada es no ver ofertas.
+export function renderizarSeccionOfertasMiBolsa(ofertas, { segunModalidades = false, todas = false, carga = "", ninguna = false } = {}) {
+  const lista = Array.isArray(ofertas) ? ofertas : [];
+  if (!segunModalidades && !todas) return lista.length ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), renderizarOfertasMiBolsa(lista)) : "";
+  const accion = todas ? "ver-ofertas-elegidas" : "ver-todas-ofertas";
+  const estadoLista = carga === "cargando" ? `<p role="status">${h(textoOfertas("cargandoOfertas"))}</p>`
+    : carga === "error" ? `<p class="nota error" role="alert">${h(textoOfertas("errorOfertas"))}</p>` : "";
+  const cuerpo = lista.length ? renderizarOfertasMiBolsa(lista) : `<p class="estado-vacio">${h(textoOfertas(todas ? "sinOfertas" : ninguna ? "sinOfertasNinguna" : "sinOfertasElegidas"))}</p>`;
+  const nota = `<p class="nota">${h(textoOfertas(todas ? "mostrandoTodas" : "mostrandoElegidas"))}</p>`;
+  return panel(textoOfertas("titulo"), textoOfertas("subtitulo"), `${nota}${estadoLista}<div class="fila-acciones ofertas-mi-bolsa__filtro"><button type="button" class="boton-secundario" data-accion="${accion}" ${carga === "cargando" ? "disabled" : ""}>${h(textoOfertas(todas ? "verElegidas" : "verTodas"))}</button></div>${cuerpo}`);
+}
+
 const CLASES_SITUACION = Object.freeze({
   disponible: "exito", no_disponible: "aviso", trabajando: "info",
   pendiente_incorporacion: "aviso", renuncia: "aviso", excluido: "error",
@@ -73,8 +88,9 @@ export function renderizarLlamamientos(datos, estado = {}) {
   return `${encabezadoVista(b("titulo"), "", ayudaLlamamiento)}
     ${fichaParticipaciones}
     <div id="preferencias-bolsas" aria-live="polite">${renderizarPreferenciasBolsas()}</div>
+    <div id="preferencias-modalidades" hidden></div>
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
-    <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}${estado.ofertasMiBolsa?.length ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), renderizarOfertasMiBolsa(estado.ofertasMiBolsa)) : ""}</div><aside>
+    <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}<div id="ofertas-mi-bolsa">${renderizarSeccionOfertasMiBolsa(estado.ofertasMiBolsa, { segunModalidades: estado.ofertasSegunModalidades === true, todas: estado.ofertasTodas === true, ninguna: Array.isArray(estado.eleccionModalidades) && !estado.eleccionModalidades.length })}</div></div><aside>
       ${estado.accionesPortal
     ? panel(textoPortal("titulo"), textoPortal("subtitulo"), renderizarPortalMiBolsa(participaciones, estado.portalMiBolsa, estado.accionesPortal))
     : panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}

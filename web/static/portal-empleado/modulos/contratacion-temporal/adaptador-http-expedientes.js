@@ -602,6 +602,9 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
           : { causa_fin: detalle.analisis.periodo_causa_fin }) },
       porcentaje_jornada: detalle.analisis.porcentaje_jornada,
       ...(detalle.analisis.observaciones ? { observaciones: detalle.analisis.observaciones } : {}),
+      // Grupo y entrada de retención elegidos: la rectificación los conserva.
+      ...(detalle.analisis.grupo_subgrupo ? { grupo_subgrupo: detalle.analisis.grupo_subgrupo } : {}),
+      ...(detalle.analisis.entrada_rc_ref ? { entrada_rc_referencia: detalle.analisis.entrada_rc_ref } : {}),
     } } : {}),
     // Sin análisis todavía, los datos de la petición prerrellenan el formulario.
     ...datosPeticionParaAnalisis(detalle),

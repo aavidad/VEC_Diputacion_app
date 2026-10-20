@@ -255,6 +255,7 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 	var resultadoBolsaRaw []byte
 	defer clear(resultadoBolsaRaw)
 	var numeroPersonas int16
+	var grupoAnalisis, entradaRCAnalisis *string
 	var selectoresRaw, reciboSelectoresCanon []byte
 	var selectoresHuella, selloSelectores string
 	defer clear(selectoresRaw)
@@ -277,7 +278,7 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 	}
 	conNumeroPersonas := consultaDetalleRRHHConNumeroPersonas(consulta)
 	if conNumeroPersonas {
-		destinos = append(destinos, &numeroPersonas)
+		destinos = append(destinos, &numeroPersonas, &grupoAnalisis, &entradaRCAnalisis)
 	}
 	if conSelectores {
 		var filtroSQL any
@@ -338,6 +339,11 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
 				}
 				detalle.Solicitud.NumeroPersonas = uint32(numeroPersonas)
+				if detalle.Analisis, err = detalle.Analisis.ConGrupoYEntradaRC(
+					grupoAnalisis, entradaRCAnalisis,
+				); err != nil {
+					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+				}
 			}
 			if consulta == consultaDetalleConBolsaRRHHPostgreSQL || consulta == consultaDetalleConBolsaYSelectoresRRHHPostgreSQL {
 				resultado, err := ResultadoBolsaRRHHDesdeSQL(resultadoBolsaRaw)
@@ -363,8 +369,9 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 }
 
 // consultaDetalleRRHHConNumeroPersonas indica si la lectura devuelve, tras el
-// recibo y el resultado de Bolsa, la cifra de personas de CT225. Las cuatro
-// lecturas del detalle ordinario la incluyen; la del original de la propuesta no.
+// recibo y el resultado de Bolsa, la cifra de personas de CT225 y el grupo y la
+// entrada de retención del análisis de CT243. Las cuatro lecturas del detalle
+// ordinario los incluyen; la del original de la propuesta no.
 func consultaDetalleRRHHConNumeroPersonas(consulta string) bool {
 	switch consulta {
 	case consultaDetalleRRHHPostgreSQL, consultaDetalleConBolsaRRHHPostgreSQL,
