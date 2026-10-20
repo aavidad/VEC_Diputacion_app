@@ -77,6 +77,16 @@ func (s *ConsultaOfertasModalidades) Consultar(ctx context.Context, orden Orden)
 	return instantanea, nil
 }
 
+// ConsultarTodasOfertas devuelve la instantánea sin aplicar la elección:
+// «Ver todas» consulta una vez todas las ofertas sin cambiar lo guardado.
+// No lee la elección ni marca OfertasSegunModalidades.
+func (s *ConsultaOfertasModalidades) ConsultarTodasOfertas(ctx context.Context, orden Orden) (bolsa.InstantaneaMiBolsa, error) {
+	if s == nil || nula(s.consulta) || ctx == nil {
+		return bolsa.InstantaneaMiBolsa{}, ErrServicioMiBolsaInvalido
+	}
+	return s.consulta.Consultar(ctx, orden)
+}
+
 func filtrable(o bolsa.OfertaPortalCandidato) bool {
 	return o.Estado == bolsa.EstadoOfertaPortalAbierta && o.Disposicion == nil && o.Datos.ModalidadClave != ""
 }

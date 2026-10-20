@@ -159,3 +159,16 @@ test("versión sin recibo coincidente no confirma contacto", async () => {
   } });
   await assert.rejects(() => cliente.cargarContactoPropio(), (error) => error.codigo === "respuesta_incompatible");
 });
+
+test("«Ver todas» pide la consulta exacta y el indicador solo admite true", async () => {
+  const rutas = [];
+  const datos = (extra = {}) => ({ data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000000Z", participaciones: [], ...extra } });
+  let cuerpo = datos({ ofertas_segun_modalidades: true });
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta) => { rutas.push(ruta); return respuestaJSON(cuerpo); } });
+  assert.equal((await cliente.cargar()).consulta.ofertas_segun_modalidades, true);
+  cuerpo = datos();
+  await cliente.cargar({ todas: true });
+  assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/mi-bolsa?ofertas=todas"]);
+  cuerpo = datos({ ofertas_segun_modalidades: false });
+  await assert.rejects(cliente.cargar());
+});

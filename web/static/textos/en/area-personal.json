@@ -135,6 +135,40 @@
     "contratos": {
       "sinDato": "No contract information available."
     },
+    "preferenciasModalidades": {
+      "titulo": "Offers I am interested in",
+      "cargando": "Loading your offer choice…",
+      "guardando": "Saving your choice…",
+      "pregunta": "Which types of contract do you want to see offers for and receive notices about?",
+      "modo": {
+        "todas": "All types",
+        "algunas": "Only the types I tick",
+        "ninguna": "None"
+      },
+      "modalidades": "Types of contract",
+      "avisoNinguna": "You will not see new offers in My pool or receive offer notices. You stay in your pools, in the same place, and you can still be called.",
+      "marqueUna": "Tick at least one type of contract or choose «None».",
+      "guardar": "Save choice",
+      "guardado": "Choice saved on {fecha}.",
+      "ultimoGuardado": "Last choice saved on {fecha}.",
+      "reintentarGuardado": "Retry saving",
+      "recargar": "Check again",
+      "autenticacion": "Your session has expired. Sign in again to see or change your choice.",
+      "denegado": "You cannot change this choice right now. If the problem continues, contact Human Resources.",
+      "conflicto": "Your choice was changed from another window or device before saving. We now show the saved one: review it and save again if you want to change it.",
+      "invalido": "It could not be saved because the list of contract types has changed. Press «Check again» and choose again.",
+      "respuesta": "Your choice could not be checked. Press «Check again».",
+      "servicio": "The service is not available right now. Try again in a few minutes.",
+      "incierto": "We do not know whether your choice was saved. Press «Retry saving»: it will not be saved twice.",
+      "error": "Your offer choice could not be loaded. Try again.",
+      "opciones": {
+        "sustitucion": "Replacement",
+        "vacante": "Vacancy",
+        "acumulacion_tareas": "Workload peak",
+        "programa": "Temporary programme",
+        "relevo": "Partial retirement cover"
+      }
+    },
     "historial": {
       "titulo": "My job pool history",
       "subtitulo": "Actions recorded in VEC for my participations",
@@ -253,6 +287,14 @@
     }
   },
   "ofertas": {
+    "sinOfertas": "There are no open offers in your pools.",
+    "verTodas": "See all offers",
+    "verElegidas": "See only the ones I am interested in",
+    "sinOfertasElegidas": "There are no open offers for the contract types you chose.",
+    "mostrandoTodas": "All offers are shown, including types you did not choose.",
+    "mostrandoElegidas": "Offers for the types you chose are shown.",
+    "cargandoOfertas": "Loading offers…",
+    "errorOfertas": "The offers could not be loaded. Try again.",
     "titulo": "Published offers",
     "subtitulo": "From my job pools",
     "centro": "Workplace",

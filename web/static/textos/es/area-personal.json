@@ -26,6 +26,40 @@
       "recargar": "Volver a consultar",
       "reintentarGuardado": "Reintentar guardado"
     },
+    "preferenciasModalidades": {
+      "titulo": "Ofertas que me interesan",
+      "cargando": "Cargando su elección de ofertas…",
+      "guardando": "Guardando su elección…",
+      "pregunta": "¿De qué tipo de contrato quiere ver ofertas y recibir avisos?",
+      "modo": {
+        "todas": "De todos los tipos",
+        "algunas": "Solo de los tipos que marque",
+        "ninguna": "De ninguno"
+      },
+      "modalidades": "Tipos de contrato",
+      "avisoNinguna": "No verá ofertas nuevas en Mi bolsa ni recibirá avisos de ofertas. Seguirá en sus bolsas, en el mismo puesto, y le pueden seguir llamando.",
+      "marqueUna": "Marque al menos un tipo de contrato o elija «De ninguno».",
+      "guardar": "Guardar elección",
+      "guardado": "Elección guardada el {fecha}.",
+      "ultimoGuardado": "Última elección guardada el {fecha}.",
+      "reintentarGuardado": "Reintentar el guardado",
+      "recargar": "Volver a consultar",
+      "autenticacion": "Su sesión ha caducado. Identifíquese de nuevo para ver o cambiar su elección.",
+      "denegado": "No puede cambiar esta elección ahora. Si el problema sigue, contacte con Recursos Humanos.",
+      "conflicto": "Su elección cambió desde otra ventana o dispositivo antes de guardar. Le mostramos la que está guardada ahora: revísela y guarde de nuevo si quiere cambiarla.",
+      "invalido": "No se pudo guardar porque la lista de tipos de contrato ha cambiado. Pulse «Volver a consultar» y elija de nuevo.",
+      "respuesta": "No se pudo comprobar su elección. Pulse «Volver a consultar».",
+      "servicio": "El servicio no está disponible en este momento. Inténtelo de nuevo en unos minutos.",
+      "incierto": "No sabemos si su elección se guardó. Pulse «Reintentar el guardado»: no se guardará dos veces.",
+      "error": "No se pudo consultar su elección de ofertas. Inténtelo de nuevo.",
+      "opciones": {
+        "sustitucion": "Sustitución",
+        "vacante": "Vacante",
+        "acumulacion_tareas": "Acumulación de tareas",
+        "programa": "Programa temporal",
+        "relevo": "Relevo"
+      }
+    },
     "historial": {
       "titulo": "Histórico de mi bolsa",
       "subtitulo": "Actuaciones de mis participaciones registradas en VEC",
@@ -122,6 +156,14 @@
     "categoriaSinNombre": "Categoría sin nombre"
   },
   "ofertas": {
+    "sinOfertas": "No hay ofertas abiertas en sus bolsas.",
+    "verTodas": "Ver todas las ofertas",
+    "verElegidas": "Ver solo las que me interesan",
+    "sinOfertasElegidas": "No hay ofertas abiertas de los tipos de contrato que eligió.",
+    "mostrandoTodas": "Se muestran todas las ofertas, también las de tipos que no eligió.",
+    "mostrandoElegidas": "Se muestran las ofertas de los tipos que eligió.",
+    "cargandoOfertas": "Cargando ofertas…",
+    "errorOfertas": "No se pudieron cargar las ofertas. Inténtelo de nuevo.",
     "titulo": "Ofertas publicadas",
     "subtitulo": "De mis bolsas",
     "centro": "Centro",

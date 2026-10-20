@@ -614,7 +614,16 @@ se retira una, debe marcar «He revisado el orden» antes de guardar.
 Estado: el servidor guarda y lee la elección con versión y justificante
 (`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`) y la aplica
 a la vista de ofertas de Mi Bolsa y a los avisos por correo (F1-13, parte 4).
-Falta publicar el permiso de la aspirante y la pantalla para elegir (F1-14).
+La pantalla para elegir está en Mi Bolsa (F1-14): panel «Ofertas que me
+interesan» con tres opciones (todos los tipos, solo los marcados o ninguno).
+Al elegir «ninguno» avisa, antes de guardar, de que no verá ofertas nuevas ni
+recibirá avisos, y de que sigue en sus bolsas. Guarda con versión, clave de
+repetición y recibo; si otra ventana guardó antes (409) recarga la elección
+vigente y lo explica. Cuando la lista de ofertas ya aplica la elección, «Ver
+todas las ofertas» la consulta una vez sin filtro
+(`GET /api/vec/bolsa/mi-bolsa?ofertas=todas`) sin cambiar lo guardado.
+Si la persona no tiene el permiso (403) o la consulta no existe (404), el
+panel no aparece. Falta publicar el permiso de la aspirante (F0-28).
 
 En Mi Bolsa se ocultan las ofertas abiertas, todavía sin respuesta, cuya
 modalidad la aspirante no eligió. Las ofertas sin modalidad y las que ya

@@ -8,6 +8,21 @@ Entre en [Mi área personal](https://vec.cidonia.cloud/area-personal/?lang=es) c
 
 ![Recorte de Mi bolsa: participación, número de orden y situación Disponible.](img/aspirante-mi-bolsa.webp)
 
+## Elegir qué ofertas quiere ver
+
+En **Mi bolsa**, el apartado **Ofertas que me interesan** sirve para decidir de qué tipos de contrato (sustitución, vacante, acumulación de tareas, programa temporal o relevo) quiere ver ofertas publicadas y recibir sus avisos por correo.
+
+1. Elija **De todos los tipos**, **Solo de los tipos que marque** o **De ninguno**. Si elige la segunda, marque al menos un tipo.
+2. Pulse **Guardar elección**. Debajo aparecerá «Elección guardada el …» con la fecha.
+
+Si elige **De ninguno**, la pantalla le avisa antes de guardar: no verá ofertas nuevas ni recibirá avisos de ofertas. Esta elección no cambia su puesto en la bolsa ni cuenta como renuncia, y RRHH le puede seguir llamando por orden de bolsa. Las ofertas que ya respondió se siguen viendo.
+
+Cuando la lista de ofertas tiene en cuenta su elección, aparece el botón **Ver todas las ofertas**. Le enseña también las de los tipos que no eligió, sin cambiar lo guardado. **Ver solo las que me interesan** vuelve a la lista filtrada.
+
+Si aparece «Su elección cambió desde otra ventana o dispositivo», alguien guardó otra elección con su acceso mientras usted la cambiaba. La pantalla muestra la que está guardada ahora: revísela y guarde de nuevo si quiere. Si aparece «No sabemos si su elección se guardó», pulse **Reintentar el guardado**; no se guardará dos veces.
+
+Si no ve el apartado, la función todavía no está activada para su acceso.
+
 ## Responder cuando RRHH registre el contacto
 
 Espere a que aparezca **Llamamiento abierto**. Revise la fecha de **Contacto** y la de **Responder antes de**. La etiqueta **Respuesta firme** que aparece debajo indica que su respuesta será definitiva en cuanto la envíe: se registra directamente en la bolsa, sin que RRHH tenga que confirmarla. Si en su lugar aparece «RRHH confirmará la respuesta», su respuesta quedará pendiente hasta que RRHH la confirme. Un correo con resultado **Enviado** no confirma que le haya llegado ni que haya una respuesta registrada.

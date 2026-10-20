@@ -346,8 +346,10 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     }
     return Object.freeze({ autorizacion: Object.freeze({ capacidad: true, version: estado.version, consultarRecibo: estado.encontrado }), recibo });
   }
-  async function cargar() {
-    const envelope = await solicitar(RUTA_MI_BOLSA, {
+  // Con `todas`, «Ver todas» pide las ofertas sin aplicar la elección de
+  // modalidades; el resto de la consulta es la misma.
+  async function cargar({ todas = false } = {}) {
+    const envelope = await solicitar(todas ? `${RUTA_MI_BOLSA}?ofertas=todas` : RUTA_MI_BOLSA, {
       method: "GET",
       credentials: "same-origin",
       headers: { Accept: "application/json" },
