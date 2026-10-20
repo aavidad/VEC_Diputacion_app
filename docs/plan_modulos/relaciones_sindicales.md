@@ -28,8 +28,8 @@ encargo entrega documentación, sin código, SQL o instalación.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos: [ficha de Relaciones sindicales integrada](../estudio_requisitos/ficha_relaciones_sindicales_2026-10-04.md),
-SIN1–SIN10. Se mantiene la cola vigente y la propiedad de Personal B,
-identidad/autorización K, núcleo/auditoría L y los servicios comunes.
+SIN1–SIN10. Se mantiene la cola vigente y la propiedad de Personal,
+identidad y autorización, núcleo y auditoría y los servicios comunes.
 
 ## Fuentes y decisiones aplicables
 
@@ -68,7 +68,7 @@ el índice por sí solo no representa la base actual.
 | Pieza | Rutas actuales | Capacidad y límite |
 | --- | --- | --- |
 | Relaciones sindicales | `docs/estudio_requisitos/ficha_relaciones_sindicales_2026-10-04.md` | Ficha integrada; no hay paquete de representación/crédito sindical en `internal/modules/`, libro durable de crédito ni vista del módulo. |
-| Personal | `internal/modules/personal/ports/{relacion_empleado,historia_relaciones_propia,lector_relacion_rpt}.go`; `application/consulta_relacion_empleado.go` | Vínculo propio para Dietas y contratos históricos/RPT. No habilitan consumo sindical ni consulta de otros representantes; B debe admitir el puerto mínimo de vínculo/jornada a fecha. |
+| Personal | `internal/modules/personal/ports/{relacion_empleado,historia_relaciones_propia,lector_relacion_rpt}.go`; `application/consulta_relacion_empleado.go` | Vínculo propio para Dietas y contratos históricos/RPT. No habilitan consumo sindical ni consulta de otros representantes; Personal debe admitir el puerto mínimo de vínculo/jornada a fecha. |
 | Contexto y perfiles | `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Autoridades comunes en código. Falta catálogo/proveedor nominal para mandato/órgano/mesa; afiliación y siglas no conceden acceso. |
 | Cronos | `internal/modules/cronos/ports/{consulta_saldo,solicitud_permiso,resolucion_permiso}.go` | Saldo y permisos de Cronos con sus acciones y circuitos. No constituyen el libro de crédito sindical ni acreditan su importación; consumidor de ausencia mínima pendiente por contrato. |
 | Documentos/firma | `internal/vec/documentos/application/servicio.go`; `ports/{contratos,firma}.go`; `adapters/validadorautofirma/cliente.go` | Custodia, lectura y verificación GrxFirma v2 comunes. Falta vincular acreditaciones/actas al mandato/mesa y separar reservado/publicable; código integrado no acredita firma o ratificación de acuerdos. |
@@ -86,12 +86,12 @@ no da por disponible ningún recorrido sindical.
 
 | Requisitos | Resultado pendiente | Propietario y dependencia |
 | --- | --- | --- |
-| SIN1/SIN2 | Mandatos, órganos, unidad electoral, censo aplicable y acreditación por versión. | Relaciones sindicales conserva hechos; Personal B aporta vínculo; órgano competente valida acreditaciones y composición. |
+| SIN1/SIN2 | Mandatos, órganos, unidad electoral, censo aplicable y acreditación por versión. | Relaciones sindicales conserva hechos; Personal aporta vínculo; órgano competente valida acreditaciones y composición. |
 | SIN3–SIN6 | Regla vigente, crédito, cesión/dispensa, consumo y corrección sin doble gasto. | Libro propio de Relaciones sindicales; regla aprobada por mandato/colectivo. Cronos conserva la ausencia mínima recibida. |
 | SIN7 | Convocatoria, asistencia, acta y acuerdo con firma/ratificación/eficacia separadas. | Secretaría y órgano habilitado de cada mesa; Documentos/firma custodian y verifican. |
 | SIN8 | Mandato específico de descuento, revocación y resultado conciliado. | Custodio segregado de mandatos y Nómina; nunca se utiliza el perfil de créditos para cuotas. |
 | SIN9 | Proyección institucional revisada y retirada por versión. | Transparencia valida representación y dispensas publicables; excluye afiliación, consumos y cuotas. |
-| SIN10 | Lecturas, cambios, descargas y comunicaciones auditadas en destino común. | Consumidor propio con K/L; sin acceso técnico general al contenido. |
+| SIN10 | Lecturas, cambios, descargas y comunicaciones auditadas en destino común. | Consumidor propio con los servicios comunes de identidad y autorización; sin acceso técnico general al contenido. |
 
 Perfiles fijos por huella/CAS y uno activo por operación: representante, gestor
 acreditado, gestor RRHH de representación, revisor/órgano habilitado, secretaría,
@@ -143,7 +143,7 @@ producen cambios comunes aparte, sin incluir su esfuerzo en esta estimación.
 | --- | --- | --- | --- | ---: |
 | S00 · inventario | Revalidar base, mandatos/fuentes y deuda concreta. | Este plan, en su turno. | Ficha y 135; no rehacer Cronos/Personal. | 1–2 |
 | S01 · B3 | Catálogo de órganos/reglas con consumidor CLI y falta de vigencia explicada. | Nuevos `data/catalogos/relaciones-sindicales/`, lector propio. | Fuente y aprobación por mandato; sin constantes de 2020. | 4–6 |
-| S02 · B1 | Consumidor nominal focal por mandato/recurso, con auditoría de los tres resultados. | Nuevos `relacionessindicales/ports/{autorizacion,auditoria}.go`, consumidor. | K/L y perfiles fijos; catálogo provisionado antes de petición, montaje por dueño. | 6–10 |
+| S02 · B1 | Consumidor nominal focal por mandato/recurso, con auditoría de los tres resultados. | Nuevos `relacionessindicales/ports/{autorizacion,auditoria}.go`, consumidor. | los servicios comunes de identidad y autorización y perfiles fijos; catálogo provisionado antes de petición, montaje por dueño. | 6–10 |
 | S03 · B2/B3 | Consultar vínculo/jornada a fecha, organización/entidad y cobertura. | `ports/personal.go`, consumidor/pruebas propios. | S02; contrato mínimo admitido por B; no usar audiencia Dietas. | 3–5 |
 | S04 · B4, SQL borrador | Candidata de mandato/libro de crédito y adaptador; ensayo preparado. | SQL reservado y `adapters/postgres/` propios. | S01–S03, reserva fuera de Git, preimagen y compartimento; sin activar. | 4–7 |
 | S05 · B4, ensayo | Clon principal verifica consumo/replay/ACL, kit revisado para dirección. | Pruebas de adaptador/kit propios. | S04; dos revisiones exactas; MCP local solo lectura. | 4–6 |
@@ -192,7 +192,7 @@ utiliza la horquilla de un equipo.
 | RRHH/órganos y representación acreditada | 6–12 h efectivas | Mandato/carga y reglas actuales, circuito de 135, mesas y validación; espera sin plazo comprometido. |
 | DPD/Archivo/Transparencia | 5–9 h efectivas | Categoría especial, custodia segregada, series, publicación y copias. |
 | Sistemas/firma/servicios corporativos | 5–10 h efectivas | Contratos, entorno sintético y evidencias; no inferir API desde página pública. |
-| Personal B, K/L, Cronos, Usuarios, Documentos y Nómina | Estimación por sus dueños | Lectores/receptores y composición común; sus desarrollos no están incluidos en S02/S03/S11/S15. |
+| Personal, los servicios comunes de identidad y autorización, Cronos, Usuarios, Documentos y Nómina | Estimación por sus dueños | Lectores/receptores y composición común; sus desarrollos no están incluidos en S02/S03/S11/S15. |
 
 Las horas son esfuerzo, no fechas de publicación o aprobación. Se revisan al
 cerrar la carga del mandato y los contratos de sus consumidores.
