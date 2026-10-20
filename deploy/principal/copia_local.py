@@ -225,6 +225,8 @@ class Copia:
             guardar(self.estado, estado)
             with (self.raiz / 'datos-preparacion.log').open('ab') as log:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
+            from copia_local_cancelacion import encender as encender_cancelacion
+            encender_cancelacion(self, guardar, sha256)
             from copia_local_verificacion import comprobar as comprobar_conexiones
             comprobar_conexiones(self)
             if not args.portal_externo:

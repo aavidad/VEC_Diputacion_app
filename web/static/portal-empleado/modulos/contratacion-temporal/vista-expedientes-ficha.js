@@ -57,7 +57,7 @@ export function renderizarCabeceraFicha(expediente, estado, t) {
  * nombra así; no se atribuye a una persona.
  */
 export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente = false,
-  { fiscalizacionAjena = false } = {}) {
+  { fiscalizacionAjena = false, informePendiente = false, informeConfirmado = false } = {}) {
   const tarea = expediente.tareas.find(({ estado_clave: e }) => e === "en_curso")
     ?? expediente.tareas.find(({ estado_clave: e }) => e === "espera")
     ?? expediente.tareas.find(({ estado_clave: e }) => e === "pendiente");
@@ -100,19 +100,26 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     && (resumen?.fase_clave === "fiscalizacion" || expediente.fases?.some(({ fase_ref: ref, estado_clave: e }) => (
       typeof ref === "string" && ref.endsWith(":fiscalizacion") && e !== "pendiente" && e !== "completado")));
   const ultimoHito = expediente.historial?.at(-1);
+  // `informeConfirmado`: el recibo del informe acaba de confirmarlo y la ficha
+  // aún no se ha vuelto a leer; el paso se pone al día sin perder el recibo.
   const guiaInforme = !bloqueado && !terminado && !espera && !incidencia
-    && resumen?.fase_clave === "informe_juridico" && resumen.estado_clave === "en_curso"
+    && (informeConfirmado === true || (resumen?.fase_clave === "informe_juridico" && resumen.estado_clave === "en_curso"
     && resumen.version === expediente.version && estado.expediente_ref === expediente.expediente_ref
     && ultimoHito?.accion_clave === "contratacion_temporal.informe_juridico.generar"
-    && ultimoHito.version_expediente === expediente.version
+    && ultimoHito.version_expediente === expediente.version))
     // Tras subsanar un reparo, el informe nuevo también se firma antes de volver a Intervención.
     || !bloqueado && !terminado && estado.expediente_ref === expediente.expediente_ref
     && informeNuevoVigenteEnExpediente(expediente, resumen);
+  // Asignada la unidad, lo que toca es preparar el informe jurídico (el
+  // formulario se monta más abajo y se llega con «Ir al trámite»).
+  const guiaPrepararInforme = informePendiente === true && !guiaInforme
+    && !bloqueado && !terminado && !espera && !incidencia;
   const quien = guiaInforme ? t("ficha_siguiente_paso_informe_quien")
-    : guiaCobertura || fiscalizacionFavorable ? t("unidad_recursos_humanos")
+    : guiaCobertura || fiscalizacionFavorable || guiaPrepararInforme ? t("unidad_recursos_humanos")
     : esperaIntervencion ? t("ficha_siguiente_paso_intervencion_quien")
     : tarea ? actor || t("siguiente_paso_quien_desconocido") : "";
   const titulo = guiaInforme ? t("ficha_siguiente_paso_informe_titulo")
+    : guiaPrepararInforme ? t("ficha_siguiente_paso_preparar_informe_titulo")
     : guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
     : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_titulo")
     : esperaIntervencion ? t("ficha_siguiente_paso_espera")
@@ -120,6 +127,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     : (espera ? t("ficha_siguiente_paso_espera")
       : (nombreFase ? t("ficha_siguiente_paso_fase", { fase: nombreFase }) : t("siguiente_paso_titulo")));
   const que = guiaInforme ? t("ficha_siguiente_paso_informe_que")
+    : guiaPrepararInforme ? t("ficha_siguiente_paso_preparar_informe_que")
     : guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
     : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_que")
     : esperaIntervencion ? t("ficha_siguiente_paso_fiscalizacion_intervencion")
@@ -133,7 +141,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     <div>
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>
       <dl>
-        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaInforme || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? escapar(que)
+        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaInforme || guiaPrepararInforme || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? escapar(que)
     : `<span class="ct-exp-que-con-tramite">${escapar(t("siguiente_paso_tramite_abajo"))}</span><span class="ct-exp-que-sin-tramite">${escapar(que)}</span>`}</dd></div>
         ${quien ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(quien)}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>

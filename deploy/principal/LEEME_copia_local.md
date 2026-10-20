@@ -97,6 +97,14 @@ con un LOGIN distinto, TLS verificado y pertenencia exclusiva al grupo del
 relevo: `INHERIT TRUE, SET TRUE, ADMIN FALSE`, según el apartado de relevo de
 `03_entorno.md`. La conexión no activa el seguimiento ni la incorporación:
 esos selectores y los catálogos se preparan para el recorrido que los use.
+
+Con `--modulos` la copia enciende además la cancelación del expediente
+(`VEC_CT_CANCELACION_ENABLED`, tarea F1-96). Usa el catálogo de reglas de CT
+`reglas.v3.json` (regla c20) y el de motivos de cancelación de `data/demo/reglas`;
+si el kit de datos ya fijó alguno de los dos, se conserva el suyo. Sus
+migraciones (CT 000122 y AD3-87) ya están en el volcado de referencia. Sin
+ellas la ficha recibía 404 al consultar la cancelación y no mostraba el apartado.
+
 El segundo RRHH que exige la regla c22 necesita su identidad y perfil
 publicados por el circuito de Administración; esta conexión no los concede.
 
