@@ -86,6 +86,30 @@ test("la reserva singular sin efecto ni ventana también reanuda el POST origina
   cerrar();
 });
 
+test("Reanudar muestra el número del expediente y conserva el POST original", async () => {
+  for (const [numero_visible, referenciaVisible] of [
+    ["2026/CT-0042", "2026/CT-0042"],
+    [undefined, "Sin número asignado"],
+    ["2026/CT-abcdef123456", "Sin número asignado"],
+  ]) {
+    const raiz = raizPrueba(), confirmaciones = [], escritas = [];
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: async () => intencionSingular(),
+      seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 9, numero_personas: 1,
+      ...(numero_visible === undefined ? {} : { numero_visible }) },
+    confirmarOperacion: (descriptor) => { confirmaciones.push(descriptor); return true; },
+    generarClaveIdempotencia: () => { throw new Error("no debe generarse otra clave"); } });
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(confirmaciones.length, 1);
+    assert.equal(confirmaciones[0].referencia, referenciaVisible);
+    assert.equal(confirmaciones[0].datos.expediente_ref, EXPEDIENTE);
+    assert.deepEqual(escritas, [{ expediente_ref: EXPEDIENTE, version_esperada: 6,
+      clave_idempotencia: seleccion().clave_idempotencia }]);
+    cerrar();
+  }
+});
+
 test("GET singular primero espera a comunicaciones; error permite recarga y denegación explica el bloqueo", async () => {
   for (const fallo of ["error", "denegado"]) {
     const raiz = raizPrueba(); let resolverLista, consultas = 0, post = 0;

@@ -27,6 +27,10 @@ selección queda cerrada.
   caídas y dos claves nuevas sin registrar en el control de textos. Corregidas
   ambas: 39 pruebas web focales y 15 del registro de ensayos pasan después de
   incorporar main `0596d3825`. Las huellas anteriores de textos se conservan.
+- La confirmación de reanudación mostraba la referencia técnica heredada del
+  diálogo común. Se corrigió solo para este flujo: muestra el número del
+  expediente o «Sin número asignado», manteniendo la referencia, versión y
+  clave del POST. Dos pruebas focales y revisión de usabilidad favorables.
 - Instalación de CT257 y rechazo SQL sin decisión en PostgreSQL 18.
 - Dos revisiones independientes de código y SQL sobre `2c1a585dd`. Cada una
   ensayó 140 migraciones y 24 pruebas antes y después del reinicio, con las

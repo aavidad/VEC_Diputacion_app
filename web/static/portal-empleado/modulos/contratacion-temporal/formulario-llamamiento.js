@@ -8,6 +8,8 @@ import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION"
 import { renderizarLlamamiento, renderizarAceptacionPortal,
   reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=VEC_WEB_VERSION";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=VEC_WEB_VERSION";
+import { numeroExpedienteVisible } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=VEC_WEB_VERSION";
 import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=VEC_WEB_VERSION";
 import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=VEC_WEB_VERSION";
@@ -127,6 +129,7 @@ export function montarFormularioLlamamiento({
     throw new TypeError("dependencias del formulario de llamamiento no válidas");
   }
   const t = crearTraductorContratacionTemporal(mensajes);
+  const tExpediente = crearTraductorExpedientesContratacion();
   const fecha = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria,
   });
@@ -619,6 +622,7 @@ export function montarFormularioLlamamiento({
     estado.seleccion.valores.version_esperada = nuevo.version_esperada;
     estado.numeroPersonasSolicitadas = Number.isSafeInteger(nuevo.numero_personas) && nuevo.numero_personas > 0
       ? nuevo.numero_personas : null;
+    estado.numeroVisible = typeof nuevo.numero_visible === "string" ? nuevo.numero_visible : "";
     estado.origenPortal = (resultado?.vinculos ?? []).flatMap((vinculo) => {
       if (vinculo.participaciones.length !== 1) return [];
       const persona = vinculo.participaciones[0];
@@ -881,7 +885,9 @@ export function montarFormularioLlamamiento({
             recibida: fecha.format(new Date(solicitud.recibida_en)),
           } : {}),
         }),
-        referencia: solicitud.expediente_ref,
+        referencia: operacion === "seleccion" && reintento && estado.estadoOferta.tipoSeleccion === "llamamiento"
+          ? numeroExpedienteVisible(estado.numeroVisible, tExpediente) || tExpediente("numero_expediente_sin_asignar")
+          : solicitud.expediente_ref,
         datos: Object.freeze({ ...solicitud }),
       }) === true;
     } catch { /* La confirmación es obligatoria. */ }
