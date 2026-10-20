@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import select
 import shutil
 import stat
@@ -75,7 +76,8 @@ if password_file.is_symlink() or password_file.stat().st_mode & 0o777 != 0o600: 
 password = password_file.read_text().strip()
 display = (base / 'display').read_text().strip()
 env = {'PATH':'/usr/bin:/bin', 'DISPLAY':':' + display,
-       'HOME':str(home / 'home'), 'XDG_CONFIG_HOME':str(home / 'xdg-config'),
+       'XAUTHORITY':str(base / 'Xauthority'),
+       'HOME':str(home / 'home'), 'XDG_CONFIG_HOME':str(home / 'home/.config'),
        'XDG_DATA_HOME':str(home / 'xdg-data'), 'XDG_CACHE_HOME':str(home / 'cache'),
        'XDG_RUNTIME_DIR':str(home / 'xdg-runtime'), 'TMPDIR':str(home / 'tmp'),
        'GRXFIRMA_PKCS12_DIR':str(home / 'p12'), 'GRXFIRMA_DIRECTORIO_P12':str(home / 'p12'),
@@ -87,6 +89,18 @@ os.dup2(fd, 1); os.dup2(fd, 2); os.close(fd)
 exe = str(base / 'grxfirma-afirmauri')
 os.execve(exe, [exe, *sys.argv[2:]], env)
 '''
+
+
+def autorizar_pantalla(auth, display, cookie):
+    command = f"add :{display} MIT-MAGIC-COOKIE-1 {cookie}\n".encode()
+    try:
+        result = subprocess.run(["/usr/bin/xauth", "-q", "-f", str(auth), "-"],
+                                input=command, capture_output=True, timeout=5,
+                                env={"PATH": "/usr/bin:/bin", "HOME": str(auth.parent)})
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise Corte("FALTA: autenticación privada de pantalla no disponible") from exc
+    if result.returncode:
+        raise Corte("FALTA: autenticación privada de pantalla rechazada")
 
 
 def preparar(root, origin, binary, sha):
@@ -107,13 +121,19 @@ def preparar(root, origin, binary, sha):
             or stat.S_IMODE(root_info.st_mode) & 0o022):
         raise Corte("FALTA: raíz de instancia propia sin escritura ajena requerida")
     with tempfile.TemporaryDirectory(prefix="firma-version-", dir=root) as probe_home:
+        verified = Path(probe_home) / "grxfirma-afirmauri"
+        shutil.copyfile(binary, verified)
+        if hashlib.sha256(verified.read_bytes()).hexdigest() != sha:
+            raise Corte("FALTA: copia de comprobación con huella distinta")
+        verified.chmod(0o700)
         try:
-            probe = subprocess.run([str(binary), "--version"], capture_output=True,
+            probe = subprocess.run([str(verified), "--version"], capture_output=True,
                                    env={"HOME": probe_home, "PATH": "/usr/bin:/bin"}, timeout=5)
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise Corte("FALTA: tipo de binario afirmauri no comprobable") from exc
         if probe.returncode or not re.search(rb"grxfirma[- ]afirmauri", probe.stdout + probe.stderr, re.I):
             raise Corte("FALTA: el binario no es grxfirma-afirmauri")
+        verified_bytes = verified.read_bytes()
     fw = root / "firma-web"
     if os.path.lexists(fw):
         raise Corte("FALTA: firma-web ya existe; conservar su entorno")
@@ -123,10 +143,9 @@ def preparar(root, origin, binary, sha):
     try:
         fw.mkdir(mode=0o700)
         created = True
-        shutil.copyfile(binary, fw / "grxfirma-afirmauri")
+        escribir(fw / "grxfirma-afirmauri", verified_bytes, 0o700)
         if hashlib.sha256((fw / "grxfirma-afirmauri").read_bytes()).hexdigest() != sha:
             raise Corte("FALTA: binario copiado con huella distinta")
-        (fw / "grxfirma-afirmauri").chmod(0o700)
         escribir(fw / "lanzar-grxfirma.py", LAUNCHER, 0o700)
         for role, (p12, password) in paths.items():
             base = fw / role
@@ -158,12 +177,16 @@ def preparar(root, origin, binary, sha):
                         "[Default Applications]\nx-scheme-handler/afirma=grxfirma-copia.desktop;\n")
             guardar(base / "chrome/Default/Preferences",
                     {"protocol_handler": {"allowed_origin_protocol_pairs": {origin: {"afirma": True}}}})
+        auth = fw / "Xauthority"
+        escribir(auth, b"")
+        cookie = secrets.token_hex(16)
+        autorizar_pantalla(auth, "0", cookie)
         r, w = os.pipe()
         try:
             log_fd = os.open(fw / "xvfb.log", os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
             try:
                 process = subprocess.Popen(["Xvfb", "-displayfd", str(w), "-screen", "0",
-                    "1440x900x24", "-nolisten", "tcp"], pass_fds=(w,), stdout=log_fd,
+                    "1440x900x24", "-nolisten", "tcp", "-auth", str(auth)], pass_fds=(w,), stdout=log_fd,
                     stderr=log_fd, start_new_session=True,
                     env={"PATH": "/usr/bin:/bin", "HOME": str(fw)})
             finally:
@@ -175,6 +198,7 @@ def preparar(root, origin, binary, sha):
                 raise Corte("FALTA: Xvfb propio no entregó pantalla")
         finally:
             os.close(r)
+        autorizar_pantalla(auth, display, cookie)
         escribir(fw / "display", display + "\n")
         escribir(fw / "xvfb.pid", str(process.pid) + "\n")
         print("Entornos de firma preparados; abra las sesiones de cada firmante en su navegador")
@@ -192,7 +216,8 @@ def preparar(root, origin, binary, sha):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__,
+        epilog="Para Chrome use el número de firma-web/display y XAUTHORITY=firma-web/Xauthority del mismo entorno. La firma se realiza en el navegador.")
     parser.add_argument("--raiz-instancia", type=Path, required=True)
     parser.add_argument("--origen", required=True, help="origen HTTPS loopback de la copia")
     parser.add_argument("--binario-afirmauri", type=Path, required=True)

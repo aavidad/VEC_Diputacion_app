@@ -37,6 +37,8 @@ class EntornoFirmaTest(unittest.TestCase):
         self.binary.write_bytes(b"grxfirma-afirmauri-ficticio")
         self.binary.chmod(0o700)
         self.sha = hashlib.sha256(self.binary.read_bytes()).hexdigest()
+        self.probes = []
+        self.xauth_calls = []
         self.inputs = {}
         for role in firma.ROLES:
             if role == "tecnico":
@@ -56,14 +58,26 @@ class EntornoFirmaTest(unittest.TestCase):
         return ["--raiz-instancia", str(self.root), "--origen", "https://127.0.0.1:18428",
                 "--binario-afirmauri", str(self.binary), "--sha-afirmauri", sha or self.sha]
 
-    def version(self, *args, **kwargs):
+    def version(self, command, **kwargs):
         class Result:
             returncode = 0
             stdout = b"GrxFirma AfirmaURI 0.0.107"
             stderr = b""
+        if command[0] == "/usr/bin/xauth":
+            self.xauth_calls.append((command, kwargs))
+            self.assertEqual(command[-1], "-")
+            self.assertEqual(Path(command[3]).stat().st_mode & 0o777, 0o600)
+            self.assertNotIn(b"MIT-MAGIC-COOKIE-1", " ".join(command).encode())
+            return Result()
+        self.probes.append(command)
+        self.assertNotEqual(Path(command[0]), self.binary)
+        self.assertEqual(hashlib.sha256(Path(command[0]).read_bytes()).hexdigest(), self.sha)
+        self.assertEqual(Path(command[0]).stat().st_mode & 0o777, 0o700)
         return Result()
 
     def xvfb(self, command, **kwargs):
+        self.assertIn("-auth", command)
+        self.assertEqual(Path(command[command.index("-auth") + 1]).stat().st_mode & 0o777, 0o600)
         os.write(kwargs["pass_fds"][0], b"42\n")
         return XvfbFicticio()
 
@@ -87,6 +101,12 @@ class EntornoFirmaTest(unittest.TestCase):
         self.assertEqual(self.root.stat().st_mode & 0o777, 0o755)
         self.assertEqual(fw.stat().st_mode & 0o777, 0o700)
         self.assertEqual((fw / "display").read_text().strip(), "42")
+        self.assertEqual(len(self.probes), 1)
+        self.assertEqual(len(self.xauth_calls), 2)
+        self.assertEqual(self.xauth_calls[0][1]["input"].split()[-1],
+                         self.xauth_calls[1][1]["input"].split()[-1])
+        self.assertIn(b"add :0", self.xauth_calls[0][1]["input"])
+        self.assertIn(b"add :42", self.xauth_calls[1][1]["input"])
         self.assertEqual((fw / "xvfb.pid").stat().st_mode & 0o777, 0o600)
         p12s = []
         for role in firma.ROLES:
@@ -104,6 +124,8 @@ class EntornoFirmaTest(unittest.TestCase):
         self.assertEqual(len(set(p12s)), 4)
         launcher = (fw / "lanzar-grxfirma.py").read_text()
         self.assertIn("os.execve", launcher)
+        self.assertIn("'XAUTHORITY':str(base / 'Xauthority')", launcher)
+        self.assertIn("'XDG_CONFIG_HOME':str(home / 'home/.config')", launcher)
         self.assertNotIn("clave-tecnico", launcher)
 
     def test_no_reescribe_y_limpia_xvfb_propiedad_propia(self):
