@@ -1,10 +1,11 @@
 """Secuencia versionada del recorrido de una copia con material recién generado."""
 
-import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
+import stat
 
 from .comun import Contexto
 
@@ -59,16 +60,33 @@ def provisionar_perfiles(copia):
 
 
 def _verificador(c, puerto):
-    origen = Path('/usr/bin/grxfirma')
-    if origen.is_symlink() or not origen.is_file():
-        raise ValueError('Falta el verificador GrxFirma instalado en el equipo')
+    software = c.copia.leer().get('software_verificador')
+    if not isinstance(software, dict) or set(software) != {'binario', 'binario_sha256', 'version'}:
+        raise ValueError('Falta el verificador prevalidado de esta copia')
+    origen = Path(software['binario'])
+    esperado = c.raiz / 'software-verificador/grxfirma'
+    huella = software['binario_sha256']
+    if (origen != esperado or origen.is_symlink() or not origen.is_file()
+            or not re.fullmatch(r'[0-9a-f]{64}', huella)
+            or not isinstance(software['version'], str) or not software['version']
+            or origen.stat().st_uid != os.getuid()
+            or stat.S_IMODE(origen.stat().st_mode) != 0o700
+            or origen.stat().st_nlink != 1 or c.sha(origen) != huella):
+        raise ValueError('El verificador de la copia cambió tras el preflight')
     destino = c.carpeta / 'grxfirma'
-    with origen.open('rb') as entrada, destino.open('xb') as salida:
-        shutil.copyfileobj(entrada, salida)
-    destino.chmod(0o700)
-    huella = hashlib.sha256(destino.read_bytes()).hexdigest()
-    if huella != hashlib.sha256(origen.read_bytes()).hexdigest():
-        raise ValueError('El verificador copiado no coincide con el instalado')
+    if destino.exists() or destino.is_symlink():
+        if (destino.is_symlink() or not destino.is_file()
+                or stat.S_IMODE(destino.stat().st_mode) != 0o700
+                or c.sha(destino) != huella):
+            raise ValueError('La copia del verificador es divergente')
+    else:
+        descriptor = os.open(destino, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o700)
+        with origen.open('rb') as entrada, os.fdopen(descriptor, 'wb') as salida:
+            shutil.copyfileobj(entrada, salida)
+            salida.flush()
+            os.fsync(salida.fileno())
+        if c.sha(destino) != huella:
+            raise ValueError('La copia del verificador es divergente')
     manifiesto = c.carpeta / 'manifiesto-firma.json'
     c.guardar(manifiesto, {'version': 1, 'etapas': [], 'verificador': {
         'binario': str(destino), 'binario_sha256': huella, 'puerto': puerto}})

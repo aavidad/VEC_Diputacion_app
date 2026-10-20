@@ -164,6 +164,59 @@ class Copia:
         guardar(self.estado, estado)
         return sid
 
+    def preparar_verificador(self, origen, sha_esperada):
+        """Copia software declarado a la instancia y comprueba su modo de verificación."""
+        from recorrido_copia.verificador_fuente import LIMITE_BINARIO, validar
+
+        origen = Path(origen)
+        if sha_esperada is not None and not re.fullmatch(r'[0-9a-f]{64}', sha_esperada):
+            raise ValueError('Huella declarada del verificador inválida')
+        if not origen.is_absolute() or origen.is_symlink() or origen.resolve(strict=True) != origen:
+            raise ValueError('Fuente del verificador ausente o enlazada')
+        estado = origen.lstat()
+        if (not stat.S_ISREG(estado.st_mode) or estado.st_uid not in (0, os.getuid())
+                or estado.st_mode & 0o002 or not os.access(origen, os.X_OK)
+                or estado.st_nlink != 1 or not 0 < estado.st_size <= LIMITE_BINARIO
+                or (estado.st_mode & 0o020 and sha_esperada is None)):
+            raise ValueError('Fuente del verificador insegura o sin huella declarada')
+        carpeta = self.raiz / 'software-verificador'
+        carpeta.mkdir(mode=0o700)
+        temporal, destino = carpeta / 'grxfirma.nuevo', carpeta / 'grxfirma'
+        fd_origen = os.open(origen, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            with os.fdopen(fd_origen, 'rb') as entrada:
+                abierto = os.fstat(entrada.fileno())
+                if (abierto.st_dev, abierto.st_ino, abierto.st_size) != (estado.st_dev, estado.st_ino, estado.st_size):
+                    raise ValueError('Fuente del verificador cambió durante la apertura')
+                fd_salida = os.open(temporal, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o700)
+                huella = hashlib.sha256()
+                total = 0
+                with os.fdopen(fd_salida, 'wb') as salida:
+                    while bloque := entrada.read(1_048_576):
+                        total += len(bloque)
+                        if total > LIMITE_BINARIO:
+                            raise ValueError('Fuente del verificador excesiva')
+                        huella.update(bloque)
+                        salida.write(bloque)
+                    salida.flush()
+                    os.fsync(salida.fileno())
+            despues = origen.lstat()
+            if (total != estado.st_size or
+                    (despues.st_dev, despues.st_ino, despues.st_size, despues.st_mtime_ns)
+                    != (estado.st_dev, estado.st_ino, estado.st_size, estado.st_mtime_ns)):
+                raise ValueError('Fuente del verificador cambió durante la copia')
+            if sha_esperada is not None and huella.hexdigest() != sha_esperada:
+                raise ValueError('Huella declarada del verificador divergente')
+            resultado = validar(temporal, sha_esperada)
+            if resultado['binario_sha256'] != huella.hexdigest():
+                raise ValueError('Copia del verificador divergente')
+            temporal.rename(destino)
+            return {'binario': str(destino), 'binario_sha256': huella.hexdigest(),
+                    'version': resultado['version']}
+        except Exception:
+            temporal.unlink(missing_ok=True)
+            raise
+
     def crear(self, args):
         verificar_fuente()
         if args.rrhh_original:
@@ -176,8 +229,6 @@ class Copia:
             puerto_libre(args.puerto_smtp)
         if getattr(args, 'recorrido_completo', False):
             puerto_libre(args.puerto_verificador)
-            if not Path('/usr/bin/grxfirma').is_file():
-                raise ValueError('Falta GrxFirma instalado para la copia del recorrido')
         completo = getattr(args, 'recorrido_completo', False)
         datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos and not completo else None
         roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos and not completo else None
@@ -196,12 +247,17 @@ class Copia:
                 raise ValueError('El volcado y los anexos deben corresponder a la misma referencia HZ37')
         listas = migraciones(args.lista_sql)
         self.raiz.mkdir(mode=0o700, parents=True, exist_ok=False)
-        guardar(self.estado, dict(nombre=self.nombre, raiz=str(self.raiz),
+        software = (self.preparar_verificador(args.binario_verificador, args.sha_verificador)
+                    if completo else None)
+        estado_inicial = dict(nombre=self.nombre, raiz=str(self.raiz),
                 puerto_pg=args.puerto_pg, puerto_app=args.puerto_app,
                 puerto_smtp=args.puerto_smtp if args.modulos else None,
                 fuente=str(REPO), origen=str(origen),
                 preparada=False, revision=revision(), creada_en=time.time(),
-                material_modo='rrhh_original' if args.rrhh_original else 'nuevo'))
+                material_modo='rrhh_original' if args.rrhh_original else 'nuevo')
+        if software is not None:
+            estado_inicial['software_verificador'] = software
+        guardar(self.estado, estado_inicial)
         guardar(self.raiz / 'fuentes.json', FUENTES)
         self.pg_password()
         self.pg()
@@ -288,6 +344,16 @@ class Copia:
             huella_semilla = preparar_copia(self)
             estado = self.leer()
             estado['rrhh_adicional_semilla_sha256'] = huella_semilla
+            guardar(self.estado, estado)
+        if completo:
+            from recorrido_copia.centros import preparar as preparar_centros
+            centros = preparar_centros(self)
+            archivo = self.raiz / 'entorno_modulos.json'
+            entorno = json.loads(archivo.read_bytes())
+            entorno.update(centros['entorno'])
+            guardar(archivo, entorno)
+            estado = self.leer()
+            estado['entorno_modulos_sha256'] = sha256(archivo)
             guardar(self.estado, estado)
         memoria()
         verificar_fuente(self.leer()['revision'])
@@ -658,6 +724,9 @@ def main():
     p.add_argument('--lista-sql', action='append', default=[])
     p.add_argument('--recorrido-completo', action='store_true', help='Crear el recorrido completo con productores versionados')
     p.add_argument('--puerto-verificador', type=int, default=19881)
+    p.add_argument('--binario-verificador', type=Path,
+                   help='Ejecutable GrxFirma declarado para el recorrido completo')
+    p.add_argument('--sha-verificador', help='SHA-256 del GrxFirma declarado')
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
@@ -676,8 +745,12 @@ def main():
         if not 1024 <= args.puerto_verificador <= 65535 or args.puerto_verificador in (
                 args.puerto_pg, args.puerto_app, args.puerto_smtp, args.puerto_admin):
             p.error('El puerto del verificador debe ser distinto y estar entre 1024 y 65535')
+        if args.binario_verificador is None or not args.binario_verificador.is_absolute():
+            p.error('--recorrido-completo requiere --binario-verificador absoluto')
         if not args.lista_sql:
             args.lista_sql = [str(REPO / 'deploy/principal/lista_sql_main_tras_hz37.txt')]
+    elif args.binario_verificador is not None or args.sha_verificador is not None:
+        p.error('--binario-verificador y --sha-verificador solo se admiten con --recorrido-completo')
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
     if args.administracion and (args.orden != 'crear' or not args.modulos):
@@ -701,7 +774,13 @@ def main():
                         or args.puerto_smtp in (args.puerto_pg, args.puerto_app)):
         p.error('El puerto SMTP debe ser distinto y estar entre 1024 y 65535')
     copia = Copia(args.equipo, args.instancia)
-    BASE.mkdir(parents=True, exist_ok=True)
+    for directorio in (BASE.parent, BASE):
+        if not directorio.exists() and not directorio.is_symlink():
+            directorio.mkdir(mode=0o700)
+        datos = directorio.lstat()
+        if (not stat.S_ISDIR(datos.st_mode) or datos.st_uid != os.getuid()
+                or stat.S_IMODE(datos.st_mode) not in (0o700, 0o755)):
+            raise ValueError('Directorio de copias local inseguro')
     # Candado por instancia fuera de PGDATA; borrar no permite otro escritor concurrente.
     with (BASE / f'.{copia.nombre}.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
