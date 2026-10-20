@@ -174,7 +174,11 @@ Con la fiscalización favorable, el técnico abre el llamamiento. VEC recorre la
 
 VEC no emite un llamamiento que se salte a una persona disponible que aún no ha sido llamada para esa necesidad. Si la selección empieza más abajo, la pantalla indica quién va antes y su número de orden, y no guarda nada. Quien no contestó a un llamamiento para otra necesidad conserva su turno en los siguientes. Saltar el orden solo será posible con un motivo de un catálogo aprobado por RRHH, que quedará guardado en el llamamiento y en la auditoría. Ese catálogo está vacío hasta que RRHH conteste la duda 168.
 
-La persona tiene dos días desde el aviso para contestar. Responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada. Si contesta por teléfono, el técnico anota la respuesta. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
+El correo avisa del llamamiento. Tras hablar con la persona, RRHH abre su ficha en Bolsa y registra el resultado con «Registrar intento telefónico». El resultado «Contactado» abre la respuesta en Mi Bolsa y el plazo que muestran las reglas vigentes; el envío del correo por sí solo no lo abre. La fecha de la llamada la guarda VEC.
+
+En el formulario «Registrar contacto», si VEC no puede confirmar que se ha guardado, conserva los datos bloqueados. Pulse «Reintentar el mismo registro» para recuperar su justificante sin anotar otra llamada.
+
+La persona responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada, y recibe un justificante. Registrar el contacto no equivale a aceptar. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
 
 Las llamadas de teléfono también se anotan, con su resultado. Si la persona contesta al teléfono, el plazo empieza a contar igual que con el correo.
 
