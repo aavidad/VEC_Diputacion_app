@@ -131,6 +131,10 @@ y permite reconciliar si la respuesta fue ambigua. Ejemplo:
 
 ### Reglas, plazos y categorías configurables
 
+La lectura de reglas vigentes incluye `edicion_disponible` por catálogo.
+Describe si está montada la ruta de edición; no concede permisos. El portal
+explica la edición desactivada sin consultar una ruta ausente (F1-33).
+
 Órdenes de Alberto del 25/09 y del 29/09: lo que RRHH no ha decidido todavía se
 guarda como dato modificable, y cada cambio deja constancia de quién lo hizo.
 
