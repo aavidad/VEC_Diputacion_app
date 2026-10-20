@@ -889,3 +889,76 @@ técnico firmó con ella ya no admite la firma de Jefatura. Cada
 persona usa su propia carpeta personal, con `afirma://` permitido en Chrome
 para el origen de la copia y la configuración de GrxFirma en `0600`, la
 confianza por decisión activada y el origen admitido.
+
+## 12. Personal: incorporación, alta, GINPIX manual y cese (F1-119)
+
+Después de crear la copia con la orden completa de los apartados 2 y 4,
+prepara Personal desde la misma rama limpia:
+
+```sh
+python3 deploy/principal/copia_local.py personal --equipo y --instancia recorrido \
+  --config-personal /ruta/privada/configuracion-b2-aprobada/servidor.json
+```
+
+`--config-personal` es una referencia privada, regular y con permisos `0600`.
+La configuración B2 aprobada procede del material común de candidata,
+`incorporacion/personal-b2/servidor.json`; dirección debe haber autorizado
+su lectura. Debe incluir las operaciones de categoría RPT, gobierno de los
+catálogos de Personal y `cese_fecha_efecto`. La orden conserva sus referencias,
+los motivos de las operaciones y la regla de fecha del cese. Descarta el
+circuito antiguo de ejercicio, sus conexiones y las capacidades antiguas.
+No ejecuta guiones de otros equipos.
+
+La orden:
+
+1. Crea nueve LOGIN propios, uno por conexión de las tres bases, las cinco de
+   B2 y el relevo del cese, con TLS verificado y vigencia de 90 días. Seis
+   conservan los nombres que ya declaran las 27 filas de origen restauradas
+   (`origen_consumos_ad172/ternas.tsv`, bloque `incorporacionb`), con
+   contraseñas nuevas. Como en Usuarios, no se modifican esas filas.
+2. Aplica `candidata_hz39/personal/datos_plantilla.sql`, la semilla ficticia
+   existente de la Plantilla, plaza 2026/0033 y cobertura. Es repetible y
+   conserva sus comprobaciones de preimagen.
+3. Reinicia en una fase de publicación con incorporación B2 y el gobierno de
+   Personal seleccionados. En esa fase solo comprueba el arranque del portal;
+   Personal aún no tiene capacidades y no ofrece sus operaciones.
+4. Ejecuta `vec-preparar-material-interno` con la idempotencia de esta copia,
+   el resolutor nominal de motivos de RRHH y un LOGIN temporal de gobierno.
+   Reutiliza el preparador de gobierno de F1-103 y lo retira al terminar.
+   No necesita el inventario antiguo `ct_v3.json`. El productor comprueba la
+   raíz, las claves publicadas, su vigencia, las 27 referencias de motivos y
+   el motivo de detalle antes de escribir el material activable.
+5. Activa `personal/material/servidor.json` y los selectores de incorporación
+   acreditada, alta B2, seguimiento y cese; conserva el resto del entorno.
+   Reinicia y exige las comprobaciones completas de Contratación y Bolsa,
+   la lista de categorías RPT y el catálogo de regímenes de Personal.
+
+Los datos de activación quedan en `<copia>/personal`, con permisos privados.
+Los registros de la fase de publicación no acreditan por sí solos la
+activación final. Si falla, se recupera el entorno anterior y se arranca con
+él; el error se devuelve y el material queda para diagnosticar. Una repetición
+tras el éxito coteja las huellas y comprueba la copia sin republicar.
+Una interrupción tras crear los LOGIN y antes de guardar sus conexiones
+exige descartar esa instancia y crear otra; no se cambian contraseñas para
+simular la recuperación.
+
+La preparación monta las capacidades existentes. Los perfiles que falten se
+publican por el circuito de aprobación ya existente, con sus preimágenes;
+un rechazo de ese circuito detiene la preparación. Los ocho catálogos de
+régimen y modalidad se publican desde la ruta gobernada de Personal cuando
+no estén en el respaldo, con las mismas claves de operación al recuperar.
+No se crean incorporaciones, firmas, altas ni ceses por SQL.
+
+Con un expediente en nombramiento, comprueba como RRHH los GET de
+`incorporacion-personal-b2/plan/v1` y `vinculo-categoria-rpt/v1`, con su
+`expediente_ref`. Desde las pantallas sigue el orden del caso 4.0:
+17 → 18 → 16a → 16b → 19 → 20 → 21. GINPIX sigue siendo una grabación
+manual con recibo local. Reinicia con `copia_local.py reiniciar` y repite las
+lecturas con las mismas referencias. El recorrido de aceptación y sus actos
+los registra el equipo responsable del caso 4.0.
+
+### Lo que la copia siembra y no es autoritativo
+
+- F1-119 reutiliza la semilla de Plantilla de HZ39: fecha 07/05/2026,
+  plaza 2026/0033 y cobertura enlazada a la revisión de Plantilla. No acredita
+  una aprobación oficial ni una vacante real fuera de la copia.
