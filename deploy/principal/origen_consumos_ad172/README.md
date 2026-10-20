@@ -183,17 +183,17 @@ Desde una copia del repositorio con esta rama, se sube el paquete a cidonia y
 se ejecuta como `openclaw`. El guion solo usa los ficheros de su carpeta.
 
 ```bash
-scp -r deploy/principal/origen_consumos_ad172 root@cidonia.cloud:/home/openclaw/.local/state/vec-desarrollo-20260906/
-ssh root@cidonia.cloud chown -R openclaw:openclaw /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172
+scp -r deploy/principal/origen_consumos_ad172 root@cidonia.cloud:/ruta/privada/vec-desarrollo-20260906
+ssh root@cidonia.cloud chown -R openclaw:openclaw /ruta/privada/origen_consumos_ad172
 ```
 
 ```bash
 # 1. Inventario (solo lectura)
-ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --inventario"'
+ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /ruta/privada/ejecutar.sh --inventario"'
 # 2. Ensayo (termina en ROLLBACK)
-ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --ensayo"'
+ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /ruta/privada/ejecutar.sh --ensayo"'
 # 3. Aplicar (COMMIT)
-ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --aplicar"'
+ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /ruta/privada/ejecutar.sh --aplicar"'
 ```
 
 Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 108 ternas.

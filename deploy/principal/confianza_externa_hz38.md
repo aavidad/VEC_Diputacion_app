@@ -114,15 +114,15 @@ journalctl --user -u vec-confianza-externa.service -n 20
 Contenido de `renovacion.env` en cidonia (sin contraseñas):
 
 ```text
-VEC_RENOVACION_BINARIO=/home/openclaw/.local/libexec/vec/vec-server
-VEC_RENOVACION_MATERIAL_EXTERNO=/home/openclaw/.local/state/vec-desarrollo-20260906/config/portal-externo
-VEC_RENOVACION_PUBLICADOR_DSN=/home/openclaw/.config/vec/confianza-externa/publicador.dsn
+VEC_RENOVACION_BINARIO=/ruta/privada/vec-server
+VEC_RENOVACION_MATERIAL_EXTERNO=/ruta/privada/portal-externo
+VEC_RENOVACION_PUBLICADOR_DSN=/ruta/privada/publicador.dsn
 VEC_RENOVACION_CONSUMIDORES=mi_bolsa,portal_candidato,preferencias_bolsas,inscripcion_bolsa,meritos_cartera,bolsa_justificantes
 VEC_PORTAL_PROCESO=interno
 VEC_AUTH_MODE=desarrollo
 VEC_EXECUTION_PROFILE=desarrollo
 VEC_DEVELOPMENT_GUARD=ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO
-VEC_DEVELOPMENT_MATERIAL_DIR=/home/openclaw/.local/state/vec-desarrollo-20260906/material/desarrollo-fiscalizacion-20260904
+VEC_DEVELOPMENT_MATERIAL_DIR=/ruta/privada/desarrollo-fiscalizacion-20260904
 ```
 
 La DSN administrativa, su `passfile` y la CA deben usar rutas accesibles desde

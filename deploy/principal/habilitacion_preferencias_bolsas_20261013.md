@@ -65,8 +65,8 @@ vigente y cambiar `conjunto_capacidades` a `6`. Añadir este bloque, con
 {
   "conjunto_capacidades": 6,
   "version_bolsa_externa": {
-    "pool_gobierno": "/home/openclaw/.local/state/vec-admin-principal-20261005/vec-admin/pools/version-bolsa-externa-ejecutor.json",
-    "pool_catalogo": "/home/openclaw/.local/state/vec-admin-principal-20261005/vec-admin/pools/catalogo-acciones-lector-externa.json",
+    "pool_gobierno": "/ruta/privada/version-bolsa-externa-ejecutor.json",
+    "pool_catalogo": "/ruta/privada/catalogo-acciones-lector-externa.json",
     "motivos": {
       "vec_autorizacion.versionar_rol_bolsa_externa.propuesta.v1": {
         "catalogo_id": "<catálogo de motivos vigente>",
@@ -186,7 +186,7 @@ el recibo, volver a abrir y conservar el orden. La lectura usa sesión y
 auditoría; únicamente guardar consume V3. La preferencia guardada no adjudica
 una plaza ni altera por sí sola un llamamiento.
 
-CONFIG NUEVA: `VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE=/home/openclaw/.local/state/vec-admin-principal-20261005/gobierno/20261013/version-bolsa-externa.json`
+CONFIG NUEVA: `VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE=/ruta/privada/version-bolsa-externa.json`
 si `salida` es esa carpeta; en la renovación diaria usar la carpeta vigente.
 No añade selectores ni configuración nueva a `vec-server`: añade el consumidor
 `preferencias_bolsas` al material externo existente.
