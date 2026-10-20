@@ -45,7 +45,7 @@ func TestAuditoriaFallidaAntesDeV3DetieneProyeccionCon503(t *testing.T) {
 	proveedor := &proveedorPerfilEntregaRevocadoPrueba{auditoriaFalla: true}
 	lector := &lectorAmbitosProhibidoPrueba{}
 	repositorio := &RepositorioEntregasPeticionCentroPostgreSQL{
-		pool: &pgxpool.Pool{}, lector: lector, proveedor: proveedor,
+		pool: &pgxpool.Pool{}, lector: lector, proveedor: proveedor, organizacionRef: "organizacion:desarrollo:dipgra",
 	}
 	_, err := repositorio.material(context.Background(), "preparar",
 		ports.ComandoEntregarPeticionCentro{PeticionRef: "peticion:centro:ratificada", VersionEsperada: 2})
@@ -80,7 +80,7 @@ func TestPerfilEntregaRevocadoNoProyectaExistenciaDeReferencias(t *testing.T) {
 	proveedor := &proveedorPerfilEntregaRevocadoPrueba{}
 	lector := &lectorAmbitosProhibidoPrueba{}
 	repositorio := &RepositorioEntregasPeticionCentroPostgreSQL{
-		pool: &pgxpool.Pool{}, lector: lector, proveedor: proveedor,
+		pool: &pgxpool.Pool{}, lector: lector, proveedor: proveedor, organizacionRef: "organizacion:desarrollo:dipgra",
 	}
 	for _, ref := range []string{"peticion:centro:ratificada", "peticion:centro:inexistente"} {
 		_, err := repositorio.material(context.Background(), "preparar",
@@ -98,7 +98,7 @@ func TestPerfilEntregaRevocadoNoProyectaExistenciaDeReferencias(t *testing.T) {
 func TestReferenciaNoRatificadaNoDistingueDeDenegacionPreV3(t *testing.T) {
 	proveedor := &proveedorPerfilEntregaRevocadoPrueba{permitir: true}
 	repositorio := &RepositorioEntregasPeticionCentroPostgreSQL{
-		pool: &pgxpool.Pool{}, lector: lectorAmbitosNoEncontradosPrueba{}, proveedor: proveedor,
+		pool: &pgxpool.Pool{}, lector: lectorAmbitosNoEncontradosPrueba{}, proveedor: proveedor, organizacionRef: "organizacion:desarrollo:dipgra",
 	}
 	_, err := repositorio.material(context.Background(), "preparar",
 		ports.ComandoEntregarPeticionCentro{PeticionRef: "peticion:centro:inexistente", VersionEsperada: 2})
@@ -112,7 +112,7 @@ func TestRecursoEntregaPostIncluyeAmbitosRatificadosYGETNoLosHereda(t *testing.T
 	get := ports.MaterialEntregaPeticionCentro{
 		Modo: "bandeja", ActorRef: "actor:rrhh", PerfilRef: "perfil:lector",
 	}
-	rGET, err := RecursoEntregaPeticionCentro(get)
+	rGET, err := RecursoEntregaPeticionCentro(get, "organizacion:desarrollo:dipgra")
 	if err != nil || len(rGET.Ambitos) != 1 ||
 		rGET.Ambitos["organizacion_ref"] != "organizacion:desarrollo:dipgra" {
 		t.Fatalf("lector GET: recurso=%+v error=%v", rGET, err)
@@ -124,7 +124,7 @@ func TestRecursoEntregaPostIncluyeAmbitosRatificadosYGETNoLosHereda(t *testing.T
 		ClaveAltaCandidata: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 		AmbitoAltaHMAC:     "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:" + strings.Repeat("a", 64),
 	}
-	rPOST, err := RecursoEntregaPeticionCentro(post)
+	rPOST, err := RecursoEntregaPeticionCentro(post, "organizacion:desarrollo:dipgra")
 	if err != nil || len(rPOST.Ambitos) != 3 ||
 		rPOST.Ambitos["centro_ref"] != post.CentroRef ||
 		rPOST.Ambitos["categoria_ref"] != post.CategoriaRef ||
@@ -136,12 +136,24 @@ func TestRecursoEntregaPostIncluyeAmbitosRatificadosYGETNoLosHereda(t *testing.T
 		t.Fatal(err)
 	}
 	post.CategoriaRef = "categoria:otra"
-	rOtro, err := RecursoEntregaPeticionCentro(post)
+	rOtro, err := RecursoEntregaPeticionCentro(post, "organizacion:desarrollo:dipgra")
 	if err != nil {
 		t.Fatal(err)
 	}
 	hOtro, err := rOtro.HuellaContextoAutorizacionSHA256()
 	if err != nil || h == hOtro {
 		t.Fatal("cambiar categoría no cambió la huella del contexto")
+	}
+	rOrganizacion, err := RecursoEntregaPeticionCentro(post, "org_"+strings.Repeat("b", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hOrganizacion, err := rOrganizacion.HuellaContextoAutorizacionSHA256()
+	if err != nil || hOtro == hOrganizacion || rOtro.Ambitos["organizacion_ref"] == rOrganizacion.Ambitos["organizacion_ref"] ||
+		rOtro.Atributos["material_sha256"] != rOrganizacion.Atributos["material_sha256"] {
+		t.Fatal("cambiar organización no separó el recurso conservando el material")
+	}
+	if _, err := RecursoEntregaPeticionCentro(post, ""); err == nil {
+		t.Fatal("organización vacía aceptada")
 	}
 }

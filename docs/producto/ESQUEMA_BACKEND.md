@@ -616,6 +616,14 @@ inscripción no cambian.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
+Los adaptadores de petición del centro y entrega a RRHH reciben su organización
+como argumento explícito de composición y la conservan en el repositorio. Esa
+referencia forma parte de la huella del recurso de autorización; el material
+JSON conserva su contrato SQL. Los adaptadores de reglas y plantillas admiten
+la referencia explícita y mantienen su cotejo exacto. El montaje con fuentes
+maestras publicadas sigue pendiente. Contrato y activación del primer corte de
+F1-128 en [`referencia_organizativa_ct_f1_128.md`](../../deploy/principal/referencia_organizativa_ct_f1_128.md).
+
 F1-47 amplía la consulta existente de seguimiento con la versión, fase,
 estado y número visible actuales del expediente (CT242). Fase y estado salen
 de las columnas de la versión vigente y el número es el de la numeración
