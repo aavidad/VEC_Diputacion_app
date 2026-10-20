@@ -52,7 +52,7 @@ detalle, que corresponde a F1-114.
 ## Ensayo del 20 de octubre
 
 Código ensayado: `c996e93f70f6fa6f55ed20b6d55ab77830d3faa8`.
-La copia propia PostgreSQL 18.4 instaló las 133 migraciones de la lista,
+La copia propia PostgreSQL 18.4 instaló las 132 migraciones de la lista,
 incluida AD303 una sola vez, y pasó su prueba focal. Dos revisiones
 independientes comprobaron SQL y permisos sobre esa versión.
 
