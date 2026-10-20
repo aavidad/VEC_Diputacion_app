@@ -48,5 +48,9 @@ En la copia de F1-27 basada en `fb5200b68`, el 20/10 se observó el rechazo 409
 del formulario genérico. El formulario telefónico específico devolvió 201;
 Mi Bolsa interna permitió responder con 201 y estado firme, y el expediente
 2026/93001 mostró la aceptación confirmada de la misma emisión. Son resultados
-de la versión anterior al arreglo de pantalla. La prueba del formulario corregido
-y su recuperación deben constar aparte, sobre su revisión exacta.
+de la versión anterior al arreglo de pantalla. Tras reiniciar aplicación y
+PostgreSQL se conservaron una única respuesta, su fecha y su justificante; Chrome
+volvió a mostrar «Acepto» y «Respuesta firme». El cotejo independiente de esos
+resultados consta en la [entrega parcial de F1-27](https://github.com/aavidad/VEC_Diputacion_app/pull/1308).
+La prueba del formulario corregido y su recuperación deben constar aparte,
+sobre su revisión exacta.

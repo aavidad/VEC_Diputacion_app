@@ -752,7 +752,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
     const borrador = modal.borradorCambioSituacion || {};
     const revision = modal.revisionCambioSituacion;
-    const cierreBloqueado = modal.enviandoCambioSituacion || modal.resultadoInciertoCambioSituacion || modal.enviandoContacto;
+    const cierreBloqueado = modal.enviandoCambioSituacion || modal.resultadoInciertoCambioSituacion || modal.enviandoContacto || modal.resultadoInciertoContacto;
     const cambio = modal.cambioSituacion ? `
       <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"${revision ? " novalidate" : ""}>
         <div data-bolsa-cambio-edicion${revision ? " hidden" : ""}><label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}"${borrador.situacion === d ? " selected" : ""}>${escaparHTML(etiquetaEstadoBolsa(d))}</option>`).join("")}</select></label>
@@ -774,16 +774,20 @@ export function crearPresentadorPanelInterno(dependencias) {
     const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_cambio_registrado")} ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
     const reciboContacto = modal.reciboContacto ? `<p class="mensaje-exito" role="status">${escaparHTML(traducirBolsaInterna("contacto_registrado"))} ${justificanteTraducido(modal.reciboContacto, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
     const t = traducirBolsaInterna;
+    const borradorContacto = modal.borradorContacto || {};
+    const contactoBloqueado = modal.resultadoInciertoContacto || modal.enviandoContacto;
+    const elegido = (campo, valor) => borradorContacto[campo] === valor ? " selected" : "";
+    const deshabilitadoContacto = contactoBloqueado ? " disabled" : "";
     const opcionLlamamiento = candidato.ultimo_llamamiento
-      ? `<option value="${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}">${escaparHTML(t("contacto_ultimo_llamamiento"))}</option>` : "";
+      ? `<option value="${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}"${elegido("llamamiento_ref", candidato.ultimo_llamamiento.llamamiento_ref)}>${escaparHTML(t("contacto_ultimo_llamamiento"))}</option>` : "";
     const formularioContacto = `<form data-bolsa-form="contacto" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}" aria-describedby="bolsa-contacto-no-respuesta">
       <h4>${t("contacto_registrar")}</h4>
       <p id="bolsa-contacto-no-respuesta" class="nota-pendiente">${escaparHTML(traducirAvisoPanelInterno("panel_contacto_no_respuesta"))}</p>
-      <label>${t("contacto_canal")} <select name="canal" required><option value="telefono">${t("contacto_telefono")}</option><option value="correo">${t("contacto_correo")}</option><option value="sms">${t("contacto_sms")}</option><option value="presencial">${t("contacto_presencial")}</option><option value="otro">${t("contacto_otro")}</option></select></label>
-      <label>${t("contacto_resultado")} <select name="resultado" required><option value="contactado">${t("contacto_contactado")}</option><option value="no_contesta">${t("contacto_no_contesta")}</option><option value="buzon">${t("contacto_buzon")}</option><option value="aplazado">${t("contacto_aplazado")}</option><option value="otro">${t("contacto_otro")}</option></select></label>
-      ${opcionLlamamiento ? `<label>${t("contacto_llamamiento")} <select name="llamamiento_ref"><option value="">${t("contacto_sin_vincular")}</option>${opcionLlamamiento}</select></label>` : ""}
-      <label>${t("contacto_anotacion")} <textarea name="anotacion" required maxlength="1000"></textarea></label>
-      <button type="submit" class="boton-primario">${t("contacto_registrar")}</button>
+      <label>${t("contacto_canal")} <select name="canal" required${deshabilitadoContacto}><option value="telefono"${elegido("canal", "telefono")}>${t("contacto_telefono")}</option><option value="correo"${elegido("canal", "correo")}>${t("contacto_correo")}</option><option value="sms"${elegido("canal", "sms")}>${t("contacto_sms")}</option><option value="presencial"${elegido("canal", "presencial")}>${t("contacto_presencial")}</option><option value="otro"${elegido("canal", "otro")}>${t("contacto_otro")}</option></select></label>
+      <label>${t("contacto_resultado")} <select name="resultado" required${deshabilitadoContacto}><option value="contactado"${elegido("resultado", "contactado")}>${t("contacto_contactado")}</option><option value="no_contesta"${elegido("resultado", "no_contesta")}>${t("contacto_no_contesta")}</option><option value="buzon"${elegido("resultado", "buzon")}>${t("contacto_buzon")}</option><option value="aplazado"${elegido("resultado", "aplazado")}>${t("contacto_aplazado")}</option><option value="otro"${elegido("resultado", "otro")}>${t("contacto_otro")}</option></select></label>
+      ${opcionLlamamiento ? `<label>${t("contacto_llamamiento")} <select name="llamamiento_ref"${deshabilitadoContacto}><option value=""${elegido("llamamiento_ref", "")}>${t("contacto_sin_vincular")}</option>${opcionLlamamiento}</select></label>` : ""}
+      <label>${t("contacto_anotacion")} <textarea name="anotacion" required maxlength="1000"${deshabilitadoContacto}>${escaparHTML(borradorContacto.anotacion || "")}</textarea></label>
+      <button type="submit" class="boton-primario"${modal.enviandoContacto ? " disabled" : ""}>${t(modal.resultadoInciertoContacto ? "contacto_reintentar_mismo" : "contacto_registrar")}</button>
       <p class="mensaje-error" role="alert">${escaparHTML(modal.errorContacto || "")}</p>
     </form>`;
     return `
