@@ -26,6 +26,8 @@ class Caso40Test(unittest.TestCase):
         shutil.copy(REPO / caso40.DATOS / 'seleccion.json', datos / 'seleccion.json')
         for nombre in caso40.GUIONES:
             (datos / nombre).write_bytes(b'SELECT 1;\n')
+        (self.repo / caso40.REGLAS_BOLSA).parent.mkdir(parents=True)
+        (self.repo / caso40.REGLAS_BOLSA).write_text('{}')
         self.material = self.tmp / 'material'
         (self.material / 'identidad').mkdir(parents=True)
         self.raiz = self.tmp / 'raiz'
@@ -67,7 +69,29 @@ class Caso40Test(unittest.TestCase):
 
         with patch.object(caso40.subprocess, 'run', side_effect=preparar):
             entorno = caso40.preparar_antonio(self.copia, self.repo)
-        self.assertEqual(entorno, {'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true'})
+        # F1-109: el selector del portal nunca va sin el catálogo de reglas que
+        # el servidor exige; sin él el arranque se para en selectores_bolsa_ct.
+        self.assertEqual(entorno, {'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true',
+                                   'VEC_BOLSA_REGLAS_SOURCE_PATH': str(self.repo / caso40.REGLAS_BOLSA)})
+
+    def test_falla_sin_el_catalogo_de_reglas_de_bolsa(self):
+        (self.repo / caso40.REGLAS_BOLSA).unlink()
+
+        def preparar(orden, **kwargs):
+            (self.material / 'identidad/bolsa-candidato.json').write_text(
+                json.dumps({'candidato_ref': caso40.seleccion(self.repo)['candidato']}))
+
+        with patch.object(caso40.subprocess, 'run', side_effect=preparar), self.assertRaises(ValueError):
+            caso40.preparar_antonio(self.copia, self.repo)
+
+    def test_el_catalogo_de_reglas_de_bolsa_existe_en_el_repositorio(self):
+        self.assertTrue((REPO / caso40.REGLAS_BOLSA).is_file())
+
+    def test_el_entorno_respeta_lo_que_el_kit_ya_fijo(self):
+        propuesto = {'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true', 'VEC_BOLSA_REGLAS_SOURCE_PATH': '/repo/r.json'}
+        entorno = caso40.entorno_portal({'VEC_BOLSA_REGLAS_SOURCE_PATH': '/privado/r.json', 'OTRA': '1'}, propuesto)
+        self.assertEqual(entorno, {'VEC_BOLSA_REGLAS_SOURCE_PATH': '/privado/r.json', 'OTRA': '1',
+                                   'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true'})
 
     def test_falla_si_la_identidad_sigue_en_la_candidatura_antigua(self):
         def preparar(orden, **kwargs):
