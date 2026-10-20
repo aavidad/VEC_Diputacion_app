@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	app "vec-diputacion-granada/internal/modules/contrataciontemporal/application/ajustesreglas"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -25,7 +26,6 @@ const (
 	huellaMaterialAjustesCTSQL       = `SELECT encode(sha256(convert_to($1::jsonb::text,'UTF8')),'hex')`
 	audienciaAjustesReglasCT         = "vec_contratacion_temporal.ajustes_reglas.v1"
 	recursoAjustesReglasCT           = "vec.contratacion_temporal.reglas"
-	organizacionAjustesReglasCT      = "organizacion:desarrollo:dipgra"
 	maximoMaterialOperacionAjustesCT = 65536
 	// La consulta puede devolver 50 versiones; cada una procede de un
 	// material de hasta 64 KiB en CT-148.
@@ -89,7 +89,7 @@ func NuevoRepositorioAjustesReglasCTConLector(pool *pgxpool.Pool, proveedor Prov
 }
 
 func nuevoRepositorioAjustesReglasCT(pool ejecutorOperacionAjustesCT, proveedor ProveedorAutorizacionAjustesReglasCT, organizacionRef string) (*RepositorioAjustesReglasCT, error) {
-	if dependenciaNula(pool) || dependenciaNula(proveedor) || organizacionRef != organizacionAjustesReglasCT {
+	if dependenciaNula(pool) || dependenciaNula(proveedor) || !domain.ReferenciaOpacaValida(organizacionRef) {
 		return nil, ErrOperacionAjustesReglasNoDisponible
 	}
 	return &RepositorioAjustesReglasCT{pool: pool, proveedor: proveedor, organizacionRef: organizacionRef}, nil
