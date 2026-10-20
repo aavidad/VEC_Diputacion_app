@@ -469,11 +469,14 @@ func postimagenOriginalSeguimiento(prep ports.PreparacionOperacionSeguimiento, s
 	version, e1 := json.Marshal(siguiente.Version)
 	actualizado, e2 := json.Marshal(instante)
 	actuacion, e3 := json.Marshal(siguiente.Actuaciones[len(siguiente.Actuaciones)-1])
-	if e1 != nil || e2 != nil || e3 != nil {
+	fase, e4 := json.Marshal(siguiente.FaseActual)
+	estado, e5 := json.Marshal(siguiente.EstadoActual)
+	if e1 != nil || e2 != nil || e3 != nil || e4 != nil || e5 != nil {
 		return nil, ports.ErrOperacionSeguimientoInvalida
 	}
 	actuaciones = append(actuaciones, actuacion)
 	raiz["version"], raiz["actualizado_en"] = version, actualizado
+	raiz["fase_actual"], raiz["estado_actual"] = fase, estado
 	raiz["actuaciones"], e1 = json.Marshal(actuaciones)
 	if e1 != nil {
 		return nil, ports.ErrOperacionSeguimientoInvalida
@@ -486,7 +489,7 @@ func postimagenOriginalSeguimiento(prep ports.PreparacionOperacionSeguimiento, s
 }
 
 func proyeccionesConfirmacionSeguimiento(o ports.OrdenConfirmarOperacionSeguimiento, org, exp string) (any, any, error) {
-	if o.Operacion != ports.OperacionRegistrarCese {
+	if o.Operacion != ports.OperacionRegistrarCese && o.Operacion != ports.OperacionRegistrarNoIncorporacion {
 		return o.Preparacion.Expediente, o.Siguiente, nil
 	}
 	anterior, err := preimagenOriginalSeguimiento(o.Preparacion, org, exp)
@@ -586,9 +589,13 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarEstadoSeguimiento(c
 		RegistradaEn time.Time `json:"registrada_en"`
 	}
 	var salida struct {
-		Esquema       string `json:"esquema"`
-		ExpedienteRef string `json:"expediente_ref"`
-		Incorporacion *struct {
+		Esquema           string `json:"esquema"`
+		ExpedienteRef     string `json:"expediente_ref"`
+		VersionExpediente uint64 `json:"version_expediente"`
+		FaseClave         string `json:"fase_clave"`
+		EstadoClave       string `json:"estado_clave"`
+		NumeroExpediente  string `json:"numero_expediente"`
+		Incorporacion     *struct {
 			ReciboRef string `json:"recibo_ref"`
 			Inicio    string `json:"inicio"`
 		} `json:"incorporacion"`
@@ -615,7 +622,11 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarEstadoSeguimiento(c
 			return err
 		}
 		if len(contenido) > maximoCargaSeguimiento || json.Unmarshal(contenido, &salida) != nil ||
-			salida.Esquema != "vec.contratacion-temporal.cese-cierre-expediente.v1" || salida.ExpedienteRef != exp {
+			salida.Esquema != "vec.contratacion-temporal.cese-cierre-expediente.v1" || salida.ExpedienteRef != exp ||
+			salida.VersionExpediente == 0 || salida.VersionExpediente > 9007199254740991 ||
+			!domain.ClaveFase(salida.FaseClave).Valida() ||
+			!domain.EstadoOperativo(salida.EstadoClave).Valido() ||
+			!domain.NumeroExpedienteValido(salida.NumeroExpediente) {
 			return ports.ErrResultadoSeguimientoNoConfiable
 		}
 		return nil
@@ -623,7 +634,9 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarEstadoSeguimiento(c
 	if err != nil {
 		return vacio, err
 	}
-	estado := ports.EstadoSeguimientoExpediente{ExpedienteRef: exp}
+	estado := ports.EstadoSeguimientoExpediente{ExpedienteRef: exp,
+		VersionExpediente: salida.VersionExpediente, FaseClave: domain.ClaveFase(salida.FaseClave),
+		EstadoClave: domain.EstadoOperativo(salida.EstadoClave), NumeroExpediente: salida.NumeroExpediente}
 	if i := salida.Incorporacion; i != nil {
 		estado.IncorporacionRef, estado.InicioIncorporacion = i.ReciboRef, i.Inicio
 	}
