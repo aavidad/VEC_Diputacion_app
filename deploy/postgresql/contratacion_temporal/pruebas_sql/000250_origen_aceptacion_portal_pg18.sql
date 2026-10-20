@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- Ejecutar tras CT249 y CT250 en la copia local de la principal.
--- La huella del lector corresponde a su ampliación vigente tras CT256.
+-- La huella del lector corresponde a su ampliación vigente tras CT249.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -16,7 +16,7 @@ BEGIN
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       <>'7748e4d63deb1766850aeb8596c5eca996705176e2de0cb90312acbd2a14cf0d' THEN
+       <>'6c62a090c72f10ad4e898ef5594f3f8445fb2b2f37582a24823ca57c7e1946de' THEN
   RAISE EXCEPTION 'CT250 prueba: definición, dueño o ACL divergentes'; END IF;
  original:=p.prosrc;
  IF position('consultar_detalle_rrhh_atestado_v1' in original)=0
