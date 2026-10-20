@@ -64,8 +64,7 @@ BEGIN
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-      <>'9f8ccd5cf39f77be1f33607ab63041115eaacb76fa62fad1f242b9815e356ae3'
-    OR position('numero:=s->>''expediente_ref''' in p.prosrc)=0
+      <>'a2fb96e9e5fd06a8ac9bca781a935db85a50bf175ed0d78b0d90ce9585adf8c6'
     OR position('numero_visible_vigente_v1' in p.prosrc)=0
     OR position('verificar_emision_ct_v1' in p.prosrc)=0 THEN
   RAISE EXCEPTION 'CT250 prueba: vínculo opaco/manual o autoridad divergente'; END IF;

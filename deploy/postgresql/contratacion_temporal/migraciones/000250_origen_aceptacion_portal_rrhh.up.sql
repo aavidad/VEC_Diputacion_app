@@ -155,9 +155,13 @@ BEGIN
     OR actual_ct.agregado_json#>>'{analisis,categoria_ref}' IS DISTINCT FROM amb.categoria_ref THEN
   RAISE EXCEPTION 'CT201: versión o bolsa de cobertura divergente' USING ERRCODE='23505';
  END IF;
- -- La O6 original puede haber emitido con la referencia opaca del expediente.
- -- El recibo B98 decide cuál de las dos referencias es realmente la suya.
- IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+ -- Conservar la verificación histórica por número visible. Solo una O6 propia
+ -- confirmada permite comprobar además su referencia opaca original.
+ numero:=vec_contratacion_temporal.numero_visible_vigente_v1(s->>'expediente_ref',actual_ct.numero_visible);
+ IF vec_bolsa_llamamientos.verificar_emision_ct_v1(
+    s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',numero,
+    actual_ct.agregado_json#>>'{analisis,categoria_ref}') IS NOT TRUE THEN
+  IF NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
    JOIN vec_contratacion_temporal.expediente_version_integral h
      ON h.expediente_ref=s->>'expediente_ref' AND h.version=CASE
       WHEN e.recibo_json->>'version_expediente' ~ '^[1-9][0-9]{0,15}$'
@@ -178,14 +182,13 @@ BEGIN
      AND h.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}'='bolsa_vigente'
      AND h.agregado_json#>>'{analisis,categoria_ref}' IS NOT NULL
      AND h.agregado_json#>>'{asignacion,unidad_ref}' IS NOT NULL) THEN
-  numero:=s->>'expediente_ref';
- ELSE
-  numero:=vec_contratacion_temporal.numero_visible_vigente_v1(s->>'expediente_ref',actual_ct.numero_visible);
- END IF;
- IF vec_bolsa_llamamientos.verificar_emision_ct_v1(
-    s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',numero,
-    actual_ct.agregado_json#>>'{analisis,categoria_ref}') IS NOT TRUE THEN
-  RAISE EXCEPTION 'CT201: emisión real ajena al expediente' USING ERRCODE='42501';
+   RAISE EXCEPTION 'CT201: emisión real ajena al expediente' USING ERRCODE='42501';
+  END IF;
+  IF vec_bolsa_llamamientos.verificar_emision_ct_v1(
+     s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',s->>'expediente_ref',
+     actual_ct.agregado_json#>>'{analisis,categoria_ref}') IS NOT TRUE THEN
+   RAISE EXCEPTION 'CT201: emisión real ajena al expediente' USING ERRCODE='42501';
+  END IF;
  END IF;
  instante:=date_trunc('microseconds',clock_timestamp());
  recibo:='recibo:ct:bolsa:'||gen_random_uuid()::text;
@@ -456,7 +459,7 @@ BEGIN
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-      IS DISTINCT FROM '9f8ccd5cf39f77be1f33607ab63041115eaacb76fa62fad1f242b9815e356ae3' THEN
+      IS DISTINCT FROM 'a2fb96e9e5fd06a8ac9bca781a935db85a50bf175ed0d78b0d90ce9585adf8c6' THEN
   RAISE EXCEPTION 'CT250: vínculo final divergente' USING ERRCODE='55000'; END IF;
 END $post_ct250$;
 COMMIT;
