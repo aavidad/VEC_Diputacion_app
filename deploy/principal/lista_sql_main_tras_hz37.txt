@@ -204,3 +204,5 @@ deploy/postgresql/autorizacion/migraciones/000105_fuente_inscripcion_v2.up.sql 1
 deploy/postgresql/contratacion_temporal/migraciones/000243_grupo_retencion_detalle_rrhh.up.sql d6d9624fa1157378b49c76e70bbcf65acd1ead47000bd7be8c8b669a0973dd20
 # F1-98 — CT244: el análisis compara también la fecha civil de la RC declarada por el centro; tras CT242.
 deploy/postgresql/contratacion_temporal/migraciones/000244_fecha_rc_declarada_analisis.up.sql 943e5009eefb8b329d6b871dabdced664c6a175ff5f0b0486ffa6b49b4e3d13f
+# F1-105 — CA48: el cotejo de lectura de Bolsa bloquea cuenta, perfil, vínculo y persona en el orden de la acreditación V3 (sin interbloqueo en la ficha del candidato); tras CA47.
+deploy/postgresql/contexto_actor_v1/migraciones/000048_cotejo_lectura_bolsa_orden_bloqueo.up.sql 9708680221f72a1774d25009f0f73eb09c9ac05df5f0b423f586431c50e41e45

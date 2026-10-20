@@ -18,6 +18,8 @@ FASE = Path(__file__).resolve().parent
 IMAGEN = 'postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296'
 BASE = Path('/dev/shm')
 D15_SQL = 'deploy/postgresql/documentos/migraciones/000015_rechazo_expediente_ct_cero.up.sql'
+# Fixture de la concurrencia entre la lectura de Bolsa y la decisión V3 (CA48).
+CA48_PRUEBA = 'deploy/postgresql/contexto_actor_v1/pruebas_sql/ca48_orden_bloqueo_lectura_bolsa.sql'
 PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b144_ambito_gobernado_bolsa.sql',
@@ -30,6 +32,7 @@ PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc14_publicacion_oficial_bases.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b146_solicitud_conjunta.sql',
+    CA48_PRUEBA,
     # El último caso es el fixture de la concurrencia de contexto externo.
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',
 )
@@ -264,12 +267,15 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pru
             from deploy.postgresql.fase1 import concurrencia_contexto
             fixture_externo = dict(casos)[PRUEBAS_SQL[-1]]
             concurrencia_contexto.ensayar(nombre, etiqueta, fixture_externo)
+            from deploy.postgresql.fase1 import concurrencia_lectura_bolsa
+            concurrencia_lectura_bolsa.ensayar(nombre, etiqueta, dict(casos)[CA48_PRUEBA])
         print(f'Esquema HZ37 restaurado; migraciones ensayadas: {len(deltas)}')
         if base_hz37 is not None:
             print('Reconciliación de la copia HZ37: Documentos D15 instalada')
         if pruebas:
             print(f'Pruebas SQL superadas: {len(casos)} antes y {len(casos)} después del reinicio')
             print('Concurrencia CAS de contexto externo superada')
+            print('Concurrencia de lectura de Bolsa y decisión V3 superada sin interbloqueo')
     finally:
         limpiar_copia(nombre, etiqueta, propio)
 

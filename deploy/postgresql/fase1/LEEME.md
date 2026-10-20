@@ -35,7 +35,7 @@ Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
 conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
 CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
 `--pruebas` incluye esa preparación y ejecuta estas
-diez pruebas SQL existentes, en este orden:
+trece pruebas SQL existentes, en este orden:
 
 1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
    de ofrecimiento y el permiso del validador sin crear un llamamiento.
@@ -57,7 +57,16 @@ diez pruebas SQL existentes, en este orden:
    B96 rechaza una inscripción conjunta antes de guardar una individual.
 9. `bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql`: la
    lista y la ficha del aspirante copian la modalidad sellada.
-10. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
+10. `bolsa_convocatorias/pruebas_sql/bc14_publicacion_oficial_bases.sql`: una
+   versión publicada no abre la inscripción sin la publicación oficial de sus
+   bases en plazo.
+11. `bolsa_llamamientos/pruebas_sql/b146_solicitud_conjunta.sql`: solicitud
+   conjunta con un solo recibo y reintento, y solicitud separada por categoría.
+12. `contexto_actor_v1/pruebas_sql/ca48_orden_bloqueo_lectura_bolsa.sql`: el
+   cotejo de lectura de Bolsa conserva dueño, permisos y definición de CA48,
+   bloquea en el mismo orden que la acreditación y el resolutor, acepta un
+   contexto corporativo vivo y rechaza una versión de cuenta ajena.
+13. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
    contexto externo por la función vigente, comprueba su huella y versión,
    acredita el candidato propio, rechaza el ajeno y los cruces de persona o
    perfil, y comprueba los permisos de ejecución; comprueba resolución,
@@ -108,7 +117,7 @@ preparación debe estar confirmado y coincidir con HEAD:
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
 
-Con `--pruebas`, las diez comprobaciones se repiten después de reiniciar el
+Con `--pruebas`, las trece comprobaciones se repiten después de reiniciar el
 mismo contenedor PostgreSQL, esperando su disponibilidad TCP. No se restaura
 el esquema, no se reinstalan migraciones ni se vuelve a preparar la semilla.
 Un fallo de reinicio o de cualquiera de las comprobaciones detiene la puerta.
@@ -139,7 +148,7 @@ enumerados sin cambiar la función que exige los privilegios mínimos.
 
 Después del reinicio se ensaya una carrera real de publicación de contexto
 externo. Solo en ese punto el fixture admite conservar sus datos mediante
-`-v ctx15_persistir_para_concurrencia=1`; las diez ejecuciones ordinarias
+`-v ctx15_persistir_para_concurrencia=1`; las trece ejecuciones ordinarias
 siguen terminando en `ROLLBACK`. Los datos permanecen únicamente en el
 contenedor desechable, que se retira al terminar.
 
@@ -151,3 +160,13 @@ coteja una única sucesora, su huella, el puntero y la historia anterior. Las
 esperas tienen límite y las dos sesiones se cierran también si falla el ensayo.
 Esto acredita la carrera del publicador de contexto; no sustituye la prueba
 de autorización nominal con certificado del recorrido completo.
+
+Por último se ensaya el cruce que daba interbloqueos en la ficha del
+candidato (tarea F1-105). El fixture de CA48 conserva su contexto ficticio con
+`-v ca48_persistir_para_concurrencia=1`. Una sesión bloquea la cuenta como lo
+hace la acreditación de la decisión V3; la otra coteja el mismo contexto como
+la lectura de datos de contacto y el conductor comprueba que espera. Después
+la primera bloquea perfil y vínculo y confirma. Se exige que las dos terminen
+sin error y que el cotejo dé `true`. Con el cotejo anterior a CA48, que
+bloqueaba el vínculo antes que la cuenta, PostgreSQL aborta una de ellas con
+`40P01`.
