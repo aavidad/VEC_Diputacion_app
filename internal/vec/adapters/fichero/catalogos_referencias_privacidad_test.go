@@ -29,6 +29,57 @@ func TestPaqueteCatalogoAdmiteHuellasYReferenciasOpacasValidas(t *testing.T) {
 	}
 }
 
+func TestPaqueteCatalogoAdmiteActoresDePersonaOpacos(t *testing.T) {
+	referencia := "per_" + strings.Repeat("a", 8) + "612345678" + strings.Repeat("b", 15)
+	if !patronTelefonoPaquete.MatchString(referencia) {
+		t.Fatal("la referencia no reproduce el falso positivo de teléfono")
+	}
+	for _, campo := range []string{"creado_por", "publicado_por"} {
+		t.Run(campo, func(t *testing.T) {
+			paquete := paqueteCatalogoPrivacidadPrueba(t)
+			if campo == "creado_por" {
+				paquete.Catalogo.CreadoPor = referencia
+			} else {
+				paquete.Catalogo.PublicadoPor = referencia
+			}
+			contenido, err := json.Marshal(paquete)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := nuevaConsultaCatalogosDesdeJSONConMarca(contenido, false); err != nil {
+				t.Fatalf("actor de Persona canónico rechazado: %v", err)
+			}
+		})
+	}
+}
+
+func TestPrivacidadCatalogoNoEximeOtrosActoresNiValores(t *testing.T) {
+	referencia := "per_" + strings.Repeat("a", 8) + "612345678" + strings.Repeat("b", 15)
+	valores := []string{
+		"Contacto 612345678", "persona@example.org", "Titular 12345678Z",
+		"per_612345678", referencia + "b",
+		strings.ToUpper(referencia), strings.Replace(referencia, "per_", "car_", 1),
+		" " + referencia, referencia + " contacto",
+		"-----BEGIN PRIVATE KEY-----",
+	}
+	for _, campo := range []string{"creado_por", "publicado_por"} {
+		for i, valor := range valores {
+			if !contieneDatoPrivadoCatalogo(map[string]any{"catalogo": map[string]any{campo: valor}}, "") {
+				t.Errorf("se eximió el valor no canónico %d de %s", i, campo)
+			}
+		}
+	}
+	for _, caso := range []struct{ ruta, campo string }{
+		{"", "creado_por"}, {"fuente", "publicado_por"},
+		{"catalogo.entradas[].atributos", "creado_por"},
+		{"catalogo", "otro_por"}, {"catalogo", "descripcion"},
+	} {
+		if !contieneDatoPrivadoCatalogo(map[string]any{caso.campo: referencia}, caso.ruta) {
+			t.Errorf("referencia eximida en %s.%s", caso.ruta, caso.campo)
+		}
+	}
+}
+
 func TestPaqueteCatalogoPrivacidadRechazaTextoYReferenciasNoOpacas(t *testing.T) {
 	casos := []struct {
 		nombre  string
