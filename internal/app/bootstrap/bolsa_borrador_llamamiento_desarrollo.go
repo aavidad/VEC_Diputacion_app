@@ -144,7 +144,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudEmitirLlamami
 	if err != nil {
 		return puertosbolsa.SolicitudEmitirLlamamiento{}, err
 	}
-	return puertosbolsa.SolicitudEmitirLlamamiento{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Participaciones: entrada.Participaciones, Configuracion: entrada.Configuracion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudEmitirLlamamiento{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Participaciones: entrada.Participaciones, Configuracion: entrada.Configuracion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo(), MotivoSalto: entrada.MotivoSalto}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRecuperarLlamamiento(ctx context.Context, bolsaRef, clave string) (puertosbolsa.SolicitudRecuperarLlamamiento, error) {
@@ -960,6 +960,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	correoPersonalizado := aplicacionbolsa.CorreoPersonalizadoLlamamiento{Catalogo: catalogoCorreo, Personalizacion: personalizacion, Huellas: repositorioEmision}
 	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, fuenteCorreo, correoEmisor, dependenciasCT.reloj.Ahora, correoPersonalizado)
 	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	// Regla b01: solo se salta el orden con un motivo b01.salto.* del catálogo de reglas.
+	if c := reglasbolsa.NuevoCatalogoMotivosSalto(dependenciasCT.reglasEjemplo.bolsa); c != nil && servicioEmision.EstablecerCatalogoMotivosSalto(c) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	// B59: correo activo de «Mis correos» en los avisos; su cierre se encadena.

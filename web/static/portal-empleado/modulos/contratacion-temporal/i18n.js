@@ -259,12 +259,9 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   cobertura_via_oferta_sae: "Oferta SAE",
   cobertura_via_nueva_convocatoria_bolsa: "Nueva convocatoria de Bolsa",
   cobertura_via_elegida: "Vía elegida por RRHH",
-  cobertura_motivo_alternativa: "Motivo gobernado para una vía alternativa",
   "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh":
     "Elección del procedimiento de cobertura por RRHH",
   cobertura_estado_via_obligatoria: "Seleccione una vía viable antes de confirmar.",
-  cobertura_estado_motivo_obligatorio:
-    "Seleccione un motivo gobernado vinculado a la vía alternativa.",
   cobertura_evaluacion: "Evaluación",
   cobertura_evaluacion_viable: "Viable",
   cobertura_evaluacion_incompleta: "Incompleta",
@@ -304,12 +301,8 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   asignacion_responsable: "Responsable",
   asignacion_unidad_nombre: "Recursos Humanos",
   asignacion_responsable_nombre: "Responsable de peticiones de personal temporal",
-  asignacion_confirmacion:
-    "He comprobado el expediente, la unidad y la referencia responsable.",
   asignacion_resumen: "Se guardará sobre los datos que ve ahora; si alguien cambia el expediente antes, se le avisará.",
   asignacion_confirmar: "Confirmar asignación",
-  asignacion_confirmacion_advertencia:
-    "Esta acción registrará la unidad y la persona responsable referenciada en una nueva versión.",
   asignacion_indeterminada_titulo: "Resultado pendiente de recuperación",
   asignacion_indeterminada_descripcion:
     "Tras una interrupción, reenvíe exactamente la misma operación para recuperar su recibo.",
@@ -333,7 +326,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   informe_estado_historial_no_disponible:
     "El informe está confirmado, pero el historial no está disponible temporalmente.",
   informe_confirmacion_leyenda: "Confirmación del informe jurídico",
-  informe_resumen: "Expediente {expediente}, versión asignada {version}.",
   informe_confirmacion:
     "He comprobado el expediente y entiendo que se generará un borrador sin firma.",
   informe_confirmar: "Confirmar y preparar informe",
@@ -682,10 +674,8 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   cobertura_via_oferta_sae: "SAE vacancy",
   cobertura_via_nueva_convocatoria_bolsa: "New recruitment pool call",
   cobertura_via_elegida: "Route chosen by HR",
-  cobertura_motivo_alternativa: "Governed reason for an alternative route",
   "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh": "HR selection of recruitment procedure",
   cobertura_estado_via_obligatoria: "Select a viable route before confirming.",
-  cobertura_estado_motivo_obligatorio: "Select a governed reason linked to the alternative route.",
   cobertura_evaluacion: "Assessment",
   cobertura_evaluacion_viable: "Viable",
   cobertura_evaluacion_incompleta: "Incomplete",
@@ -719,10 +709,8 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   asignacion_responsable: "Responsible person",
   asignacion_unidad_nombre: "Human Resources",
   asignacion_responsable_nombre: "Temporary Staff Requests Manager",
-  asignacion_confirmacion: "I have checked the case, unit and responsible person's reference.",
   asignacion_resumen: "It will be saved against the data you see now; if someone changes the case first, you will be warned.",
   asignacion_confirmar: "Confirm assignment",
-  asignacion_confirmacion_advertencia: "This action will record the unit and the referenced responsible person in a new version.",
   asignacion_indeterminada_titulo: "Result awaiting recovery",
   asignacion_indeterminada_descripcion: "After an interruption, resubmit exactly the same operation to recover its receipt.",
   asignacion_recuperar: "Recover original assignment",
@@ -742,7 +730,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   informe_estado_error: "A valid legal report request could not be prepared.",
   informe_estado_historial_no_disponible: "The report is confirmed, but the case history is temporarily unavailable.",
   informe_confirmacion_leyenda: "Legal report confirmation",
-  informe_resumen: "Case {expediente}, assigned version {version}.",
   informe_confirmacion: "I have checked the case and understand that an unsigned draft will be generated.",
   informe_confirmar: "Confirm and prepare report",
   informe_confirmacion_advertencia: "This action will generate and record a new version of the draft legal report.",

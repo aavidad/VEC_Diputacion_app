@@ -55,18 +55,23 @@ trece pruebas SQL existentes, en este orden:
    comprueba propietario y permisos; rechaza una cuenta sin acreditación.
 8. `bolsa_convocatorias/pruebas_sql/bc12_rechazo_inscripcion_conjunta_v1.sql`:
    B96 rechaza una inscripción conjunta antes de guardar una individual.
-9. `bolsa_convocatorias/pruebas_sql/bc14_publicacion_oficial_bases.sql`:
-   publicación oficial de las bases (BC14).
-10. `bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql`: la
+9. `bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql`: la
    lista y la ficha del aspirante copian la modalidad sellada.
+10. `bolsa_convocatorias/pruebas_sql/bc14_publicacion_oficial_bases.sql`: una
+   versión publicada no abre la inscripción sin la publicación oficial de sus
+   bases en plazo.
 11. `bolsa_llamamientos/pruebas_sql/b146_solicitud_conjunta.sql`: solicitud
-   conjunta (B146).
-12. `bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql`: la entrada web
+   conjunta con un solo recibo y reintento, y solicitud separada por categoría.
+12. `contexto_actor_v1/pruebas_sql/ca48_orden_bloqueo_lectura_bolsa.sql`: el
+   cotejo de lectura de Bolsa conserva dueño, permisos y definición de CA48,
+   bloquea en el mismo orden que la acreditación y el resolutor, acepta un
+   contexto corporativo vivo y rechaza una versión de cuenta ajena.
+13. `bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql`: la entrada web
    lee el ámbito de la bolsa solo con su función, la confirmación de una
    aceptación (B128) se deniega en una bolsa de otra unidad o sin ámbito, la
    recuperación de una carga cuya bolsa no tiene ámbito también, y el rol de
    línea de órdenes ya no constituye bolsas ni registra vínculos.
-13. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
+14. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
    contexto externo por la función vigente, comprueba su huella y versión,
    acredita el candidato propio, rechaza el ajeno y los cruces de persona o
    perfil, y comprueba los permisos de ejecución; comprueba resolución,
@@ -117,7 +122,7 @@ preparación debe estar confirmado y coincidir con HEAD:
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
 
-Con `--pruebas`, las diez comprobaciones se repiten después de reiniciar el
+Con `--pruebas`, las trece comprobaciones se repiten después de reiniciar el
 mismo contenedor PostgreSQL, esperando su disponibilidad TCP. No se restaura
 el esquema, no se reinstalan migraciones ni se vuelve a preparar la semilla.
 Un fallo de reinicio o de cualquiera de las comprobaciones detiene la puerta.
@@ -127,7 +132,9 @@ persistencia de un expediente ni sustituye el recorrido funcional completo.
 
 La semilla repone la fila técnica `(true, 0)` del contador externo que creó
 CTX15. Se verifica su propietario y seguridad por filas después de comprobar
-las 662 tablas vacías. La prueba de contexto usa datos ficticios y termina en
+las 662 tablas vacías. Repone también la fila inicial del cerrojo de punteros
+actuales de CTX2, sin la cual ninguna prueba puede mover la cuenta, la persona,
+el perfil o el vínculo de un contexto. La prueba de contexto usa datos ficticios y termina en
 `ROLLBACK`, incluidas sus dos cuentas técnicas de ejecución. Su positivo
 comprueba el contexto externo; no acredita una autenticación con certificado
 ni una decisión completa de autorización. El SQL existente conserva fechas
@@ -148,7 +155,7 @@ enumerados sin cambiar la función que exige los privilegios mínimos.
 
 Después del reinicio se ensaya una carrera real de publicación de contexto
 externo. Solo en ese punto el fixture admite conservar sus datos mediante
-`-v ctx15_persistir_para_concurrencia=1`; las diez ejecuciones ordinarias
+`-v ctx15_persistir_para_concurrencia=1`; las trece ejecuciones ordinarias
 siguen terminando en `ROLLBACK`. Los datos permanecen únicamente en el
 contenedor desechable, que se retira al terminar.
 
@@ -160,3 +167,13 @@ coteja una única sucesora, su huella, el puntero y la historia anterior. Las
 esperas tienen límite y las dos sesiones se cierran también si falla el ensayo.
 Esto acredita la carrera del publicador de contexto; no sustituye la prueba
 de autorización nominal con certificado del recorrido completo.
+
+Por último se ensaya el cruce que daba interbloqueos en la ficha del
+candidato (tarea F1-105). El fixture de CA48 conserva su contexto ficticio con
+`-v ca48_persistir_para_concurrencia=1`. Una sesión bloquea la cuenta como lo
+hace la acreditación de la decisión V3; la otra coteja el mismo contexto como
+la lectura de datos de contacto y el conductor comprueba que espera. Después
+la primera bloquea perfil y vínculo y confirma. Se exige que las dos terminen
+sin error y que el cotejo dé `true`. Con el cotejo anterior a CA48, que
+bloqueaba el vínculo antes que la cuenta, PostgreSQL aborta una de ellas con
+`40P01`.

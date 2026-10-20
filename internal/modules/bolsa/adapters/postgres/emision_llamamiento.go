@@ -42,6 +42,15 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 	var reutilizada bool
 	sql := `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`
 	args := []any{c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, huellaFinalizacion[:], m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()}
+	if c.SaltoOrden != nil {
+		// El motivo de salto solo existe en la reserva general (B147).
+		salto, err := json.Marshal(c.SaltoOrden)
+		if c.OrigenCT != nil || err != nil {
+			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
+		}
+		args = append(args, salto)
+		sql = `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v2($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20::jsonb)`
+	}
 	if c.OrigenCT != nil {
 		if c.OrigenCT.BolsaRef != c.BolsaRef || c.OrigenCT.UnidadRef == "" || c.OrigenCT.ParticipacionRef == "" || c.OrigenCT.ExpedienteRef == "" || c.OrigenCT.ClaveCT == "" {
 			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
@@ -234,9 +243,24 @@ func errorEmision(err error) error {
 			return ports.ErrEmisionLlamamientoConflicto
 		case "22023", "23503":
 			return ports.ErrEmisionLlamamientoInvalida
+		case "VBL02":
+			return llamamientoFueraDeOrden(p.Detail)
 		}
 	}
 	return ports.ErrEmisionLlamamientoNoDisponible
+}
+
+// llamamientoFueraDeOrden lee de DETAIL (B147) la primera persona que va
+// antes. Un detalle ilegible deja el rechazo sin identificarla.
+func llamamientoFueraDeOrden(detalle string) error {
+	var saltada struct {
+		ParticipacionRef string `json:"participacion_ref"`
+		OrdenVigente     int64  `json:"orden_vigente"`
+	}
+	if json.Unmarshal([]byte(detalle), &saltada) != nil || saltada.ParticipacionRef == "" || saltada.OrdenVigente < 1 {
+		return &ports.LlamamientoFueraDeOrden{}
+	}
+	return &ports.LlamamientoFueraDeOrden{ParticipacionRef: saltada.ParticipacionRef, OrdenVigente: saltada.OrdenVigente}
 }
 
 // emisionConFuentesSQL es la salida de registrar_contactos_llamamiento_v2:

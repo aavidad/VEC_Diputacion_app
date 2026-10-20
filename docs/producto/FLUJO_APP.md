@@ -1061,6 +1061,12 @@ apartado 4.0. Activación y límites en
 
 #### 4.3.4 Documentos
 
+La candidata de F1-88 nombra el expediente por su número en las confirmaciones
+de cobertura, asignación e informe. El justificante de publicación se ofrece
+para copiar; el código de comprobación de una descarga queda en «Ver detalle
+técnico». Las referencias usadas por las consultas y los actos se conservan.
+
+
 Desde la ficha, con el expediente en versión 7 o posterior, RRHH descarga en PDF
 o Word los borradores de informe definitivo, resolución, diligencia, toma de
 posesión, notificación y comunicación al centro. El catálogo de plantillas

@@ -55,7 +55,11 @@ const (
 	// entrada con este prefijo es una consecuencia que RRHH puede resolver,
 	// de modo que añadir otra no exige cambiar código.
 	BolsaPrefijoSanciones = "b24.sancion."
-	BolsaEstadosRecurso   = "b24.recurso_estados"
+	// BolsaPrefijoMotivosSalto agrupa los motivos que permiten llamar
+	// saltando el orden estricto (b01). Sin ninguna entrada no se admite
+	// ningún salto: RRHH aún no ha decidido cuáles valen (dudas.md).
+	BolsaPrefijoMotivosSalto = "b01.salto."
+	BolsaEstadosRecurso      = "b24.recurso_estados"
 	// BolsaEstadosRecursoRevocatorios lista los estados del recurso que
 	// revierten la sanción (readmisión); sin la entrada ninguno la revierte.
 	BolsaEstadosRecursoRevocatorios = "b24.recurso_revierte"

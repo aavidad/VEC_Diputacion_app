@@ -102,6 +102,11 @@
     "informe_historial_titulo": "Case history",
     "informe_historial_descripcion": "Actions recorded in the case file, oldest first.",
     "informe_historial_tabla": "Case file actions",
-    "informe_resumen_numero": "Case {numero}, version {version}."
+    "cobertura_motivo_alternativa": "Reason for choosing another route",
+    "cobertura_estado_motivo_obligatorio": "Select a reason for the chosen route.",
+    "asignacion_confirmacion": "I have checked the case, unit and responsible person.",
+    "asignacion_confirmacion_advertencia": "This action will assign the case to the selected unit and responsible person.",
+    "informe_resumen": "Selected case.",
+    "informe_resumen_numero": "Case {numero}."
   }
 }
