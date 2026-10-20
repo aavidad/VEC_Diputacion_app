@@ -21,9 +21,10 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Cierre del 2 de octubre de 2026: estado vigente
 
-Este apartado prevalece sobre los estados y la próxima acción del plan inicial
-conservado debajo. Las horquillas son estimaciones originales, sin recálculo del
-trabajo restante. Carrera y Formación conserva Carrera, Formación y RUM; Personal conserva Personal y
+El inventario recoge el estado técnico del 2 de octubre de 2026. Sus
+estimaciones no son un cálculo actual del trabajo restante. Carrera,
+Formación y Méritos conservan sus contratos; Personal aporta hechos
+laborales autorizados y el baremador común aplica sus reglas de valoración.
 
 | Minitarea | Estado comprobado | Siguiente dependencia |
 | --- | --- | --- |

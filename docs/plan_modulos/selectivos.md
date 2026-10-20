@@ -51,11 +51,11 @@ Personal adaptará después su carga para evitar esperas al importar el portal.
 
 ## Cierre del 2 de octubre de 2026: estado vigente
 
-Este apartado prevalece sobre los estados y órdenes de arranque del 1 de
-octubre conservados debajo. Las estimaciones siguen siendo las iniciales;
-no se han recalculado como trabajo restante. Selectivos conserva Selectivos, Carrera,
-Formación y RUM; Personal conserva Personal y G el baremador común. Las referencias
-históricas a Méritos describen el reparto anterior.
+El inventario recoge el estado técnico del 2 de octubre de 2026. Sus
+estimaciones no son un cálculo actual del trabajo restante. Selectivos
+conserva las bases, fases y decisiones del proceso; Méritos mantiene el
+registro reutilizable, Personal aporta hechos laborales autorizados y el
+baremador común aplica las reglas de puntuación.
 
 | Minitarea | Entrega comprobada | Qué queda |
 | --- | --- | --- |
