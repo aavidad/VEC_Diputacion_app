@@ -191,7 +191,6 @@ export function crearControladorPreferenciasModalidades({ host: hostInicial = nu
       // Sin concesión o sin ruta, la función no está activada: no se muestra.
       estado = !datos && (error.codigo === "denegado" || error.codigo === "noDisponible") ? "oculto" : ERRORES.has(error.codigo) ? error.codigo : "error";
       pintar();
-      if (estado !== "oculto") anunciar(textos(estado));
     } finally { if (lectura === controller) lectura = null; }
   }
   function eleccionActual() {
