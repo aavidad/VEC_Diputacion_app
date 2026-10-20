@@ -31,11 +31,12 @@ BEGIN
      AND c.contype='u' AND pg_get_constraintdef(c.oid)=
        'UNIQUE (organizacion_ref, expediente_ref, llamamiento_ref)') THEN
   RAISE EXCEPTION 'CT249: unicidad CT54 ausente' USING ERRCODE='55000'; END IF;
- -- Huellas SHA-256 públicas de definiciones SQL instaladas, sin credenciales.
+ -- CT245 añade consultas_personal opcional a estos tres cánones antes de CT249.
+ -- Huellas SHA-256 públicas de definiciones instaladas, sin credenciales.
  IF EXISTS (SELECT 1 FROM (VALUES
-   ('vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(jsonb)','b44fac672d69921fe48b57142895f7a4603c6f138808b41aae716412bea26a84'),
-   ('vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(jsonb,boolean)','f5c2c1a88e9700c6473ecf2f707eaa779774af0af6e952f614a0f7f92fdc4ee9'),
-   ('vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(jsonb)','144b8375e27e01a811dd3b3b34ff1d26ad172c2fbb9fd8a0fd0257a1e9662c79'),
+   ('vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(jsonb)','f4d0c82adb74f86ea94ab353cce409b830cb99c055a622bdb484c06794aa061e'),
+   ('vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(jsonb,boolean)','edba5d28a466f2d9599a9d464246eef2374b26df15159bf625f62db9c9d74d19'),
+   ('vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(jsonb)','af0ee77d62fb27f40f1b82849f051fd428cca5134696317afeb7c71955ce5b9d'),
    ('vec_contratacion_temporal.materiales_ligados_seleccion_llamamiento_o6_v1(jsonb)','623513c9497f8acbaa47eb5d164dc9e9923d3931dab02537cad6067944e488df'),
    ('vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(jsonb,text,jsonb,text)','e413e04d3723ccc97606dcf0e3547cf806224626fc7cdaba8a836866ac17e6a3'),
    ('vec_contratacion_temporal.instante_utc_json_canonico_v2(jsonb,boolean)','93102ce52af7c1c14fdfc431d6c0e9f62428686cdab28da21d99a98d588309a5')) esperado(firma,huella)

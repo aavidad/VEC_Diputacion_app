@@ -5,7 +5,7 @@ el acto de revisión de respuesta de RRHH; no añade configuración ni permisos.
 
 ## Activación y recorrido
 
-Aplicar CT249 una sola vez después de CT250 mediante la lista SQL principal
+Aplicar CT249 una sola vez después de CT245 y CT250 mediante la lista SQL principal
 y reiniciar con la configuración existente. En el caso 4.0, completar la
 emisión nativa y el contacto efectivo; Antonio acepta en Mi Bolsa y conserva
 su justificante. RRHH abre la ficha, revisa respuesta y plazo y confirma.
