@@ -45,8 +45,14 @@ Compila la aplicación y Administración desde la misma revisión.
 Después confirma fuentes, unidad y dos cuentas de Administración con sus
 recibos nativos. Admite los catálogos de Organización histórica y origen de
 Bolsa por la herramienta existente. Dos administradores proponen y aprueban
-los roles simples y el plan. Tras publicar el rol, la fábrica llama a la
-orden existente que activa la consulta de Organización histórica. Los roles compuestos de los cuatro firmantes son
+los roles simples y el plan. La fábrica prepara el vínculo corporativo del
+perfil propio de Bolsa antes de activar Organización histórica: usa las
+proyecciones publicadas de la copia, exige su identificador PostgreSQL y una
+vigencia de 88 días dentro de las fuentes. Repetir la etapa coteja la fila
+original; un vínculo ajeno, revocado o divergente detiene la receta. Es un dato
+ficticio de la copia; no concede un rol ni sustituye los actos de Administración.
+Tras publicar el rol, la fábrica llama a la orden existente que activa la
+consulta de Organización histórica. Los roles compuestos de los cuatro firmantes son
 **semilla técnica de copia de desarrollo, no gobierno**. Su publicación
 gobernada corresponde a F1-133.
 

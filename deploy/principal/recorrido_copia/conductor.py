@@ -103,9 +103,10 @@ def _organizacion(c):
 
 def preparar(copia, args):
     """Ejecuta actos nativos y conserva cada recibo, sin recetas privadas."""
-    from . import catalogo, roles_admin, certificados_base, firmantes, montajes_firma, actos, plan, admisiones, configuracion_firma
+    from . import catalogo, roles_admin, corporativo, certificados_base, firmantes, montajes_firma, actos, plan, admisiones, configuracion_firma
     c = Contexto(copia, _parametros(copia))
     etapas = [('catalogo', catalogo.preparar), ('roles_admin', roles_admin.preparar),
+              ('vinculo_corporativo', corporativo.preparar),
               ('organizacion_historica', _organizacion),
               ('certificados_base', certificados_base.preparar), ('firmantes', firmantes.preparar),
               ('montajes_firma', montajes_firma.preparar), ('actos', actos.preparar_actos),
