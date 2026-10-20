@@ -183,6 +183,14 @@ const CLAVES_ADICIONALES = Object.freeze({
     "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
     "llamamiento_seleccion_pendiente_aviso",
     "llamamiento_continuar_aviso",
+    // F1-125: aceptación firme de Mi Bolsa, revisión manual y recibo CT recuperable.
+    "llamamiento_portal_titulo", "llamamiento_portal_aceptacion", "llamamiento_portal_origen",
+    "llamamiento_portal_mi_bolsa", "llamamiento_portal_emitido_en", "llamamiento_portal_respondida_en", "llamamiento_portal_recibo_respuesta",
+    "llamamiento_portal_revision_respuesta", "llamamiento_portal_revision_plazo",
+    "llamamiento_portal_confirmar", "llamamiento_portal_confirmacion",
+    "llamamiento_portal_revision_incompleta", "llamamiento_portal_confirmada",
+    "llamamiento_portal_resuelta_en", "llamamiento_portal_recibo_ct",
+    "llamamiento_portal_denegado", "llamamiento_portal_conflicto", "llamamiento_portal_resultado_incierto",
   ],
   // F1-93: textos de recibos e historial de la ficha, trasladados desde el código en lenguaje llano.
   "i18n-textos-vistas.js": ["motivo_sustitucion", "cobertura_recibo_descripcion",

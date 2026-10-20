@@ -339,6 +339,24 @@
     "llamamiento_confirmacion_expiracion": "You are about to treat the call-up as not accepted because there was no reply. You can then call the next person.",
     "llamamiento_revision_respuesta_rrhh_expiracion": "I have checked that no reply has arrived",
     "llamamiento_revision_plazo_rrhh_expiracion": "I have checked that the deadline has ended",
-    "llamamiento_confirmar_expiracion": "Confirm"
+    "llamamiento_confirmar_expiracion": "Confirm",
+    "llamamiento_portal_titulo": "Acceptance from My Pool",
+    "llamamiento_portal_aceptacion": "The candidate accepted in My Pool",
+    "llamamiento_portal_origen": "Response source",
+    "llamamiento_portal_mi_bolsa": "My Pool",
+    "llamamiento_portal_emitido_en": "Call-up issued on",
+    "llamamiento_portal_respondida_en": "Replied on",
+    "llamamiento_portal_recibo_respuesta": "Response receipt",
+    "llamamiento_portal_revision_respuesta": "I have checked the acceptance and its receipt",
+    "llamamiento_portal_revision_plazo": "I have reviewed the response deadline",
+    "llamamiento_portal_confirmar": "Confirm acceptance",
+    "llamamiento_portal_confirmacion": "You are about to confirm the acceptance recorded in My Pool for this case. Check the response and deadline before continuing.",
+    "llamamiento_portal_revision_incompleta": "Tick both checks to confirm the acceptance.",
+    "llamamiento_portal_confirmada": "Acceptance confirmed in the case",
+    "llamamiento_portal_resuelta_en": "Confirmed on",
+    "llamamiento_portal_recibo_ct": "Confirmation receipt",
+    "llamamiento_portal_denegado": "You do not have permission to confirm this acceptance. Reload the case if your access has changed.",
+    "llamamiento_portal_conflicto": "This acceptance could not be confirmed. Reload the case and review its status.",
+    "llamamiento_portal_resultado_incierto": "We could not check whether this was saved. Retry the same operation."
   }
 }

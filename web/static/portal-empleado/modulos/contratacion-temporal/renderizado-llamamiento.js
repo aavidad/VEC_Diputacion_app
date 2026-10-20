@@ -38,6 +38,48 @@ export function reciboAntecedenteSiguiente(estado) {
   return estado.expiracion?.recibo?.respuesta === RESPUESTA_EXPIRACION ? estado.expiracion.recibo : null;
 }
 
+export function renderizarResolucionesPortal(estado, t, fecha) {
+  const filas = estado.portal?.filas ?? [];
+  if (!filas.length) return "";
+  const instante = (valor) => `<time datetime="${e(valor)}">${e(fecha.format(new Date(valor)))}</time>`;
+  return `<section class="ct-alta ct-llamamiento" aria-labelledby="ct-portal-resoluciones-titulo">
+    <header class="ct-cabecera"><div><h2 id="ct-portal-resoluciones-titulo">${e(t("llamamiento_portal_titulo"))}</h2></div></header>
+    ${filas.map(({ vinculo, persona }, indice) => {
+      const clave = `${vinculo.llamamiento_ref}/${persona.participacion_ref}`;
+      const paso = estado.portal.pasos.get(clave);
+      const resolucion = persona.resolucion_ct ?? (paso?.recibo ? {
+        recibo_ref: paso.recibo.recibo_local_ref, resuelta_en: paso.recibo.resuelta_en,
+      } : null);
+      return `<article class="ct-llamamiento-paso" aria-labelledby="ct-portal-resolucion-${indice}-titulo">
+        <h3 id="ct-portal-resolucion-${indice}-titulo">${e(t("llamamiento_portal_aceptacion"))}</h3>
+        <dl class="ct-exp-datos">
+          <div><dt>${e(t("llamamiento_portal_emitido_en"))}</dt><dd>${instante(vinculo.emitido_en)}</dd></div>
+          <div><dt>${e(t("llamamiento_portal_origen"))}</dt><dd>${e(t("llamamiento_portal_mi_bolsa"))}</dd></div>
+          <div><dt>${e(t("llamamiento_portal_respondida_en"))}</dt><dd>${instante(persona.respondida_en)}</dd></div>
+          <div><dt>${e(t("llamamiento_portal_recibo_respuesta"))}</dt><dd>${justificanteTraducido(persona.recibo_respuesta_ref, e, t)}</dd></div>
+        </dl>
+        ${resolucion ? `<div class="ct-recibo" role="status"><h4>${e(t("llamamiento_portal_confirmada"))}</h4>
+          <dl><div><dt>${e(t("llamamiento_portal_resuelta_en"))}</dt><dd>${instante(resolucion.resuelta_en)}</dd></div>
+          <div><dt>${e(t("llamamiento_portal_recibo_ct"))}</dt><dd>${justificanteTraducido(resolucion.recibo_ref, e, t)}</dd></div></dl></div>`
+        : `<form data-ct-portal-resolucion="${indice}" novalidate>
+          <div class="ct-campos">
+            <div class="ct-campo"><label><input type="checkbox" name="revision_respuesta_rrhh"
+              ${paso?.revisiones?.revision_respuesta_rrhh ? "checked" : ""}${paso?.solicitud ? " disabled" : ""}> ${e(t("llamamiento_portal_revision_respuesta"))}</label></div>
+            <div class="ct-campo"><label><input type="checkbox" name="revision_plazo_rrhh"
+              ${paso?.revisiones?.revision_plazo_rrhh ? "checked" : ""}${paso?.solicitud ? " disabled" : ""}> ${e(t("llamamiento_portal_revision_plazo"))}</label></div>
+          </div>
+          ${paso?.bloqueado ? "" : `<div class="ct-acciones"><button class="boton-primario" type="submit"
+            ${paso?.ocupado ? "disabled" : ""}>${e(t(paso?.solicitud
+              ? "llamamiento_reintentar_resolucion" : "llamamiento_portal_confirmar"))}</button></div>`}
+        </form>`}
+        <div class="ct-estado ct-estado-${paso?.tono ?? "informacion"}" data-ct-portal-estado="${indice}"
+          role="${paso?.tono === "error" ? "alert" : "status"}" aria-live="polite" tabindex="-1">
+          ${paso?.mensaje ? e(t(paso.mensaje)) : ""}</div>
+      </article>`;
+    }).join("")}
+  </section>`;
+}
+
 export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
