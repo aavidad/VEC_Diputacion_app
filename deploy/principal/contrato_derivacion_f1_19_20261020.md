@@ -60,3 +60,25 @@ Estos casos no emiten decisiones falsas ni acreditan un acto permitido.
 El archivo SQL generado tiene 3500 líneas; `ad305_cuerpos.diff` muestra las cinco líneas retiradas
 en 12 líneas de diferencial. La línea base de tamaño registra ese
 cuerpo completo exigido por la guarda estructural, sin ampliar el alcance.
+
+## Perfil de RRHH para derivar
+
+Contrato acordado con L el 20/10 a las 12:35: rol ordinario
+`rrhh_derivacion_nombramiento`, versión 1, «Derivación de nombramientos».
+La fuente `fuentes/contratacion_temporal_derivacion_nombramiento_v1.json`
+contiene una sola concesión de derivación, garantía alta, auditoría y los
+ámbitos de organización y unidad. Su vigencia es de 86 días. La clase del
+catálogo es `ordinario`; los campos permitidos quedan vacíos.
+
+La fuente por sí sola no publica un rol ni concede acceso. Preparar un paquete
+AUT58 con el catálogo vigente y el censo completo; publicar su admisión con el
+plan aprobado. Dos personas administradoras distintas proponen y confirman
+el rol por AUT60, usando el conjunto 7 de AD304. Obtener las referencias nuevas
+del perfil y su vínculo en la preparación de lote de Administración y otorgarlo
+por el lote ordinario F1-104, con los dos ámbitos concretos. Conservar los recibos.
+
+El perfil debe pertenecer a la misma cuenta de RRHH y ser distinto de los de
+alta y consulta. Su referencia confirmada y la versión y huella del rol publicado
+se trasladan a `derivacion` en la configuración de nombramientos de CT,
+junto con el motivo admitido y las dos conexiones existentes y distintas.
+La admisión, publicación, asignación y el recorrido positivo siguen pendientes.
