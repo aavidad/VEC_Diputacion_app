@@ -154,6 +154,14 @@ Carmen Molina Ortega (usuario web `rrhh`) es la técnica de RRHH del recorrido y
 usa el perfil fijo de técnico de RRHH. La aspirante del recorrido es el usuario
 web `candidato`.
 
+Los perfiles de cargo firmante abren el cuadro y la ficha de Contratación
+temporal con su panel de firma. Esa vista no monta el análisis, la cancelación,
+la generación de borradores, la lista común de Documentos ni el contexto de
+Bolsa propios de la tramitación de RRHH. Conserva el resumen de Inicio y las
+descargas del panel de firma. El plan de alta en Personal y su vínculo con
+la categoría de la relación de puestos se consultan desde la vista de
+tramitación de RRHH, sin montarlos en la ficha del perfil firmante.
+
 ### 3.2 Portal interno de RRHH (`/portal-empleado/`)
 
 El lateral se arma así (`web/static/portal-empleado/index.html`,
@@ -991,6 +999,13 @@ falta su configuración o permiso, la selección conserva el expediente y queda
 sin completar. El montaje se ensaya en la copia local; todavía no acredita el
 ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
 del puesto.
+
+La candidata F1-107 conserva en el recibo verificable del llamamiento las
+referencias del recibo y de la auditoría de cada página consultada a Personal.
+Solo guarda esas referencias, sin copiar el contenido del puesto. Los recibos
+anteriores mantienen su formato; la repetición de una selección confirmada
+recupera su prueba original. Activación y comprobaciones en
+[`evidencia_personal_llamamiento_f1_107.md`](../../deploy/principal/evidencia_personal_llamamiento_f1_107.md).
 
 El segundo corte, **preparado en código y todavía sin ensayo integrado**, añade
 una respuesta distinta al mismo `POST /api/vec/contratacion-temporal/llamamientos/seleccion`.

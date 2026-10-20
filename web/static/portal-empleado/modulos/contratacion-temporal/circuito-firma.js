@@ -405,6 +405,8 @@ export function crearGestorCircuitoFirma({
     if (!zona) return;
     zona.innerHTML = renderizarFirmadosEnDocumentos(resultado?.circuito, datosFase?.textos,
       (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t));
+    const tarjetaFirmante = zona.closest?.(".ct-exp-ficha-documentos[data-ct-solo-firmante]");
+    if (tarjetaFirmante) tarjetaFirmante.hidden = zona.innerHTML === "";
   }
 
   async function obtenerCatalogo() {

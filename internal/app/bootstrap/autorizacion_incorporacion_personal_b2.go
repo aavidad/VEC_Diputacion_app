@@ -416,7 +416,7 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 	detalleEncontrado := false
 	for i := range r {
 		if r[i].Ruta == httpct.RutaConsultaDetalleRRHH && r[i].Metodo == http.MethodPost {
-			if !esDescriptorDetalleContratacionTemporalDesarrollo(r[i], s.contexto.Resultado.Contexto.PerfilActivoRef) || detalleEncontrado {
+			if !esDescriptorDetalleContratacionTemporalDesarrollo(r[i], s) || detalleEncontrado {
 				return nil, ct.ErrComposicionIncorporacionAplicacion
 			}
 			if !r[i].admitePerfil(perfilDetalle) {
