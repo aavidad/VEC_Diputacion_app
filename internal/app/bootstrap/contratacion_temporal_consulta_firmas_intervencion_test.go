@@ -135,7 +135,7 @@ func escenarioLectorFirmasContextoCanonicoPrueba(t *testing.T) (*lectorFirmasInt
 	autoridad := &autoridadAsignacionesContratacionTemporalDesarrolloPrueba{asignaciones: map[string]instantaneaPublicadaDesarrollo{perfil.perfilRef(): {
 		instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(perfil.plantilla), actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}}}
 	lector := &lectorFirmasIntervencionCTDesarrollo{canal: canal, perfil: perfil, esperado: perfil.contexto.Resultado,
-		sesion: proveedorSesionOperativaCTPrueba{contexto: perfil.contexto}, puente: &soporteAltaContratacionTemporalDesarrollo{reloj: reloj, autoridadAsignaciones: autoridad}}
+		sesion: proveedorSesionOperativaCTPrueba{contexto: perfil.contexto}, puente: &soporteAltaContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, reloj: reloj, autoridadAsignaciones: autoridad}}
 	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{
 		sello: sello, ruta: httpinterno.RutaResultadosFiscalizacion, metodo: http.MethodPost, principal: clonarPrincipalDesarrollo(canal.principalOriginal)})
 	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ExpedienteRef: "expediente:prueba"}
@@ -330,6 +330,7 @@ func TestLectorFirmasIntervencionDistingueRevocacionDeCaida(t *testing.T) {
 		principalID: p.ID, principalOriginal: clonarPrincipalDesarrollo(p), certificadoSHA256: p.Attributes["certificate_sha256"], contexto: base}
 	lector := &lectorFirmasIntervencionCTDesarrollo{canal: canal, perfil: perfil,
 		puente: &soporteAltaContratacionTemporalDesarrollo{
+            referenciaCT: referenciaOrganizativaCTMontajePrueba,
 			autoridadAsignaciones: lectorAsignacionFirmasIntervencionPrueba{},
 		}}
 	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,

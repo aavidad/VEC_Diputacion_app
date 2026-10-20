@@ -129,19 +129,19 @@ func (i *incorporacionCentroDesarrollo) rutas(p *proveedorPeticionCentroDesarrol
 // recursoIncorporacionCentroDesarrollo liga la solicitud de autorización al
 // recurso exacto que se va a consumir en SQL.
 type recursoIncorporacionCentroDesarrollo struct {
-	soporte *soporteAltaContratacionTemporalDesarrollo
-	accion  string
+	referenciaCT
+	accion string
 	recurso vecdomain.RecursoAutorizable
 	actor   domain.ActorPeticionCentro
 }
 
 func (r *recursoIncorporacionCentroDesarrollo) validaPara(principal, perfil string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
-	return r != nil && (r.accion == ports.AccionConsultarIncorporacionesCentro || r.accion == ports.AccionConfirmarIncorporacionCentro) &&
+	return r != nil && r.organizacionRef != "" && (r.accion == ports.AccionConsultarIncorporacionesCentro || r.accion == ports.AccionConfirmarIncorporacionCentro) &&
 		d.Accion == r.accion && r.actor.ActorRef == principal && r.actor.PerfilRef == perfil &&
 		d.Recurso.Referencia == r.recurso.Referencia && d.Recurso.ModuloID == r.recurso.ModuloID && d.Recurso.Tipo == r.recurso.Tipo &&
 		d.Recurso.Tipo == ports.TipoRecursoIncorporacionCentro && maps.Equal(d.Recurso.Ambitos, r.recurso.Ambitos) &&
 		maps.Equal(d.Recurso.Atributos, r.recurso.Atributos) && d.Recurso.Ambitos["centro_ref"] == r.actor.CentroRef &&
-		d.Recurso.Ambitos["organizacion_ref"] == r.soporte.organizacionRef
+		d.Recurso.Ambitos["organizacion_ref"] == r.organizacionRef
 }
 
 var _ postgresct.ProveedorAutorizacionIncorporacionCentro = (*proveedorPeticionCentroDesarrollo)(nil)
@@ -153,7 +153,7 @@ func (p *proveedorPeticionCentroDesarrollo) AutorizarIncorporacionCentro(ctx con
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrIncorporacionCentroDenegada
 	}
-	m := materialAutorizacionPeticionCentroDesarrollo{incorporacion: &recursoIncorporacionCentroDesarrollo{soporte: p.alta.soporte, accion: accion, recurso: recurso, actor: a.actor}}
+	m := materialAutorizacionPeticionCentroDesarrollo{incorporacion: &recursoIncorporacionCentroDesarrollo{referenciaCT: p.alta.soporte.referenciaCT, accion: accion, recurso: recurso, actor: a.actor}}
 	return p.autorizar(ctx, a.actor, accion, recurso, m)
 }
 

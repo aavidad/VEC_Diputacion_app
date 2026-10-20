@@ -171,7 +171,7 @@ type recursoCancelacionCentroDesarrollo struct {
 }
 
 func (r *recursoCancelacionCentroDesarrollo) validaPara(principal, perfil string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
-	if r == nil || r.actor.ActorRef != principal || r.actor.PerfilRef != perfil || d.Accion != r.accion || d.Finalidad != r.finalidad ||
+	if r == nil || r.organizacionRef == "" || r.actor.ActorRef != principal || r.actor.PerfilRef != perfil || d.Accion != r.accion || d.Finalidad != r.finalidad ||
 		d.Recurso.Referencia != r.recurso.Referencia || d.Recurso.ModuloID != ports.ModuloContratacion || d.Recurso.Tipo != ports.TipoRecursoCancelacion ||
 		r.recurso.Tipo != ports.TipoRecursoCancelacion || !maps.Equal(d.Recurso.Ambitos, r.recurso.Ambitos) || !maps.Equal(d.Recurso.Atributos, r.recurso.Atributos) ||
 		d.Recurso.Ambitos["centro_ref"] != r.actor.CentroRef || d.Recurso.Ambitos["organizacion_ref"] != r.organizacionRef {
@@ -264,7 +264,7 @@ func (a *autoridadCancelacionCentroDesarrollo) ResolverContextoCanalSeguimiento(
 		return application.ContextoCanalSeguimiento{}, ports.ErrAutorizacionDenegada
 	}
 	return application.ContextoCanalSeguimiento{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef,
-		OrganizacionRef: a.proveedor.alta.soporte.organizacionRef}, nil
+		OrganizacionRef: p.soporte.organizacionRef}, nil
 }
 
 // ResolverContextoAutorizacionAltaV3 devuelve el contexto nominal del actor
@@ -285,10 +285,10 @@ func (a *autoridadCancelacionCentroDesarrollo) ResolverContextoAutorizacionAltaV
 // exacto procede de una petición del centro del actor: sin paginar y sin
 // consumir otra autorización que la de la propia cancelación.
 func (a *autoridadCancelacionCentroDesarrollo) pertenece(ctx context.Context, id *identidadPeticionCentroDesarrollo, expedienteRef string) error {
-	if a == nil || a.bandeja == nil || id == nil {
+	if a == nil || a.bandeja == nil || id == nil || id.soporte == nil {
 		return ports.ErrAutorizacionDenegada
 	}
-	suyo, err := a.bandeja.ExpedienteDelCentro(ctx, a.proveedor.alta.soporte.organizacionRef, id.actor, expedienteRef)
+	suyo, err := a.bandeja.ExpedienteDelCentro(ctx, id.soporte.organizacionRef, id.actor, expedienteRef)
 	if err != nil || !suyo {
 		return ports.ErrAutorizacionDenegada
 	}
@@ -312,7 +312,7 @@ func (a *autoridadCancelacionCentroDesarrollo) exigir(ctx context.Context, p per
 		Accion: accion, Recurso: recurso, Finalidad: finalidad, Correlacion: correlacion}
 	ctx = context.WithValue(ctx, claveMaterialPeticionCentroDesarrollo{}, materialAutorizacionPeticionCentroDesarrollo{
 		cancelacion: &recursoCancelacionCentroDesarrollo{referenciaCT: p.soporte.referenciaCT, accion: accion, finalidad: finalidad, recurso: recurso, actor: p.actor}})
-	if !solicitudAutorizacionPeticionCentroDesarrolloValida(a.proveedor.alta.soporte.referenciaCT, ctx, datos) {
+	if !solicitudAutorizacionPeticionCentroDesarrolloValida(p.soporte.referenciaCT, ctx, datos) {
 		return s, d, c, ports.ErrAutorizacionDenegada
 	}
 	s, err = vecdomain.NuevaSolicitudAutorizacionLigadaV3(datos)
@@ -353,7 +353,7 @@ func (a *autoridadCancelacionCentroDesarrollo) AutorizarOperacionSeguimiento(ctx
 // centro y una decisión de lectura del recurso exacto; no escribe efectos.
 func (a *autoridadCancelacionCentroDesarrollo) AutorizarLecturaSeguimiento(ctx context.Context, organizacionRef, expedienteRef string) error {
 	id, err := a.identidad(ctx)
-	if err != nil || organizacionRef != a.proveedor.alta.soporte.organizacionRef || !domain.ReferenciaOpacaValida(expedienteRef) {
+	if err != nil || id == nil || id.soporte == nil || organizacionRef != id.soporte.organizacionRef || !domain.ReferenciaOpacaValida(expedienteRef) {
 		return ports.ErrAutorizacionDenegada
 	}
 	if err := a.pertenece(ctx, id, expedienteRef); err != nil {

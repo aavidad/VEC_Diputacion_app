@@ -211,6 +211,9 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ejecutar(ctx context.Context, fu
 	if funcion != "consultar_peticiones_centro_v1" && funcion != "registrar_peticion_centro_v1" {
 		return ports.ErrPeticionCentroNoDisponible
 	}
+	if r == nil || !domain.ReferenciaOpacaValida(r.organizacionRef) || recurso.Ambitos["organizacion_ref"] != r.organizacionRef {
+		return domain.ErrRatificacionCentroDenegada
+	}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	resumen := a.ResumenCapacidad()
 	if err != nil || a.ValidarEstructura() != nil || resumen.Operacion() != accion || resumen.EfectoRef() != recurso.Referencia ||
@@ -233,7 +236,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ejecutar(ctx context.Context, fu
 		}
 		defer revertirTransaccion(tx)
 		var salida []byte
-		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(contenido), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2::text,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)::text", string(contenido), r.organizacionRef, secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
 		if err != nil {
 			return err
 		}

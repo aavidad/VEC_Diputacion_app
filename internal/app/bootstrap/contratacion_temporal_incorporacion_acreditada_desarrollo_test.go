@@ -89,7 +89,7 @@ func TestIncorporacionCentroConcedeSegunLaReglaYLigaElRecurso(t *testing.T) {
 	}
 	actor := domain.ActorPeticionCentro{ActorRef: "per_c1", PerfilRef: "prf_c1", CentroRef: "centro-520", PuestoRef: "puesto-1"}
 	recurso := ports.RecursoIncorporacionCentro("expediente:ct:1", organizacionAltaContratacionTemporalDesarrollo, "centro-520", []byte(`{}`))
-	r := &recursoIncorporacionCentroDesarrollo{accion: ports.AccionConfirmarIncorporacionCentro, recurso: recurso, actor: actor}
+	r := &recursoIncorporacionCentroDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, accion: ports.AccionConfirmarIncorporacionCentro, recurso: recurso, actor: actor}
 	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{Accion: ports.AccionConfirmarIncorporacionCentro, Recurso: recurso}
 	if !r.validaPara("per_c1", "prf_c1", d) {
 		t.Fatal("recurso exacto rechazado")
@@ -102,7 +102,7 @@ func TestIncorporacionCentroConcedeSegunLaReglaYLigaElRecurso(t *testing.T) {
 		t.Fatal("otra acción aceptada")
 	}
 	otro := ports.RecursoIncorporacionCentro("expediente:ct:1", organizacionAltaContratacionTemporalDesarrollo, "centro-999", []byte(`{}`))
-	if (&recursoIncorporacionCentroDesarrollo{accion: ports.AccionConfirmarIncorporacionCentro, recurso: otro, actor: actor}).validaPara("per_c1", "prf_c1",
+	if (&recursoIncorporacionCentroDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, accion: ports.AccionConfirmarIncorporacionCentro, recurso: otro, actor: actor}).validaPara("per_c1", "prf_c1",
 		vecdomain.DatosSolicitudAutorizacionLigadaV3{Accion: ports.AccionConfirmarIncorporacionCentro, Recurso: otro}) {
 		t.Fatal("recurso de otro centro aceptado")
 	}
