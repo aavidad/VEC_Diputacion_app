@@ -190,6 +190,13 @@ Cuando alguien acepta, el técnico registra la propuesta de nombramiento y la re
 
 ### Paso 9. Firma
 
+Con un perfil de firma, abra Contratación temporal y la ficha del expediente.
+Desde el panel de firma puede consultar y descargar el documento que le
+corresponde. Las acciones de preparación y cancelación quedan en la vista
+de tramitación de RRHH. El alta en Personal también se prepara desde esa
+vista; no se carga en la ficha del perfil firmante. La tarjeta de documentos
+aparece cuando hay un PDF firmado disponible para descargar.
+
 Cada documento se firma con certificado, en el orden que fija la configuración:
 
 | Documento | Quién firma, por orden |
@@ -280,8 +287,8 @@ todavía está por hacer.
 | Comprobar un ofrecimiento pendiente | Preparada la pantalla en la ficha de la persona: el aviso «pendiente de comprobación» de la selección lleva a ella. Los datos del contrato que Bolsa ya conserva vienen rellenos. Para cada dato, RRHH elige el documento que lo acredita: el contrato registrado o un documento que guarda RRHH, indicado con su número de registro o de expediente. El navegador calcula la huella digital del archivo, que no se envía. Antes de registrar se revisan los datos; después se muestra el recibo, y si no llega respuesta se reintenta sin duplicar. La reserva comprueba de nuevo esos datos y detiene la operación si la comprobación ha cambiado desde la consulta. | Integrar el servidor y la pantalla, activar el permiso y recorrerlo con una persona pendiente real de la copia. La huella no prueba que VEC custodie el documento ni equivale a una firma. El descuento del tiempo trabajado y el ofrecimiento condicionado siguen pendientes. | RRHH registra los hechos con sus justificantes y conserva el recibo. |
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
 | Documentos | Comprobados desde la ficha ocho tipos en PDF y Word: 16 descargas con los datos del expediente. El informe se vuelve a descargar igual tras reiniciar, también en móvil. | Comprobar los documentos incorporados con su módulo activado y los de cese y modificación cuando haya casos registrados. Siguen pendientes las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |
-| Unidad del puesto ofrecido | Comprobada en la selección local: Personal consulta la unidad del puesto y se conserva la unidad gestora del expediente. | Integrar la composición ensayada y completar el recorrido. | RRHH puede gestionar un puesto de otro centro sin confundir ambas unidades. |
-| Firma | En la copia local, el informe tiene dos firmas y la resolución tres; sus PDF y recibos se recuperan desde la ficha después de reiniciar, también con los cargos de consulta actualizados. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. Aclarar el error de descarga de la resolución desde Técnico; Secretaría sí recupera el documento. La confirmación de Firmadoc sigue pendiente. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
+| Unidad del puesto ofrecido | Comprobada en la selección local: Personal consulta la unidad del puesto y se conserva la unidad gestora del expediente. La candidata conserva también, junto al recibo del llamamiento, las referencias de las consultas a Personal. | Integrar la composición ensayada y completar el recorrido. | RRHH puede gestionar un puesto de otro centro sin confundir ambas unidades. |
+| Firma | En la copia local, el informe tiene dos firmas y la resolución tres; sus PDF y recibos se recuperan desde la ficha después de reiniciar, también con los cargos de consulta actualizados. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. También está preparada la corrección para que el plan reconozca a las personas que lo crean y publican. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. Aclarar el error de descarga de la resolución desde Técnico; Secretaría sí recupera el documento. La confirmación de Firmadoc sigue pendiente. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. Comprobado en copia local: si falta vincular al candidato, el cese queda pendiente; cuando aparece el vínculo, Mi Bolsa muestra «No disponible», sin fecha de vuelta, hasta que se procesa. El estado y sus fechas se conservan al reiniciar. | Probar entera la vuelta automática con un cese actual desde la ficha; la comprobación del pendiente usa un contrato histórico con cese futuro. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
@@ -314,6 +321,10 @@ ofrecimiento desde la petición del centro.
 **Para qué sirve.** Que cada cargo firme los documentos con su certificado, en el orden fijado, y que VEC compruebe que la firma es válida.
 
 **Hoy.** En la copia de ensayo, el informe ya tiene las firmas del técnico y de Jefatura, verificadas con GrxFirma y registradas con sus recibos. Intervención rechaza la fiscalización mientras falta la segunda firma y la admite después. La resolución tiene las firmas de Jefatura, Diputación y Secretaría General. Ambos PDF se han recuperado desde la ficha después de reiniciar. Los recibos conservan sus referencias y fechas originales. Los otros cuatro documentos se descargan en PDF y Word y conservan la firma pendiente.
+
+Está preparada la corrección de carga del plan de firma para que reconozca a
+las personas que lo crean y publican. Falta comprobarla en la candidata
+completa; el plan y sus recibos publicados se conservan.
 
 Está preparado el mismo límite de tamaño para generar, firmar, guardar y
 descargar los PDF mediante la firma en VEC. Las otras vías de registro

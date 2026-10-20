@@ -361,7 +361,7 @@ test("Alta nombra los centros sin pedir Organización y un cuadro denegado no co
 test("el cargador CT ligero exige un único perfil CT atestado", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
-  for (const roles of [["personal_interno"], [], ["tecnico_rrhh", "intervencion"]]) {
+  for (const roles of [["personal_interno"], ["lector_rrhh"], [], ["tecnico_rrhh", "intervencion"]]) {
     let consultas = 0;
     const coordinador = crearCoordinadorModulosPortal({
       escaparHTML: String,
@@ -1890,5 +1890,53 @@ test("la ficha CT solo ofrece registrar la fiscalización al perfil de Intervenc
     assert.ok(montaje.analisis, String(roles));
     assert.equal(montaje.fiscalizacion !== null, esperado, String(roles));
     assert.equal(montaje.fiscalizacionAjena, roles !== null && !esperado);
+  }
+});
+
+test("Jefatura firma desde CT sin preparar auxiliares de RRHH; RRHH conserva su montaje", async () => {
+  const catalogo=crearCatalogoModulosDesdeManifiestos([manifiestoContratacionTemporal()],TRADUCCIONES_CONTRATACION_TEMPORAL);
+  for (const [rol, firmante, version] of [
+    ["ct_cargo_jefatura_firma_dev", true, 7], ["ct_cargo_jefatura_firma_dev", true, 8],
+    ["tecnico_rrhh", false, 7], ["tecnico_rrhh", false, 8],
+  ]) {
+    const consultas=[]; let montaje;
+    const incorporacionB2 = Object.freeze({
+      consultar() { assert.fail("El montaje no consulta Personal"); },
+      consultarVinculoRPT() { assert.fail("El montaje no consulta el vínculo de Personal"); },
+    });
+    const firmasV2={ consultarEstadoFirma:async()=>({}) };
+    const cliente={firmasV2,async obtenerCatalogosAlta(){consultas.push("alta");return{centros:[],categorias:[],documentos:[]}},
+      async obtenerConfiguracionAnalisis(){consultas.push("analisis");return{modalidades:[],categorias:[],causas:[],entradas_rc:[],motivos_rectificacion:[],jornada_completa_minutos_semanales:2250}},
+      async registrarSolicitud(){} };
+    const estado={vista:"expediente",carga:"listo",expediente_ref:"expediente:ct:1",expediente:{expediente_ref:"expediente:ct:1",version,demostracion:false},
+      cuadro:{demostracion:false,expedientes:[{expediente_ref:"expediente:ct:1",version}]}};
+    const presentador={obtenerEstado:()=>estado,cargar:async()=>{},seleccionarExpediente:async()=>{},desmontar(){}};
+    const fuente={capacidades:["contratacion_temporal.cuadro.consultar","contratacion_temporal.expediente.consultar"],
+      resumenInicio:async()=>({expedientes:[]})};
+    const coordinador=crearCoordinadorModulosPortal({escaparHTML:String,cargarCatalogoInterno:async()=>catalogo,
+      consultarSesion:async()=>({roles:[rol]}),montajeBolsa:{disponible:()=>false,montar:()=>({desmontar(){}}),prepararFicha(){consultas.push("bolsa")},limpiarFicha(){},resolverBolsa:()=>null},
+      cargadoresInternos:{contratacion_temporal:async()=>({incorporacionB2:{crearClienteIncorporacionPersonalB2HTTP:()=>incorporacionB2},cliente:{crearClienteHTTPContratacionTemporal:()=>cliente},
+        adaptador:{crearAdaptadorHTTPExpedientesContratacionTemporal:()=>fuente},contrato:{validarCatalogosAlta:v=>v},
+        presentador:{crearPresentadorExpedientesContratacionTemporal:()=>presentador},
+        vista:{montarModuloContratacionTemporal:async dependencias=>{montaje=dependencias;return{desmontar(){}}}}})}});
+    await cargarConDiferidos(coordinador);
+    // La portada conserva su resumen; la presentación de actos se limita aparte.
+    assert.equal(coordinador.esPerfilRRHH(),true);
+    assert.deepEqual(coordinador.obtenerCuadroInicio(),{expedientes:[]});
+    assert.deepEqual(await coordinador.prepararResumenInicio(),{expedientes:[]});
+    assert.equal(await coordinador.montarVista("contratacion-temporal",raizFalsa(),{expedienteRef:"expediente:ct:1"}),true);
+    assert.equal(consultas.includes("analisis"),!firmante);
+    assert.equal(consultas.includes("bolsa"),!firmante);
+    assert.equal(montaje.soloFirmante,firmante);
+    assert.strictEqual(montaje.incorporacionPersonalB2, firmante ? null : incorporacionB2, `${rol}, v${version}`);
+    assert.equal(montaje.alta===null,firmante);
+    assert.equal(montaje.analisis===null,firmante);
+    assert.equal(montaje.continuidad===null,firmante);
+    assert.equal(montaje.documentosComun===null,firmante);
+    assert.equal(montaje.prepararFichaBolsa===null,firmante);
+    assert.equal(montaje.clienteResultadoBolsa===null,firmante);
+    assert.strictEqual(montaje.clienteFirmasV2,firmasV2);
+    assert.ok(consultas.includes("alta"));
+    coordinador.desmontarVistaActual();
   }
 });
