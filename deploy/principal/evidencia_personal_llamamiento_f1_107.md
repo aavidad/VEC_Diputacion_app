@@ -13,8 +13,14 @@ CONFIG NUEVA: ninguna. No cambia perfiles, permisos, identidad del puesto ni
 su huella. Reutiliza la consulta histórica de Personal y el llamamiento de
 Bolsa desde la ficha de Contratación temporal.
 
-1. Preparar una copia propia con los productores privados de roles y datos
-   del recorrido vigente. Los datos son ficticios.
+1. Preparar una copia nueva desde main con los productores de roles y datos
+   del recorrido vigente y Administración. Los datos son ficticios. La
+   [guía de copia local, apartado 6](LEEME_copia_local.md) describe las
+   admisiones y los actos necesarios: fuente de Organización histórica,
+   fuente de origen de Bolsa en su versión 2, perfil de consulta publicado
+   por dos administradores y ampliación del perfil de Bolsa de la técnica.
+   El catálogo restaurado conserva la versión 1 de la fuente de origen;
+   volver a añadir esa misma acción no actualiza sus campos.
 2. Instalar la lista común `deploy/principal/lista_sql_main_tras_hz37.txt`,
    con CT245 al final. La migración exige las definiciones instaladas y sus
    permisos exactos; cualquier divergencia impide instalarla.
@@ -47,3 +53,27 @@ comprueba el canon y las formas admitidas sin datos personales.
 El ensayo SQL, las revisiones independientes y el resultado del recorrido se
 registran en la PR. Las comprobaciones con material preparado para una prueba
 de persistencia no sustituyen la selección realizada desde la pantalla.
+
+## Ensayo del 20 de octubre: avance y comprobaciones pendientes
+
+La unión de código `105f19576`, sobre main `bf055fc99`, conserva CT245 sin
+cambios y sus dos revisiones anteriores. La revisión independiente de la
+unión confirma que el proveedor nominal conserva el puesto y las referencias
+de Personal. Pasan las pruebas focales de Go, con detector de carreras,
+`go vet`, las pruebas del conductor SQL y Semgrep, sin hallazgos en seis
+archivos. GoSec no señala archivos cambiados, pero su cobertura es parcial
+por errores de carga de paquetes.
+
+La copia nueva arranca en 94,18 segundos e instala las 136 migraciones.
+La prueba SQL del canon pasa. Sin activar Organización histórica, las
+consultas de Contratación y Bolsa responden 200. Administración arranca con
+su conjunto 7 y exporta el montaje de roles desde su acuse confirmado.
+Desde Chrome, el centro presenta una petición nueva de una persona para el
+puesto 9 y otra persona la ratifica; ambas operaciones devuelven su recibo.
+
+Quedan pendientes la actualización gobernada de la fuente de origen de
+Bolsa, su ampliación de perfil y la publicación del perfil de Organización
+histórica. La entrada de peticiones a Recursos Humanos responde 403 con
+el técnico de la copia estándar. Hasta completar esa activación, la
+selección desde la ficha y su recuperación después del reinicio no están
+acreditadas.
