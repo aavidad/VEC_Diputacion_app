@@ -1,6 +1,6 @@
 /** Panel de tipos publicados: el catálogo y cada documento se autorizan en servidor. */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
-import { justificanteTraducido } from "../../portal-justificante.js";
+import { referenciaCopiableTraducida } from "../../portal-justificante.js";
 import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=VEC_WEB_VERSION";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
@@ -42,7 +42,7 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
     <div class="cuerpo-panel">${estadoTexto ? `<p role="${estado === "cargando" ? "status" : "alert"}">${estadoTexto}</p>` : ""}
       ${estado === "lista" && catalogo?.tipos?.length === 0 ? `<p role="status">${t("vacio")}</p>` : ""}
       ${estado === "lista" && filas ? `<ul class="ct-exp-documentos-lista" aria-label="${t("tipo")}">${filas}</ul>` : ""}
-      ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo">${t("publicacion_recibo")} ${justificanteTraducido(catalogo.procedencia_ref, esc, traducir)}</p>` : ""}
+      ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo">${t("publicacion_recibo")} ${referenciaCopiableTraducida(catalogo.procedencia_ref, esc, traducir)}</p>` : ""}
       ${huellaDescarga ? `<details><summary>${t("detalle_tecnico")}</summary><p class="ct-bp-catalogo">${t("huella", { huella: huellaDescarga })}</p></details>` : ""}
       ${ocupado ? `<p role="status">${t("descargando")}</p><button type="button" class="boton-secundario" data-bp-cancelar>${t("cancelar")}</button>` : ""}
       ${mensaje && (mensajeError || !tipoAvisado) ? `<p class="ct-bp-mensaje${mensajeError ? " ct-bp-mensaje--error" : ""}" role="${mensajeError ? "alert" : "status"}">${esc(mensaje)}</p>` : ""}
