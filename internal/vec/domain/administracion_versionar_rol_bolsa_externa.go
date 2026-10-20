@@ -59,13 +59,11 @@ func estadoRolBolsaExterna(rol VersionRol) string {
 	}
 	base := rol
 	base.Version, base.Concesiones = 1, rol.Concesiones[:baseLen]
+	// Como AUT104, las siete concesiones de la v1 forman un conjunto exacto:
+	// la v1 publicada empieza por participaciones_propias.consultar. Lo
+	// añadido después sí conserva el orden de las altas gobernadas.
 	if !baseVersionarRolBolsaExterna(base) {
 		return ""
-	}
-	for j, accion := range accionesBaseVersionarRolBolsaExterna {
-		if rol.Concesiones[j].Accion != accion {
-			return ""
-		}
 	}
 	resto := rol.Concesiones[baseLen:]
 	if len(resto) == 0 && rol.Version == 1 {
