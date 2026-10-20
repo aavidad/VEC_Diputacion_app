@@ -1,64 +1,63 @@
 # Administración: usuarios y perfiles
 
-Actualizado el 20 de octubre de 2026. Esta guía describe las pantallas
-existentes; no acredita un recorrido completo de administración. Use solo
-el acceso de Administración que le faciliten para la copia local, con datos
-ficticios y su certificado propio. El acceso de RRHH no lo sustituye.
+Actualizado el 20 de octubre de 2026. Use solo el acceso de Administración
+que le faciliten para la copia local, con datos ficticios y su certificado
+propio. Esta guía describe el alcance de las pantallas; no acredita un
+recorrido administrativo completo después de reiniciar.
 
-## Consultar una persona
+## Consultar las asignaciones de una persona
 
-1. Abra **Usuarios y perfiles** en el acceso de Administración.
-2. En **Buscar usuarios**, escriba el nombre. Puede limitar por perfil, unidad y vigencia. Pulse **Buscar**.
-3. Abra la persona encontrada y compruebe sus perfiles, el ámbito y las fechas de vigencia.
-4. Use **Ver historial de asignaciones** para consultar los cambios registrados. **Volver a usuarios** regresa a la búsqueda.
+La consulta actual muestra las asignaciones y sus fechas de vigencia. Puede
+haber nombres pendientes de consultar. No confunda esa falta de nombre con
+la inexistencia de la persona o del perfil.
 
-**Sin perfiles asignados** describe la ficha consultada. Un error al cargarla
-no significa que la persona carezca de acceso. Si la consulta no está
-disponible, conserve el mensaje y solicite revisión a quien mantiene la copia.
+1. Abra **Usuarios y perfiles** con su acceso administrativo y el perfil autorizado.
+2. En **Consultar usuarios**, use el filtro de vigencia si lo necesita y pulse **Buscar**. La búsqueda por nombre y los filtros de perfil y unidad no están disponibles en esta consulta; sus controles permanecen desactivados.
+3. Abra una ficha de la lista y revise sus asignaciones y las fechas de vigencia. No deduzca el nombre de un perfil a partir de su número de asignación.
+4. Use **Volver a usuarios** para volver a la lista. Si la consulta falla, pulse **Recargar**; un error no significa que la persona carezca de acceso.
 
-## Asignar o retirar un perfil
+La ficha indica **El historial no se ha consultado**. Este acceso tampoco
+permite abrir las pestañas de catálogo de perfiles ni de cambios pendientes.
+No hay que habilitar esos controles para poder continuar la consulta.
 
-Las acciones dependen de sus permisos y de que estén conectadas en la copia.
-Si la pantalla permite consultar pero avisa de que la confirmación no está
-conectada, no se ha aplicado ningún cambio.
+## Cambiar perfiles, cuando la ficha lo permita
 
-1. Abra la ficha y elija **Cambiar asignaciones** o la acción de asignar o retirar que esté disponible.
-2. Elija el perfil y el motivo. Compruebe la persona, el ámbito y la vigencia.
-3. Pulse **Revisar cambios**. Corrija la selección si no corresponde.
-4. Si se ofrece **Confirmar cambios**, confirme y espere **Cambios confirmados** y su recibo. Consulte después la ficha actualizada.
-5. Si se ofrece **Registrar propuesta**, conserve el resultado **Propuesta registrada**. El acceso todavía no ha cambiado: falta la aprobación de otra persona.
+El cambio exige que estén disponibles su preparación y confirmación y que
+usted tenga permiso. Solo si la ficha ofrece **Cambiar perfiles**, siga estos
+pasos. Si indica que los cambios no están disponibles, no se ha aplicado nada.
 
-Retirar un perfil conserva su historia. No equivale a retirar toda la cuenta:
-si **Retirar todo el acceso** indica que no está disponible, no dé por
-revocadas las cuentas o sesiones.
+1. Pulse **Cambiar perfiles** y elija **Asignar un perfil** o **Retirar un perfil**.
+2. Elija entre los perfiles disponibles. Complete las fechas que pida la asignación, el motivo y la referencia de resolución o expediente si corresponde.
+3. Pulse **Revisar el cambio** y compruebe la persona, el perfil, la vigencia y el efecto.
+4. Pulse **Asignar perfil** o **Retirar perfil**, según corresponda. Espere el resultado **Perfil asignado** o **Perfil retirado** con su fecha y recibo.
+5. Vuelva a la ficha y compruebe la asignación. Si el resultado es incierto, conserve los mismos datos y use **Reintentar la misma solicitud**.
 
-## Revisar una propuesta de otra persona
+Si no aparece el perfil que necesita o se avisa de que hay más perfiles de los
+que se muestran, solicite revisión a Informática. No elija otro para completar
+el cambio. Retirar un perfil conserva su historia; no equivale a retirar toda
+la cuenta ni todas sus sesiones.
 
-Los cambios de perfiles de Administración e Intervención requieren la
-aprobación de otra persona autorizada.
+## Propuestas y catálogo: pendientes en este acceso
 
-1. Abra **Cambios pendientes** y pulse **Revisar propuesta** en la que corresponda.
-2. Revise quién propone, la persona destinataria, los perfiles, el motivo y la vigencia.
-3. Elija **Aprobar el cambio** o **Rechazar el cambio** y pulse **Confirmar decisión** cuando esté habilitado.
-4. Espere el resultado. **Propuesta aprobada y cambio confirmado** acredita la confirmación; una propuesta registrada sigue pendiente. Un rechazo conserva el acceso anterior.
+Las pantallas completas de Administración incluyen consulta del historial,
+catálogo de perfiles y cambios pendientes, pero la entrada actual mantiene
+esas consultas desactivadas. Los siguientes resultados solo corresponden a
+una copia que disponga de la fuente que las habilite:
 
-Si falta la consulta o no puede confirmar, no use el acceso de la persona
-proponente. Solicite que se revise la preparación de la copia.
+- **Propuesta registrada** conserva una petición de cambio; todavía no cambia el acceso. Los cambios de perfiles de Administración e Intervención requieren la aprobación de otra persona autorizada.
+- **Propuesta aprobada y cambio confirmado** acredita la confirmación posterior. Un rechazo conserva el acceso anterior. La persona proponente no puede sustituir a quien debe aprobar.
+- El **Catálogo de perfiles**, cuando esté disponible, es de solo lectura. Consultarlo no publica perfiles nuevos ni concede permisos.
 
-## Consultar el catálogo
-
-En **Catálogo de perfiles** puede leer las definiciones y ver qué cambios
-requieren la aprobación de otra persona. Esta pantalla es de solo lectura:
-no publica perfiles nuevos por editar una ficha ni concede permisos por
-seleccionar un nombre.
+No siga una instrucción de buscar por nombre, abrir el historial o revisar
+propuestas si su pantalla no ofrece esas funciones. Su activación es trabajo
+pendiente; este manual no modifica permisos ni conecta esas consultas.
 
 ## Qué falta por comprobar
 
-Falta acreditar en conjunto las consultas, los cambios y su recuperación
-tras reiniciar con el acceso propio de Administración. Tener una pantalla o
-un recibo de preparación no acredita la aplicación de un cambio. La activación
-de cargos de firma y catálogos tiene además su propio procedimiento de
-administración; no se resuelve asignando cualquier perfil desde esta guía.
+Falta acreditar en conjunto las consultas, los cambios y su recuperación tras
+reiniciar con el acceso propio de Administración. La publicación de cargos
+de firma y catálogos tiene además su procedimiento; no se resuelve asignando
+cualquier perfil desde esta guía.
 
 Consulte [los pasos pendientes](PENDIENTES.md). La preparación de la copia,
 el arranque y las copias de seguridad corresponden a [Sistemas](sistemas.md).
