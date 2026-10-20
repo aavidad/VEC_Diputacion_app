@@ -57,10 +57,11 @@ test("la confirmación del informe y su diálogo nombran el expediente por su n�
   const raiz = crearRaiz();
   const confirmaciones = [];
   const desmontar = montar(raiz, { confirmaciones });
-  assert.match(raiz.innerHTML, /Expediente 2026\/94010, versión 4\./u);
-  assert.doesNotMatch(raiz.innerHTML, /expediente:ct:/u);
+  // F1-88: la confirmación nombra solo el número; ni versión ni referencia interna.
+  assert.match(raiz.innerHTML, /Expediente 2026\/94010\./u);
+  assert.doesNotMatch(raiz.innerHTML, /expediente:ct:|versión 4/u);
   await raiz.enviar();
-  assert.equal(confirmaciones[0].referencia, "Expediente 2026/94010, versión 4.");
+  assert.equal(confirmaciones[0].referencia, "2026/94010");
   // Sin tipo MIME a la vista; la fecha, como en la ficha; la fase, con su paso.
   assert.doesNotMatch(raiz.innerHTML, /text\/plain|charset/u);
   assert.match(raiz.innerHTML, /17 sept 2026, 2:03:32/u);
@@ -74,19 +75,21 @@ test("en inglés la confirmación usa el número del expediente", async () => {
   const desmontar = montar(raiz, {
     mensajes: await cargarMensajesContratacionTemporalEnIdioma("en"), locale: "en-GB", confirmaciones,
   });
-  assert.match(raiz.innerHTML, /Case 2026\/94010, version 4\./u);
+  assert.match(raiz.innerHTML, /Case 2026\/94010\./u);
+  assert.doesNotMatch(raiz.innerHTML, /expediente:ct:|version 4/u);
   await raiz.enviar();
-  assert.equal(confirmaciones[0].referencia, "Case 2026/94010, version 4.");
+  assert.equal(confirmaciones[0].referencia, "2026/94010");
   desmontar();
 });
 
-test("sin número visible se conserva la confirmación anterior", () => {
+test("sin número visible la confirmación dice «Expediente seleccionado» sin referencia interna", () => {
   const raiz = crearRaiz();
   const desmontar = montarFormularioInformeJuridico({
     raiz, cliente: { async prepararInformeJuridico() {}, async consultarDetalleRRHH() {} },
     contexto: { expediente_ref: expedienteRef, version_esperada: 4 },
   });
-  assert.match(raiz.innerHTML, /versión asignada 4/u);
+  assert.match(raiz.innerHTML, /Expediente seleccionado\./u);
+  assert.doesNotMatch(raiz.innerHTML, /expediente:ct:|versión asignada/u);
   desmontar();
   assert.throws(() => montarFormularioInformeJuridico({
     raiz: crearRaiz(), cliente: { async prepararInformeJuridico() {}, async consultarDetalleRRHH() {} },
