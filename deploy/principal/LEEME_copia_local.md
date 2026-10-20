@@ -583,7 +583,8 @@ consulta, y la selección fallaba.
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
 - «Llamar a la siguiente persona» desde la ficha del expediente funciona en
   una copia nueva creada con `--modulos` (sin `--portal-externo`) y con la
-  firma compuesta (F1-103, 20/10). La selección responde 200 con su recibo y
+  firma compuesta, después de publicar el rol OH por dos administradores y
+  activar su consulta (F1-106). La selección responde 200 con su recibo y
   llama a la primera persona disponible por el orden vigente; repetirla
   devuelve el mismo llamamiento. Antes daba 409 por tres cosas: faltaban dos
   permisos de la técnica de RRHH (la consulta de Organización histórica y la
