@@ -27,7 +27,9 @@ y registros se conservan fuera de Git.
   `89a7ecb8bcddd1501873a5debb4fb777f535ca7a62f0cc73be62c927a0403b36`.
 - Tramitación: certificado operativo original de RRHH. Firma del informe:
   cuarto certificado nominal propio. Cada firmante tiene un entorno aislado.
-- No se añadieron permisos, selectores ni correcciones manuales a la receta.
+- No se añadieron permisos ni selectores manualmente. El entorno de firma se
+  regeneró con el preparador corregido de #1401, `e660fa224`, por orden de
+  dirección de las 00:16. Aplicación y PostgreSQL conservan su fuente inicial.
 - D se borró con el gestor público después de que E superara el paso 3.
 
 ## Resultado por paso
@@ -47,11 +49,14 @@ mediante formularios de Chrome del sistema, con Playwright.
 | 5. Bolsa vigente | Confirmada | Decisión de cobertura POST 201, v3 |
 | 6. Asignación | Confirmada | POST 201, v4 |
 | 7. Informe jurídico | Confirmado | POST 201, informe_juridico/en_curso, v5 |
-| 7b. Firma del técnico | Bloqueada antes de firmar | Consulta y original PDF 200; programa nativo sin abrir |
+| 7b. Firmas del informe | Registradas | Técnico y Jefatura: POST 201, verificación técnica válida; cofirma conserva el PDF anterior |
+| 8. Fiscalización favorable | Confirmada | Intervención: POST 201; fiscalizacion/en_curso, v6 |
+| 9. Apertura del llamamiento | Bloqueada | POST 503; ejecución indeterminada en solicitar_llamamiento |
+| 10. Aceptación de Antonio | No disponible | Mi Bolsa 200: Disponible, sin llamamiento que responder |
 | Documentos de la bolsa | Consulta correcta | Técnica operativa: GET 200; acta de constitución visible |
 | Archivo documental de la ficha | Bloqueado | POST de consulta 503; incidencia de gobierno |
 | Borradores de la ficha | Sin montar | Capacidad declarada sin_montaje; no se pide la lista |
-| 8–15 | Pendientes | Requieren completar las firmas del informe |
+| 11–15 | Pendientes | Requieren completar el llamamiento y su aceptación |
 | Reinicio de aplicación y PostgreSQL | Correcto | Chrome conserva v5 e historial; instantáneas iguales |
 
 Las identidades nuevas del centro se llaman Lucía Navarro Molina y Diego
@@ -75,12 +80,24 @@ coincidir con los del caso escrito.
    El contrato de esa lectura está en `documentos_montaje.go:296`.
    La causa concreta de la emisión fallida queda para el equipo dueño;
    no se confunde esta lectura con la consulta correcta del acta de la bolsa.
-3. **Manejador de firma.** El helper `entorno_firma.py` escribe siempre el
+3. **Manejador de firma, corregido en #1401.** El helper `entorno_firma.py` escribía el
    ejecutable entre comillas en `Exec`. El `xdg-mime` del sistema extrae ese
    campo con `first_word`, que declara no interpretar comillas, y lo busca
    con `command -v`. Descarta el lanzador propio y elige el manejador del
-   sistema. La salida del GrxFirma propio sigue vacía. Se canceló la espera
-   del navegador sin registrar firma ni alterar el paquete preparado.
+   sistema. Tras regenerar el entorno con `e660fa224`, los cuatro roles
+   resuelven el manejador propio. Chrome abrió GrxFirma y se confirmaron las
+   dos firmas nominales del informe con los certificados correspondientes.
+4. **Apertura del llamamiento.** La petición del paso 9, con versión esperada
+   6, devuelve `servicio_no_disponible` (503). Se conserva la intención
+   original fuera de Git y no se ha enviado otra clave. La fila de ejecución
+   de CT queda `indeterminada`, efecto `solicitar_llamamiento`, con las
+   ventanas de orden y llamamiento abiertas. No hay fila en
+   `vec_bolsa_llamamientos.origen_llamamiento_ct_v1` para esa clave.
+   El código descarta la causa al marcar la ejecución indeterminada
+   (`application/seleccion_llamamiento.go:611–630`); el emisor nativo se invoca
+   en `bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go:957–997`.
+   El diagnóstico actual no permite atribuirlo a datos, permisos o
+   configuración. Se comunicó a dirección para el equipo de CT/Bolsa.
 
 También se observan un 404 de preferencias de Usuarios para la técnica
 operativa y un 401 para el técnico nominal; la receta nueva no activa ese
@@ -88,10 +105,12 @@ selector. El certificado operativo recibe 403 al consultar firmas nominales;
 el nominal del técnico consulta las mismas firmas con 200. No se amplían
 permisos para eliminar esas denegaciones.
 
-Se conservan ocho respuestas confirmadas de los pasos recorridos y del PDF
-original, con referencias, versiones y fechas. El informe original quedó
-custodiado; no se ha firmado. No se acredita la resolución, ninguna de sus
-firmas ni los pasos posteriores de F1-27 o F1-28.
+Se conservan los recibos completos, referencias, versiones y fechas fuera de
+Git. Las dos firmas del informe tienen `verificacion_tecnica.estado=valida`;
+la API sigue declarando `firma_eficaz=false`. Se registra ese resultado sin
+atribuirle eficacia jurídica. La fiscalización favorable fue aceptada con
+ambas firmas. No se acredita la resolución, ninguna de sus firmas ni los
+pasos posteriores de F1-27 o F1-28.
 
 Tras reiniciar con el gestor público, el expediente conserva la versión 5 y
 las cinco actuaciones en Chrome. La instantánea de la fila vigente y de ocho
