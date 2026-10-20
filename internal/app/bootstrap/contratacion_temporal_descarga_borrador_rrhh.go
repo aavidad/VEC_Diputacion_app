@@ -53,7 +53,7 @@ func nuevoRegistradorDescargaBorradorRRHHDesarrollo(autoridad *autoridadConsulta
 }
 
 func (r *registradorDescargaBorradorRRHHDesarrollo) alcance() ports.AlcanceDescargaBorradorRRHH {
-	return ports.AlcanceDescargaBorradorRRHH{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+	return ports.AlcanceDescargaBorradorRRHH{OrganizacionRef: r.autoridad.soporte.organizacionRef,
 		ClaseAmbito: r.autoridad.clase, AmbitoRef: r.autoridad.ambitoRef}
 }
 

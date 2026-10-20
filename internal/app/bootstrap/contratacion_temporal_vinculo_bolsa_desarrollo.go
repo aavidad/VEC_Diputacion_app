@@ -209,14 +209,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilAltaConVinculo
 	return core.InstantaneaAutorizacion{}, false
 }
 
-func solicitudVinculoEmisionBolsaCTValida(d core.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudVinculoEmisionBolsaCTValida(referencia referenciaCT, d core.DatosSolicitudAutorizacionLigadaV3) bool {
 	r := d.Recurso
 	return d.Accion == ports.AccionVincularEmisionBolsa &&
 		d.Finalidad == ports.FinalidadVinculoEmisionBolsa &&
 		d.ReferenciaMotivo == motivoVinculoEmisionBolsaDesarrollo() &&
 		r.ModuloID == ports.ModuloContratacion && r.Tipo == ports.TipoRecursoVinculoEmisionBolsa &&
 		r.Referencia != "" &&
-		len(r.Ambitos) == 3 && r.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		len(r.Ambitos) == 3 && r.Ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		r.Ambitos["centro_ref"] != "" && r.Ambitos["categoria_ref"] != "" &&
 		len(r.Atributos) == 1 && huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["material_sha256"])
 }
@@ -254,14 +254,14 @@ func (a *autoridadVinculoEmisionBolsaCTDesarrollo) ResolverContextoCanalSeguimie
 	}
 	return application.ContextoCanalSeguimiento{AutenticacionRef: v.AutenticacionRef,
 		SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef,
-		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo}, nil
+		OrganizacionRef: a.alta.soporte.organizacionRef}, nil
 }
 
 func (a *autoridadVinculoEmisionBolsaCTDesarrollo) AutorizarVinculoEmisionBolsa(ctx context.Context,
 	s ports.SolicitudVinculoEmisionBolsa, huella string) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var vacio vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	if a == nil || a.proveedor == nil || a.lector == nil || a.alta == nil || a.alta.autorizador == nil || application.ValidarSolicitudVinculoEmisionBolsa(s) != nil ||
-		s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo || !huellaSHA256ValidaContratacionTemporalDesarrollo(huella) {
+		s.OrganizacionRef != a.alta.soporte.organizacionRef || !huellaSHA256ValidaContratacionTemporalDesarrollo(huella) {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	operativo, err := a.contexto(ctx)
@@ -274,7 +274,7 @@ func (a *autoridadVinculoEmisionBolsaCTDesarrollo) AutorizarVinculoEmisionBolsa(
 	}
 	recurso, err := application.NuevoRecursoVinculoEmisionBolsa(s, huella, centro, categoria)
 	if err != nil ||
-		!solicitudVinculoEmisionBolsaCTValida(core.DatosSolicitudAutorizacionLigadaV3{
+		!solicitudVinculoEmisionBolsaCTValida(a.alta.soporte.referenciaCT, core.DatosSolicitudAutorizacionLigadaV3{
 			Accion: ports.AccionVincularEmisionBolsa, Finalidad: ports.FinalidadVinculoEmisionBolsa,
 			ReferenciaMotivo: motivoVinculoEmisionBolsaDesarrollo(), Recurso: recurso,
 		}) {

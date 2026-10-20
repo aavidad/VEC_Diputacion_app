@@ -224,7 +224,7 @@ func TestResolucionFormalizacionDesarrolloAutoridadLigadaYModos(t *testing.T) {
 	r, _ := postgresct.RecursoResolucionFormalizacion(m)
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: postgresct.AccionResolucionFormalizacion,
 		Finalidad: "gestionar_contratacion_temporal", ReferenciaMotivo: motivoResolucionFormalizacionDesarrollo(), Recurso: r}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionFormalizacion, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionFormalizacion, d) {
 		t.Fatal("material válido denegado")
 	}
 	for _, cambio := range []string{"documento", "motivo", "accion", "organizacion"} {
@@ -242,7 +242,7 @@ func TestResolucionFormalizacionDesarrolloAutoridadLigadaYModos(t *testing.T) {
 		case "organizacion":
 			otro.Recurso.Ambitos["organizacion_ref"] = "organizacion:otra"
 		}
-		if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionFormalizacion, otro) {
+		if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionFormalizacion, otro) {
 			t.Fatal(cambio)
 		}
 	}

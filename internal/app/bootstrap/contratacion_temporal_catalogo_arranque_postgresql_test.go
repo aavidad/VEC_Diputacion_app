@@ -72,7 +72,7 @@ func TestArranqueCatalogoCoberturaYNumeracionPostgreSQL(t *testing.T) {
 	}
 	vigente := func(accion domain.ClaveCatalogo) string {
 		t.Helper()
-		huella, err := huellaActuacionVigenteCoberturaCT(ctx, resolutor, reloj, accion)
+		huella, err := huellaActuacionVigenteCoberturaCT(referenciaOrganizativaCTMontajePrueba, ctx, resolutor, reloj, accion)
 		if err != nil {
 			t.Fatal(err)
 		}

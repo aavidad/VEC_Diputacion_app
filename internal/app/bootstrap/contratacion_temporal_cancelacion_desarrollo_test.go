@@ -101,7 +101,7 @@ func TestCancelacionSoloSeComponeConSelectorYSusCatalogos(t *testing.T) {
 // La instantánea solo admite el recurso exacto: RRHH, en curso, con fase
 // válida y sin ámbitos añadidos.
 func TestAmbitosCancelacionExigenElRecursoExacto(t *testing.T) {
-	s := &soporteAltaContratacionTemporalDesarrollo{}
+	s := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba}
 	recurso := func() vecdomain.RecursoAutorizable {
 		return vecdomain.RecursoAutorizable{Referencia: "expediente:ct:prueba", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoCancelacion,
 			Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "expediente_ref": "expediente:ct:prueba",

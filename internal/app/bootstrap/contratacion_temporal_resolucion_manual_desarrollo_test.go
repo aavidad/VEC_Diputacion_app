@@ -68,11 +68,11 @@ func TestResolucionManualDesarrolloExigeRevisionExplicitaYPemisoPropio(t *testin
 	}
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Finalidad: "gestionar_contratacion_temporal",
 		Accion: postgresct.AccionResolucionManualLlamamiento, ReferenciaMotivo: motivoResolucionManualDesarrollo(false), Recurso: r}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
 		t.Fatal("permiso ligado rechazado")
 	}
 	d.ReferenciaMotivo = motivoConsultaJustificanteRespuestaDesarrollo()
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
 		t.Fatal("lectura concedió escritura")
 	}
 	for _, alterar := range []func(*ports.SolicitudResolverLlamamiento){
@@ -197,13 +197,13 @@ func TestResolucionManualDesarrolloSucesorConservaSeleccionYAperturaEfectiva(t *
 		ReferenciaMotivo: motivoResolucionManualDesarrollo(true), Recurso: dominiovec.RecursoAutorizable{Referencia: operacionAceptacionManualDesarrollo(l),
 			ModuloID: "bolsa", Tipo: "integracion_llamamientos_bolsa", Ambitos: map[string]string{"categoria_ref": "categoria:desarrollo:c2", "unidad_ref": unidadCoberturaContratacionTemporalDesarrollo},
 			Atributos: map[string]string{"necesidad_ref": l.justificante.Seleccion.Necesidad.Referencia, "contenido_sha256": strings.Repeat("a", 64)}}}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
 		t.Fatal("permiso sucesor no ligado")
 	}
 	otra := l
 	otra.justificante.Continuacion = nil
 	d.Recurso.Referencia = operacionAceptacionManualDesarrollo(otra)
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
 		t.Fatal("operación raíz autorizó sucesor")
 	}
 }
@@ -310,11 +310,11 @@ func TestResolucionManualDesarrolloRenunciaConservaIntencionSinLlamarSiguiente(t
 				"categoria_ref": "categoria:desarrollo:c2", "unidad_ref": unidadCoberturaContratacionTemporalDesarrollo},
 			Atributos: map[string]string{"necesidad_ref": l.justificante.Seleccion.Necesidad.Referencia, "contenido_sha256": strings.Repeat("a", 64)}}}
 	ctx = context.WithValue(ctx, claveAceptacionRevisadaDesarrollo{}, l)
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
 		t.Fatal("permiso propio de renuncia rechazado")
 	}
 	d.Accion, d.ReferenciaMotivo = puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, motivoResolucionManualDesarrollo(true)
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
 		t.Fatal("aceptación autorizó renuncia")
 	}
 }

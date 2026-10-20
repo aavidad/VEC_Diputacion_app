@@ -44,7 +44,7 @@ func (a *autorizacionContinuacionPrueba) AutorizarOperacion(ctx context.Context,
 		a.t.Fatal("acción ajena a la continuación", accion)
 	}
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: accion, Finalidad: "gestionar_contratacion_temporal", ReferenciaMotivo: motivo, Recurso: recurso}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaContinuacionLlamamiento, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaContinuacionLlamamiento, d) {
 		a.t.Fatal("material no ligado a su etapa", etapa)
 	}
 	huella, err := recurso.HuellaContextoAutorizacionSHA256()

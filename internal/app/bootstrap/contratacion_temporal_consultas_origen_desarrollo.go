@@ -19,7 +19,7 @@ type origenConsultasContratacionTemporalDesarrollo struct {
 	catalogoDesarrollo *catalogosAltaContratacionTemporalDesarrollo
 }
 
-func nuevoOrigenConsultasContratacionTemporalDesarrollo(fuenteOrganizacion ...string) *origenConsultasContratacionTemporalDesarrollo {
+func nuevoOrigenConsultasContratacionTemporalDesarrollo(referencia referenciaCT, fuenteOrganizacion ...string) *origenConsultasContratacionTemporalDesarrollo {
 	rutaFuente := ""
 	if len(fuenteOrganizacion) > 0 {
 		rutaFuente = fuenteOrganizacion[0]
@@ -28,15 +28,15 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo(fuenteOrganizacion ...st
 	if err != nil {
 		catalogos, _ = nuevoCatalogoDesarrollo("", "")
 	}
-	return nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)
+	return nuevoOrigenConsultasConCatalogoDesarrollo(referencia, catalogos)
 }
 
-func nuevoOrigenConsultasConCatalogoDesarrollo(catalogos *catalogosAltaContratacionTemporalDesarrollo) *origenConsultasContratacionTemporalDesarrollo {
+func nuevoOrigenConsultasConCatalogoDesarrollo(referencia referenciaCT, catalogos *catalogosAltaContratacionTemporalDesarrollo) *origenConsultasContratacionTemporalDesarrollo {
 	creadoEn := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
 	actualizadoEn := time.Date(2026, 9, 2, 9, 30, 0, 0, time.UTC)
 	resumen := ports.ResumenExpedienteRRHH{
 		ExpedienteRef:   expedienteContratacionTemporalDesarrolloRef,
-		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef: referencia.organizacionRef,
 		NumeroVisible:   "2026/CT-0001",
 		Version:         3,
 		FlujoRef:        "flujo:ct:desarrollo",

@@ -241,7 +241,7 @@ func servidorEnsayoBaremoHTTP(t *testing.T, ctx context.Context, cfg configuraci
 		t.Fatal("composición común no disponible")
 	}
 	t.Cleanup(composicion.derivadorIdempotencia.borrar)
-	d, err := nuevasDependenciasCT(c, composicion.identidad, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard)
+	d, err := nuevasDependenciasCT(c, composicion.identidad, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard, referenciaOrganizativaCTMontajePrueba)
 	if err != nil {
 		t.Fatal("dependencias comunes no disponibles")
 	}

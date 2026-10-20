@@ -21,7 +21,7 @@ func soporteFiscalizacionPerfilFijoPrueba(t *testing.T) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	plantilla, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef,
+	plantilla, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef,
 		time.Now().UTC().Truncate(time.Microsecond), faseFiscalizacionPrueba)
 	if err != nil {
 		t.Fatal(err)
@@ -30,10 +30,10 @@ func soporteFiscalizacionPerfilFijoPrueba(t *testing.T) (
 		v.PerfilActivoRef: {instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(plantilla),
 			actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo},
 	}}
-	puente := &soporteAltaContratacionTemporalDesarrollo{contexto: base.contexto, reloj: base.reloj, autoridadAsignaciones: autoridad}
+	puente := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, contexto: base.contexto, reloj: base.reloj, autoridadAsignaciones: autoridad}
 	fijo := &perfilFijoCTDesarrollo{clave: operacionFaseFiscalizacionCT, contexto: base.contexto, plantilla: plantilla,
 		rutas: map[string]struct{}{httpinterno.RutaResultadosFiscalizacion: {}}, propioDelSoporte: true}
-	return &soporteFiscalizacionContratacionTemporalDesarrollo{fijo: fijo, puente: puente, fase: faseFiscalizacionPrueba,
+	return &soporteFiscalizacionContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, fijo: fijo, puente: puente, fase: faseFiscalizacionPrueba,
 		reloj: base.reloj, contexto: base.contexto}, autoridad
 }
 

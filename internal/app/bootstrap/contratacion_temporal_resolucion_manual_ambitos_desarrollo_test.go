@@ -37,7 +37,7 @@ func TestAceptacionBolsaSeLigaALaCategoriaYUnidadDelExpediente(t *testing.T) {
 	}
 	unidad := preparacion.expediente.Fiscalizado.Asignacion.UnidadRef
 	ruta := httpinterno.RutaResolucionComunicacionLlamamiento
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos("categoria:desarrollo:c1", unidad)) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, ruta, datos("categoria:desarrollo:c1", unidad)) {
 		t.Fatal("aceptación del expediente C1 rechazada")
 	}
 	for nombre, d := range map[string]dominiovec.DatosSolicitudAutorizacionLigadaV3{
@@ -45,13 +45,13 @@ func TestAceptacionBolsaSeLigaALaCategoriaYUnidadDelExpediente(t *testing.T) {
 		"otra unidad":               datos("categoria:desarrollo:c1", "unidad:desarrollo:otra"),
 		"ámbitos vacíos":            datos("", ""),
 	} {
-		if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
+		if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, ruta, d) {
 			t.Fatalf("%s autorizada para otro expediente", nombre)
 		}
 	}
 	d := datos("categoria:desarrollo:c1", unidad)
 	d.Recurso.Ambitos["otro"] = "x"
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, ruta, d) {
 		t.Fatal("ámbito adicional aceptado")
 	}
 	sinAnalisis := preparacion

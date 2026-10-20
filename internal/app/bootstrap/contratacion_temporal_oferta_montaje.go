@@ -69,7 +69,7 @@ func configurarSeleccionOfertaOpcionalCT(cfg config.Config,
 		return func() {}
 	}
 	estado, err := application.NuevoServicioConsultaEstadoSeleccionOfertaCT(
-		preparadorConsultaEstadoSeleccionOfertaCTDesarrollo{autoridad: autoridad, lector: registro},
+		preparadorConsultaEstadoSeleccionOfertaCTDesarrollo{soporte: alta.soporte, autoridad: autoridad, lector: registro},
 		autoridad, registro, seleccion.lector)
 	if err != nil {
 		cerrar()

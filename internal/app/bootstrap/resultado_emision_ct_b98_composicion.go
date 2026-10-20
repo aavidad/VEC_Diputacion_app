@@ -40,7 +40,7 @@ func (l *lectorResultadoEmisionCTDesdeDetalle) LeerResultadoEmisionCT(
 	}
 	preparacion, presente := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
 	expediente := preparacion.expediente.Fiscalizado
-	if !presente || expediente.Validar() != nil || expediente.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if !presente || expediente.Validar() != nil || expediente.OrganizacionRef != l.soporte.organizacionRef {
 		return vacia, bp.ErrResultadoEmisionCTDenegado
 	}
 	solicitud, err := ct.NuevaSolicitudDetalleRRHH(expediente.Referencia, 0)

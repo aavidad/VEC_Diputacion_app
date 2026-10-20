@@ -74,8 +74,8 @@ func TestPoliticaDeResolucionDesdeHistoricaOCatalogo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	conReglas := &soporteAltaContratacionTemporalDesarrollo{reglasPlazo: r}
-	sinReglas := &soporteAltaContratacionTemporalDesarrollo{reglasPlazo: reglasPlazoLlamamientoDesarrollo{}}
+	conReglas := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, reglasPlazo: r}
+	sinReglas := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, reglasPlazo: reglasPlazoLlamamientoDesarrollo{}}
 	s := ports.SolicitudResolverLlamamiento{Respuesta: ports.RespuestaLlamamientoAceptada, CriterioValidacionRef: criterioRevisionManualDesarrollo}
 	for _, caso := range []struct {
 		nombre    string
@@ -129,7 +129,7 @@ func TestConfirmacionExpiracionExigeRRHHYReglaDelCatalogo(t *testing.T) {
 		RespuestaHasta: time.Date(2026, 9, 29, 22, 0, 0, 0, time.UTC)}
 	servicio := &servicioRevisionManualPrueba{local: local}
 	aceptador := &aceptadorRevisionManualPrueba{}
-	e := &ejecutorComunicacionLlamamientoDesarrollo{soporte: &soporteAltaContratacionTemporalDesarrollo{reglasPlazo: r},
+	e := &ejecutorComunicacionLlamamientoDesarrollo{soporte: &soporteAltaContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, reglasPlazo: r},
 		servicio: servicio, aceptador: aceptador}
 	if _, err := e.confirmarExpiracion(t.Context(), s, expediente); !errors.Is(err, application.ErrValidacionRespuestaLlamamientoPendiente) || servicio.llamadas != 0 {
 		t.Fatalf("sin confirmación de RRHH no hay efecto: %v", err)

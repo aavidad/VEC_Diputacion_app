@@ -442,7 +442,7 @@ func nuevoPerfilCancelacionCentroDesarrollo(
 		contexto.Resultado.Contexto.PersonaRef != base.PersonaRef {
 		return nil, ports.ErrPeticionCentroNoDisponible
 	}
-	s := &soporteAltaContratacionTemporalDesarrollo{sello: general.sello, principalID: general.principalID,
+	s := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: general.referenciaCT, sello: general.sello, principalID: general.principalID,
 		certificadoSHA256: general.certificadoSHA256, contexto: contexto, reloj: reloj,
 		peticionesCentro: true, perfilCancelacionCentro: true, motivo: motivoPeticionCentroDesarrollo(),
 		registroDecisionesAnalisis: general.registroDecisionesAnalisis,
@@ -455,7 +455,7 @@ func nuevoPerfilCancelacionCentroDesarrollo(
 	s.instantanea, err = nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora,
 		rolCancelacionCentroDesarrollo, "Cancelación de expedientes por el centro de desarrollo",
 		"cancelacion-centro-desarrollo-"+principal.ID, concesiones,
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{general.organizacionRef}},
 			{Clave: "centro_ref", Valores: []string{actor.CentroRef}}})
 	if err != nil {
 		return nil, err

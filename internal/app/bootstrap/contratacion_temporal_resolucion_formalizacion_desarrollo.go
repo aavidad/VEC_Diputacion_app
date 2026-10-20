@@ -107,7 +107,7 @@ func (e *ejecutorResolucionFormalizacionDesarrollo) RegistrarResolucionFormaliza
 		return z, ports.ErrResolucionFormalizacionNoDisponible
 	}
 	h := sha256.Sum256(pdf)
-	m := ports.MaterialResolucionFormalizacion{Solicitud: s, OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+	m := ports.MaterialResolucionFormalizacion{Solicitud: s, OrganizacionRef: e.soporte.organizacionRef,
 		DocumentoRef: ports.ReferenciaDocumentoResolucion(s.PropuestaRef), DocumentoVersion: 7, DocumentoSHA256: hex.EncodeToString(h[:]),
 		PropuestaConfirmadaEn: d.Hitos[6].RealizadaEn}
 	if m.Validar() != nil {
@@ -165,7 +165,7 @@ func (e *ejecutorResolucionFormalizacionDesarrollo) PrepararResolucionFormalizac
 		return ports.MaterialResolucionFormalizacion{}, err
 	}
 	m, ok := ctx.Value(claveMaterialResolucionFormalizacionDesarrollo{}).(ports.MaterialResolucionFormalizacion)
-	if !ok || m.Validar() != nil || m.Solicitud != s || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if !ok || m.Validar() != nil || m.Solicitud != s || m.OrganizacionRef != e.soporte.organizacionRef {
 		return ports.MaterialResolucionFormalizacion{}, ports.ErrResolucionFormalizacionDenegada
 	}
 	return m, nil
@@ -190,12 +190,12 @@ func motivoResolucionFormalizacionDesarrollo() dominiovec.ReferenciaEntradaCatal
 		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("resolucion-formalizacion-manual-ejercicio-v1"),
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "resolucion-formalizacion-ct")}
 }
-func solicitudAutorizacionResolucionFormalizacionValida(ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionResolucionFormalizacionValida(referencia referenciaCT, ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil {
 		return false
 	}
 	m, ok := ctx.Value(claveMaterialResolucionFormalizacionDesarrollo{}).(ports.MaterialResolucionFormalizacion)
-	if !ok || m.Validar() != nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+	if !ok || m.Validar() != nil || m.OrganizacionRef != referencia.organizacionRef ||
 		d.Accion != postgresct.AccionResolucionFormalizacion || d.Finalidad != "gestionar_contratacion_temporal" ||
 		d.ReferenciaMotivo != motivoResolucionFormalizacionDesarrollo() {
 		return false
@@ -213,7 +213,7 @@ func configurarAutoridadResolucionFormalizacionDesarrollo(ctx context.Context, a
 		"resolucion_formalizacion_ct_desarrollo", "Validación manual de ejercicio", "resolucion-formalizacion-manual-ejercicio",
 		[]dominiovec.ConcesionRol{{Accion: postgresct.AccionResolucionFormalizacion, ModuloID: "contratacion_temporal",
 			TipoRecurso: postgresct.TipoRecursoResolucionFormalizacion, Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: dominiovec.AuthAssuranceHigh}},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}

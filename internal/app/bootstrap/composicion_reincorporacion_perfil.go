@@ -25,7 +25,7 @@ func perfilFijoReincorporacionTitular(s *soporteAltaContratacionTemporalDesarrol
 		r.contexto.Resultado.Contexto.PersonaRef != s.contexto.Resultado.Contexto.PersonaRef ||
 		r.contexto.Resultado.Contexto.Instantanea.CuentaRef != s.contexto.Resultado.Contexto.Instantanea.CuentaRef ||
 		len(r.instantanea.AsignacionPerfil.Ambitos) != 1 || r.instantanea.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" ||
-		!reflect.DeepEqual(r.instantanea.AsignacionPerfil.Ambitos[0].Valores, []string{organizacionAltaContratacionTemporalDesarrollo}) {
+		!reflect.DeepEqual(r.instantanea.AsignacionPerfil.Ambitos[0].Valores, []string{s.organizacionRef}) {
 		return nil, errSeguimientoCeseDesarrolloNoDisponible
 	}
 	return &perfilFijoCTDesarrollo{clave: "reincorporacion_titular", contexto: r.contexto,
@@ -35,7 +35,7 @@ func perfilFijoReincorporacionTitular(s *soporteAltaContratacionTemporalDesarrol
 		contextoEsperadoRegistrado: r.contextoEsperadoRegistrado, sesionOperativa: r.sesionOperativa}, nil
 }
 
-func preimagenPropiaReincorporacionTitular(p *perfilFijoCTDesarrollo) func(instantaneaPublicadaDesarrollo, time.Time) bool {
+func preimagenPropiaReincorporacionTitular(referencia referenciaCT, p *perfilFijoCTDesarrollo) func(instantaneaPublicadaDesarrollo, time.Time) bool {
 	return func(publicada instantaneaPublicadaDesarrollo, instante time.Time) bool {
 		if !preimagenPropiaPerfilFijoCTDesarrollo(p, actoAsignacionPerfilFijoCTDesarrollo, actoAsignacionReincorporacionTitularDesarrollo)(publicada, instante) ||
 			publicada.actoControl != actoControlRolReincorporacionTitularDesarrollo ||
@@ -58,7 +58,7 @@ func preimagenPropiaReincorporacionTitular(p *perfilFijoCTDesarrollo) func(insta
 			}
 			switch a.Clave {
 			case "organizacion_ref":
-				if a.Valores[0] != organizacionAltaContratacionTemporalDesarrollo {
+				if a.Valores[0] != referencia.organizacionRef {
 					return false
 				}
 			case "expediente_ref":
@@ -89,7 +89,7 @@ func componerPerfilFijoReincorporacionTitular(ctx context.Context, pool *pgxpool
 	if err != nil {
 		return err
 	}
-	if _, err := asegurarPerfilFijoCTDesarrollo(ctx, pool, s, p, aprobacion, preimagenPropiaReincorporacionTitular(p)); err != nil {
+	if _, err := asegurarPerfilFijoCTDesarrollo(ctx, pool, s, p, aprobacion, preimagenPropiaReincorporacionTitular(s.referenciaCT, p)); err != nil {
 		return err
 	}
 	return s.registrarPerfilFijoCTDesarrollo(p)

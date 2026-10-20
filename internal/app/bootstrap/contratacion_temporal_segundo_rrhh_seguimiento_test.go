@@ -212,15 +212,15 @@ func TestInstantaneaSegundoRRHHAceptaSemillaYAsignacionCenida(t *testing.T) {
 		{"sin concesión de lectura", nueva([]vecdomain.AmbitoPerfil{org}, concesion), false},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
-			if got := instantaneaSegundoRRHHNoIncorporacionValida(caso.i, principal, perfil, ahora); got != caso.valida {
+			if got := instantaneaSegundoRRHHNoIncorporacionValida(referenciaOrganizativaCTMontajePrueba, caso.i, principal, perfil, ahora); got != caso.valida {
 				t.Fatalf("válida=%v, esperada %v", got, caso.valida)
 			}
 		})
 	}
-	if instantaneaSegundoRRHHNoIncorporacionValida(nueva([]vecdomain.AmbitoPerfil{org}, concesion, lectura), "per_otro0000000000000000000000000000", perfil, ahora) {
+	if instantaneaSegundoRRHHNoIncorporacionValida(referenciaOrganizativaCTMontajePrueba, nueva([]vecdomain.AmbitoPerfil{org}, concesion, lectura), "per_otro0000000000000000000000000000", perfil, ahora) {
 		t.Fatal("otro actor aceptado")
 	}
-	base := baseSegundoRRHH(nueva([]vecdomain.AmbitoPerfil{org, exp, fase, estado}, concesion, lectura))
+	base := baseSegundoRRHH(referenciaOrganizativaCTMontajePrueba, nueva([]vecdomain.AmbitoPerfil{org, exp, fase, estado}, concesion, lectura))
 	if len(base.AsignacionPerfil.Ambitos) != 1 || base.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" {
 		t.Fatalf("la base conserva el ámbito de una operación anterior: %+v", base.AsignacionPerfil.Ambitos)
 	}

@@ -352,7 +352,7 @@ func nuevoGobiernoCoberturaParaViasCT(
 	}
 	politica, err := domain.PublicarPoliticaDecisionCobertura(domain.BorradorPoliticaDecisionCobertura{
 		Referencia: "politica:ct:desarrollo:cobertura:" + sufijo, Version: version,
-		Catalogo: catalogo.Identidad(), OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		Catalogo: catalogo.Identidad(), OrganizacionRef: soporte.organizacionRef,
 		FinalidadClave: "gestionar_cobertura_temporal", FinalidadRef: "finalidad:ct:desarrollo:cobertura",
 		PublicadaEn: publicadaEn, Vigencia: vigencia,
 		ProcedenciaRef: "procedencia:ct:desarrollo:politica-cobertura:" + sufijo,
@@ -372,10 +372,10 @@ func nuevoGobiernoCoberturaParaViasCT(
 		actuacion := cobertura.PublicacionPoliticaActuacionCobertura{
 			Referencia: "actuacion:ct:desarrollo:cobertura:" + configuracion.nombre + ":" + sufijo,
 			Version:    version, Canon: cobertura.CanonHuellaPoliticaActuacionCoberturaV1(),
-			OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, Accion: configuracion.accion,
+			OrganizacionRef: soporte.organizacionRef, Accion: configuracion.accion,
 			Catalogo: catalogo.Identidad(), Politica: politica.Identidad(),
 			FinalidadContratacionClave: "gestionar_cobertura_temporal", FinalidadContratacionRef: "finalidad:ct:desarrollo:cobertura",
-			FinalidadAutorizacionVEC: domain.ClaveCatalogo(finalidadDecisionCoberturaDesarrollo), UnidadEjecutoraRef: unidadCoberturaContratacionTemporalDesarrollo,
+			FinalidadAutorizacionVEC: domain.ClaveCatalogo(finalidadDecisionCoberturaDesarrollo), UnidadEjecutoraRef: soporte.unidadRef,
 			FaseDestino: "asignacion_unidad", EstadoDestino: domain.EstadoEnCurso,
 			MotivoAutorizacionDecidir: soporte.motivoDecisionCobertura, MotivoAutorizacionRectificar: soporte.motivoRectificacionCobertura,
 			PublicadaEn: publicadaEn, Vigencia: vigencia,
@@ -536,7 +536,7 @@ func sincronizarGobiernoCoberturaCatalogoPostgreSQLCT(
 	}
 	_, err = sincronizarGobiernoCoberturaCT(ctx, dependenciasSincronizacionGobiernoCT{
 		vigente: func(ctx context.Context, accion domain.ClaveCatalogo) (string, error) {
-			return huellaActuacionVigenteCoberturaCT(ctx, resolutor, reloj, accion)
+			return huellaActuacionVigenteCoberturaCT(soporte.referenciaCT, ctx, resolutor, reloj, accion)
 		},
 		publicar: func(ctx context.Context, publicacion publicacionGobiernoCoberturaDesarrollo) (string, error) {
 			return intentarPublicacionGobiernoCoberturaCT(ctx, gobierno, publicacion)
@@ -547,7 +547,7 @@ func sincronizarGobiernoCoberturaCatalogoPostgreSQLCT(
 
 // huellaActuacionVigenteCoberturaCT resuelve la actuación vigente de la acción
 // como lo hace una decisión real; sin puntero vigente devuelve "".
-func huellaActuacionVigenteCoberturaCT(
+func huellaActuacionVigenteCoberturaCT(referencia referenciaCT,
 	ctx context.Context,
 	resolutor cobertura.ResolutorGobiernoOperacionCobertura,
 	reloj relojContratacionTemporalDesarrollo,
@@ -557,7 +557,7 @@ func huellaActuacionVigenteCoberturaCT(
 	if accion == domain.AccionRectificarCoberturaGobernada {
 		construir = cobertura.NuevaSolicitudGobiernoRectificacionCobertura
 	}
-	solicitud, err := construir(organizacionAltaContratacionTemporalDesarrollo, expedienteSondeoGobiernoCT, 1)
+	solicitud, err := construir(referencia.organizacionRef, expedienteSondeoGobiernoCT, 1)
 	if err != nil {
 		return "", err
 	}

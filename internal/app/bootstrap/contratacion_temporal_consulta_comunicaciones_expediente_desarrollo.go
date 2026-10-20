@@ -136,7 +136,7 @@ func (p *proveedorConsultaComunicacionesExpedienteDesarrollo) AutorizarConsultaC
 	}
 	// El ámbito de este perfil de desarrollo se fija en la composición y se
 	// usa solo después de revalidar la capacidad mTLS y la sesión operativa.
-	organizacion := organizacionAltaContratacionTemporalDesarrollo
+	organizacion := p.soporte.organizacionRef
 	recurso, err := postgresct.RecursoConsultaComunicacionesExpediente(c, organizacion)
 	if err != nil {
 		return vacio, ports.ErrConsultaComunicacionesExpedienteDenegada

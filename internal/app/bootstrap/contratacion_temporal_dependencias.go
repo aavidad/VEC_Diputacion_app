@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
@@ -13,7 +14,8 @@ import (
 // pools ni lee configuración: los constructores de módulos reciben esta misma
 // instancia en vez de reconstruir credenciales o material de desarrollo.
 type DependenciasCT struct {
-	cfg        config.Config
+	cfg config.Config
+	referenciaCT
 	resolvedor *resolvedorIdentidadDesarrollo
 	derivador  *derivadorIdentidadOperacionDesarrollo
 	kms        *emisorKMSDesarrollo
@@ -38,13 +40,16 @@ type DependenciasCT struct {
 	unaVez             sync.Once
 }
 
-func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, kms *emisorKMSDesarrollo, registro io.Writer) (*DependenciasCT, error) {
+func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, kms *emisorKMSDesarrollo, registro io.Writer, referencia referenciaCT) (*DependenciasCT, error) {
 	cfg = cfg.Normalize()
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil || !ok || identidad == nil || derivador == nil || !derivador.valido() {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
-	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, plazosOfertasBolsa: &calculadoraPlazoOfertaDesarrollo{}, cerrar: func() {}}, nil
+	if !domain.ReferenciaOpacaValida(referencia.organizacionRef) || !domain.UnidadSeguimientoValida(referencia.unidadRef) {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
+	return &DependenciasCT{cfg: cfg, referenciaCT: referencia, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, plazosOfertasBolsa: &calculadoraPlazoOfertaDesarrollo{}, cerrar: func() {}}, nil
 }
 
 func (d *DependenciasCT) Cerrar() {

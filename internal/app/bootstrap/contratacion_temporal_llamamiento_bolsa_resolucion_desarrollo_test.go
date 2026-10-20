@@ -362,7 +362,7 @@ func TestPuenteBolsaLlamamientoDesarrolloAceptacionNoFabricaExito(t *testing.T) 
 func TestPuenteBolsaLlamamientoDesarrolloVersionTrasSubsanacion(t *testing.T) {
 	p, ctx, legado, _ := puenteBolsaPrueba(t)
 	e := expedienteTrasSubsanacionPrueba(t, legado.expediente.Fiscalizado)
-	nuevo, err := prepararReferenciasLlamamientoDesarrollo(ports.ExpedienteParaSeleccion{Fiscalizado: e, VersionActual: 8}, legado.clave)
+	nuevo, err := prepararReferenciasLlamamientoDesarrollo(referenciaOrganizativaCTMontajePrueba, ports.ExpedienteParaSeleccion{Fiscalizado: e, VersionActual: 8}, legado.clave)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +396,7 @@ func TestPuenteBolsaLlamamientoDesarrolloVersionTrasSubsanacion(t *testing.T) {
 		t.Fatal(err)
 	}
 	reserva, err := ports.NuevaSolicitudReservaEjecucionSeleccionLlamamiento(terminal, orden, resultado.CantidadDisponible, p.reloj.Ahora())
-	if err != nil || !reservaReanudacionLigadaAPreparacionDesarrollo(nuevo, reserva) {
+	if err != nil || !reservaReanudacionLigadaAPreparacionDesarrollo(referenciaOrganizativaCTMontajePrueba, nuevo, reserva) {
 		t.Fatal("reanudación N ligada denegada", err)
 	}
 	cruzado := context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, legado)
@@ -404,7 +404,7 @@ func TestPuenteBolsaLlamamientoDesarrolloVersionTrasSubsanacion(t *testing.T) {
 		t.Fatal("contexto N admitido con preparación v6")
 	}
 	nuevo.expediente.VersionActual = 9
-	if reservaReanudacionLigadaAPreparacionDesarrollo(nuevo, reserva) {
+	if reservaReanudacionLigadaAPreparacionDesarrollo(referenciaOrganizativaCTMontajePrueba, nuevo, reserva) {
 		t.Fatal("reanudación con cabeza posterior admitida")
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, nuevo)

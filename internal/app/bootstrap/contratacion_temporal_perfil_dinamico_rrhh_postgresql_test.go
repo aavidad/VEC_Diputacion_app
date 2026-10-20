@@ -62,16 +62,16 @@ func soporteRRHHPostgreSQLPrueba(t *testing.T, ctx context.Context, pool *pgxpoo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if soporte.instantanea, err = nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
+	if soporte.instantanea, err = nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
 		t.Fatal(err)
 	}
-	if soporte.instantaneaAnalisis, err = nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT]); err != nil {
+	if soporte.instantaneaAnalisis, err = nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT]); err != nil {
 		t.Fatal(err)
 	}
-	if soporte.instantaneaAsignacion, err = nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]); err != nil {
+	if soporte.instantaneaAsignacion, err = nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]); err != nil {
 		t.Fatal(err)
 	}
-	if soporte.instantaneaCobertura, err = nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
+	if soporte.instantaneaCobertura, err = nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
 		t.Fatal(err)
 	}
 	soporte.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: soporte}

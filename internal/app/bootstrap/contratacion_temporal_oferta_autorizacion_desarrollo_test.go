@@ -148,11 +148,11 @@ func TestSeleccionOfertaCTExigeConcesionYAudienciaPropias(t *testing.T) {
 	c := core.ConcesionRol{Accion: ports.AccionVincularOfertaBolsaCT,
 		ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoVinculoOfertaBolsaCT,
 		Finalidades: []string{ports.FinalidadVincularOfertaBolsaCT}, GarantiaMinima: core.AuthAssuranceHigh}
-	if !concesionExactaSeleccionOfertaCTDesarrollo(c) {
+	if !concesionExactaSeleccionOfertaCTDesarrollo(referenciaOrganizativaCTMontajePrueba, c) {
 		t.Fatal("concesión exacta rechazada")
 	}
 	c.Accion = ports.AccionVincularEmisionBolsa
-	if concesionExactaSeleccionOfertaCTDesarrollo(c) {
+	if concesionExactaSeleccionOfertaCTDesarrollo(referenciaOrganizativaCTMontajePrueba, c) {
 		t.Fatal("concesión singular aceptada para oferta")
 	}
 	d := descriptorMaterialSeleccionOfertaCTDesarrollo()
@@ -173,7 +173,7 @@ func TestSeleccionOfertaCTExigeConcesionYAudienciaPropias(t *testing.T) {
 	}
 	for _, politica := range []politicaPerfilOfertaCTDesarrollo{
 		politicaCierreOfertaBolsaCTDesarrollo("unidad:bolsa:001", "ambito:bolsa:001"),
-		politicaDescarteOfertaCTDesarrollo(),
+		politicaDescarteOfertaCTDesarrollo(referenciaOrganizativaCTMontajePrueba),
 	} {
 		concesion := core.ConcesionRol{Accion: politica.accion, ModuloID: politica.modulo,
 			TipoRecurso: politica.tipo, Finalidades: []string{politica.finalidad},
@@ -194,7 +194,7 @@ func TestFronteraPrivadaConsultaEstadoSoloPerfilVinculador(t *testing.T) {
 	activacion.CierreBolsa.PerfilRef = "prf_cierre_sintetico"
 	activacion.DescarteCT.PerfilRef = "prf_descarte_sintetico"
 	paraVinculo, err := descriptoresPerfilOfertaCTDesarrollo(activacion.Vinculo,
-		politicaVinculoOfertaCTDesarrollo(), true)
+		politicaVinculoOfertaCTDesarrollo(referenciaOrganizativaCTMontajePrueba), true)
 	if err != nil || len(paraVinculo) != 2 {
 		t.Fatal("frontera GET del vínculo no compuesta")
 	}
@@ -220,7 +220,7 @@ func TestFronteraPrivadaConsultaEstadoSoloPerfilVinculador(t *testing.T) {
 		politica   politicaPerfilOfertaCTDesarrollo
 	}{
 		{activacion.CierreBolsa, politicaCierreOfertaBolsaCTDesarrollo("unidad:bolsa:1", "ambito:bolsa:1")},
-		{activacion.DescarteCT, politicaDescarteOfertaCTDesarrollo()},
+		{activacion.DescarteCT, politicaDescarteOfertaCTDesarrollo(referenciaOrganizativaCTMontajePrueba)},
 	} {
 		if _, err := descriptoresPerfilOfertaCTDesarrollo(perfil.activacion, perfil.politica, true); err == nil {
 			t.Fatal("frontera GET admitida para cierre o descarte")
@@ -250,7 +250,7 @@ func TestFuenteOfertaCTSoloLeeRolExactoVigente(t *testing.T) {
 	origen := &fuenteOfertaCTPrueba{instantanea: instantanea}
 	f := &fuenteRolSeleccionOfertaCTDesarrollo{fuente: origen, principalID: principal,
 		personaRef: principal, perfilRef: perfil,
-		politica: politicaVinculoOfertaCTDesarrollo(),
+		politica: politicaVinculoOfertaCTDesarrollo(referenciaOrganizativaCTMontajePrueba),
 		rol: referenciaRolOfertaCTDesarrollo{RolID: instantanea.VersionRol.RolID,
 			Version: instantanea.VersionRol.Version, HuellaSHA256: huella},
 		reloj: relojContratacionTemporalDesarrollo{}}

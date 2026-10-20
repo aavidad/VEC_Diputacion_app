@@ -7,7 +7,7 @@ import (
 )
 
 func TestClonarInstantaneaAutorizacionPostgreSQLDesarrolloNoComparteConcesionesNiAmbitos(t *testing.T) {
-	original, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+	original, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"prf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC),

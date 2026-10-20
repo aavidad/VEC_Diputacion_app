@@ -46,11 +46,11 @@ type politicaPerfilOfertaCTDesarrollo struct {
 	ambitos                                    map[string]string // vacío exige clave, pero deja su valor a la asignación publicada.
 }
 
-func politicaVinculoOfertaCTDesarrollo() politicaPerfilOfertaCTDesarrollo {
+func politicaVinculoOfertaCTDesarrollo(referencia referenciaCT) politicaPerfilOfertaCTDesarrollo {
 	return politicaPerfilOfertaCTDesarrollo{ports.AccionVincularOfertaBolsaCT,
 		ports.ModuloContratacion, ports.TipoRecursoVinculoOfertaBolsaCT,
 		ports.FinalidadVincularOfertaBolsaCT, ports.AudienciaVincularOfertaBolsaCT,
-		map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+		map[string]string{"organizacion_ref": referencia.organizacionRef,
 			"unidad_ref": ""}}
 }
 
@@ -60,11 +60,11 @@ func politicaCierreOfertaBolsaCTDesarrollo(unidad, ambito string) politicaPerfil
 		map[string]string{"unidad_ref": unidad, "ambito_ref": ambito}}
 }
 
-func politicaDescarteOfertaCTDesarrollo() politicaPerfilOfertaCTDesarrollo {
+func politicaDescarteOfertaCTDesarrollo(referencia referenciaCT) politicaPerfilOfertaCTDesarrollo {
 	return politicaPerfilOfertaCTDesarrollo{"contratacion_temporal.bolsa.oferta.descartar",
 		ports.ModuloContratacion, "seleccion_oferta_expediente", ports.FinalidadVincularOfertaBolsaCT,
 		descriptorMaterialDescarteSeleccionOfertaCTDesarrollo().Audiencia,
-		map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+		map[string]string{"organizacion_ref": referencia.organizacionRef,
 			"unidad_ref": ""}}
 }
 
@@ -112,8 +112,8 @@ func (f *fuenteRolSeleccionOfertaCTDesarrollo) ObtenerInstantaneaAutorizacion(ct
 	return i, nil
 }
 
-func concesionExactaSeleccionOfertaCTDesarrollo(c core.ConcesionRol) bool {
-	return concesionExactaPerfilOfertaCTDesarrollo(c, politicaVinculoOfertaCTDesarrollo())
+func concesionExactaSeleccionOfertaCTDesarrollo(referencia referenciaCT, c core.ConcesionRol) bool {
+	return concesionExactaPerfilOfertaCTDesarrollo(c, politicaVinculoOfertaCTDesarrollo(referencia))
 }
 
 func concesionExactaPerfilOfertaCTDesarrollo(c core.ConcesionRol, p politicaPerfilOfertaCTDesarrollo) bool {
@@ -667,9 +667,9 @@ func nuevaAutoridadSeleccionOfertaCTDesarrollo(ctx context.Context, cfg config.C
 		politica       politicaPerfilOfertaCTDesarrollo
 		consultaEstado bool
 	}{
-		{c.Vinculo, politicaVinculoOfertaCTDesarrollo(), true},
+		{c.Vinculo, politicaVinculoOfertaCTDesarrollo(alta.soporte.referenciaCT), true},
 		{c.CierreBolsa, politicaCierreOfertaBolsaCTDesarrollo(base.soporte.unidadRef, base.soporte.ambitoRef), false},
-		{c.DescarteCT, politicaDescarteOfertaCTDesarrollo(), false},
+		{c.DescarteCT, politicaDescarteOfertaCTDesarrollo(alta.soporte.referenciaCT), false},
 	}
 	perfiles := make([]*autoridadPerfilOfertaCTDesarrollo, 0, len(configuraciones))
 	for _, configuracion := range configuraciones {

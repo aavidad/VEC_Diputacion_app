@@ -110,7 +110,7 @@ func TestFirmaDocumentoV1PerfilNominalLlegaAlPDPConLaPersonaRegistrada(t *testin
 	otro, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, "otro_cargo_prueba",
 		[]string{httpinterno.RutaConsultaFirmaDocumento},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 		})
 	if err != nil || otro.contexto.Resultado.Validar() != nil {
 		t.Fatal("perfil ajeno no compuesto", err)

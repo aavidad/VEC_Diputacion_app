@@ -489,49 +489,49 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case ruta == rutaEntregaPeticionCentro:
 			if p.metodo == http.MethodGet {
 				valida = datos.Accion == ports.AccionConsultarPeticionesRRHH &&
-					solicitudAutorizacionEntregaPeticionValida(ctx, datos)
+					solicitudAutorizacionEntregaPeticionValida(s.referenciaCT, ctx, datos)
 			} else if p.metodo == http.MethodPost && datos.Accion == ports.AccionCrearSolicitud {
-				valida = solicitudAutorizacionAltaDePeticionValida(ctx, datos) &&
+				valida = solicitudAutorizacionAltaDePeticionValida(s.referenciaCT, ctx, datos) &&
 					s.centroDeOrganizacionPeticion(datos.Recurso.Ambitos["centro_ref"]) &&
 					s.categoriaDeCatalogo(datos.Recurso.Ambitos["categoria_ref"])
 			} else {
 				valida = p.metodo == http.MethodPost && datos.Accion == ports.AccionEntregarPeticionRRHH &&
-					solicitudAutorizacionEntregaPeticionValida(ctx, datos)
+					solicitudAutorizacionEntregaPeticionValida(s.referenciaCT, ctx, datos)
 			}
 		case ruta == httpinterno.RutaPropuestaCobertura:
-			valida = solicitudAutorizacionPropuestaCoberturaDesarrolloValida(datos)
+			valida = solicitudAutorizacionPropuestaCoberturaDesarrolloValida(s.referenciaCT, datos)
 		case ruta == httpinterno.RutaDecisionCobertura || ruta == httpinterno.RutaRectificacionCobertura:
-			valida = solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos)
+			valida = solicitudAutorizacionDecisionCoberturaDesarrolloValida(s.referenciaCT, ruta, datos)
 		case ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo:
 			valida = solicitudAutorizacionOrganizacionDesarrolloValida(ctx, datos)
 		case ruta == httpinterno.RutaResultadoCobertura:
 			valida = true
 		case rutaAnalisisContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
-			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos, fase)
+			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(s.referenciaCT, ruta, datos, fase)
 		case rutaFirmaDocumentoCTDesarrollo(ruta):
-			valida = solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, datos) ||
-				ruta == httpinterno.RutaFirmaDocumento && (solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) || solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos))
+			valida = solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(s.referenciaCT, ctx, datos) ||
+				ruta == httpinterno.RutaFirmaDocumento && (solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(s.referenciaCT, ctx, datos) || solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos))
 		case rutaReincorporacionTitularDesarrollo(ruta):
-			valida = solicitudAutorizacionReincorporacionTitularValida(ruta, datos)
+			valida = solicitudAutorizacionReincorporacionTitularValida(s.referenciaCT, ruta, datos)
 		case rutaAsignacionContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAsignacionCT)
-			valida = ok && solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(ruta, datos, fase)
+			valida = ok && solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(s.referenciaCT, ruta, datos, fase)
 		case ruta == httpinterno.RutaSubsanacionReparos:
 			valida = s.solicitudAutorizacionSubsanacionReparosValida(datos)
 		case rutaInformeJuridicoContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseInformeJuridicoCT)
-			valida = ok && solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase)
+			valida = ok && solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(s.referenciaCT, ruta, datos, fase)
 		case rutaConsultaRRHHContratacionTemporalDesarrollo(ruta):
 			valida = s.lectorConsultasRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		case ruta == httpinterno.RutaConsultaCircuitoRRHH:
-			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos)
+			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(s.referenciaCT, ctx, datos)
 		case ruta == httpinterno.RutaVinculosEmisionBolsa:
-			valida = solicitudVinculoEmisionBolsaCTValida(datos)
+			valida = solicitudVinculoEmisionBolsaCTValida(s.referenciaCT, datos)
 		case rutaFirmasR5V2CTDesarrollo(ruta):
-			valida = solicitudAutorizacionFirmasR5V2CTDesarrolloValida(ruta, datos)
+			valida = solicitudAutorizacionFirmasR5V2CTDesarrolloValida(s.referenciaCT, ruta, datos)
 		case rutaFirmaExternaV2CTDesarrollo(ruta):
-			valida = solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(datos)
+			valida = solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(s.referenciaCT, datos)
 		case rutaOriginalFirmableCTDesarrollo(ruta):
 			valida = p == s.perfilesOriginal.documentos && solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) ||
 				p == s.perfilesOriginal.detalle && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
@@ -621,7 +621,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	alta, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAltaCTDesarrollo,
 		[]string{httpinterno.RutaAltaSolicitudes},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(principalID, perfilRef, ahora, origen)
+			return nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.referenciaCT, principalID, perfilRef, ahora, origen)
 		})
 	if err != nil {
 		return err
@@ -640,7 +640,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 		entrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoEntregaCTDesarrollo,
 			[]string{rutaEntregaPeticionCentro},
 			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-				return nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(principalID, perfilRef, ahora, origen)
+				return nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(s.referenciaCT, principalID, perfilRef, ahora, origen)
 			})
 		if err != nil {
 			return err
@@ -653,7 +653,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 		lectorEntrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoLectorEntregaCTDesarrollo,
 			rutasLectura,
 			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-				plantilla, err := nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(principalID, perfilRef, ahora)
+				plantilla, err := nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(s.referenciaCT, principalID, perfilRef, ahora)
 				if err != nil || len(ajustesReglas) == 0 || !ajustesReglas[0] {
 					return plantilla, err
 				}
@@ -671,7 +671,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 		[]string{httpinterno.RutaPropuestaCobertura, httpinterno.RutaDecisionCobertura,
 			httpinterno.RutaRectificacionCobertura, httpinterno.RutaResultadoCobertura},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(principalID, perfilRef, ahora)
+			return nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(s.referenciaCT, principalID, perfilRef, ahora)
 		})
 	if err != nil {
 		return err
@@ -685,7 +685,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	analisis, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAnalisisCTDesarrollo,
 		[]string{httpinterno.RutaRegistroAnalisisRRHH, httpinterno.RutaRectificacionAnalisisRRHH},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(principalID, perfilRef, ahora, faseAnalisis)
+			return nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(s.referenciaCT, principalID, perfilRef, ahora, faseAnalisis)
 		})
 	if err != nil {
 		return err
@@ -695,7 +695,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	asignacion, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAsignacionCTDesarrollo,
 		[]string{httpinterno.RutaAsignaciones},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+			return nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(s.referenciaCT, principalID, perfilRef, ahora,
 				faseDeOperacionCTDesarrollo(s.opcionesCatalogo, operacionFaseAsignacionCT))
 		})
 	if err != nil {
@@ -704,7 +704,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	informe, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoInformeCTDesarrollo,
 		[]string{httpinterno.RutaPreparacionesInformeJuridico},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+			return nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(s.referenciaCT, principalID, perfilRef, ahora,
 				faseDeOperacionCTDesarrollo(s.opcionesCatalogo, operacionFaseInformeJuridicoCT))
 		})
 	if err != nil {

@@ -134,7 +134,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 	}
 
 	situacionBolsa := &situacionBolsaCoberturaFijable{}
-	fuentes, err := nuevasDependenciasFuentesCoberturaDesarrollo(
+	fuentes, err := nuevasDependenciasFuentesCoberturaDesarrollo(alta.soporte.referenciaCT,
 		derivador,
 		reloj,
 		gobierno,

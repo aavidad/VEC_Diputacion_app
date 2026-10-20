@@ -12,6 +12,15 @@ func TestIncorporacionV2ReferenciasOriginales(t *testing.T) {
 	if !r.valida() {
 		t.Fatal("rechaza las referencias conservadas del expediente")
 	}
+	r.OrganizacionRef = referenciaOrganizativaCTMontajePrueba.organizacionRef
+	if !r.valida() {
+		t.Fatal("rechaza la referencia organizativa explícita de Personal")
+	}
+	r.OrganizacionRef = "org_ABCDEF1234567890"
+	if r.valida() {
+		t.Fatal("acepta una referencia organizativa no canónica")
+	}
+	r.OrganizacionRef = "organizacion:desarrollo:dipgra"
 	for _, modificar := range []func(*ReferenciasCTIncorporacionDesarrollo){
 		func(r *ReferenciasCTIncorporacionDesarrollo) { r.UnidadRef = "unidad:" },
 		func(r *ReferenciasCTIncorporacionDesarrollo) { r.ActorRef = "actor:rrhh" },

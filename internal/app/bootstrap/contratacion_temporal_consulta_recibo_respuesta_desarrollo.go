@@ -69,7 +69,7 @@ func (p *proveedorConsultaReciboRespuestaDesarrollo) AutorizarConsultaReciboResp
 	}
 	capacidad, valida := p.soporte.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaConsultaReciboRespuesta ||
-		s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		s.OrganizacionRef != p.soporte.organizacionRef ||
 		!certificadoConsultaReciboRespuestaVigente(capacidad, p.reloj.Ahora()) {
 		return vacio, ports.ErrConsultaReciboRespuestaDenegada
 	}

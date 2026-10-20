@@ -132,7 +132,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAlta(
 		AutenticacionRef: vinculo.AutenticacionRef,
 		SesionRef:        vinculo.SesionRef,
 		PerfilRef:        vinculo.PerfilActivoRef,
-		OrganizacionRef:  organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef:  s.organizacionRef,
 	}, nil
 }
 
@@ -155,7 +155,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAnalisi
 		AutenticacionRef: vinculo.AutenticacionRef,
 		SesionRef:        vinculo.SesionRef,
 		PerfilRef:        vinculo.PerfilActivoRef,
-		OrganizacionRef:  organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef:  s.organizacionRef,
 	}, nil
 }
 
@@ -178,7 +178,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAsignac
 		AutenticacionRef: vinculo.AutenticacionRef,
 		SesionRef:        vinculo.SesionRef,
 		PerfilRef:        vinculo.PerfilActivoRef,
-		OrganizacionRef:  organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef:  s.organizacionRef,
 	}, nil
 }
 
@@ -201,7 +201,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalInforme
 		AutenticacionRef: vinculo.AutenticacionRef,
 		SesionRef:        vinculo.SesionRef,
 		PerfilRef:        vinculo.PerfilActivoRef,
-		OrganizacionRef:  organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef:  s.organizacionRef,
 	}, nil
 }
 
@@ -292,7 +292,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
 	// un alta directa sin ese acto sigue sujeta al catálogo vigente.
 	entrega, desdePeticion := altaDePeticionConfiable(ctx)
 	periodo := entrega.Peticion.Solicitud.Periodo
-	return desdePeticion && organizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+	return desdePeticion && organizacionRef == s.organizacionRef &&
 		entrega.ActorRef == vinculo.PrincipalID && entrega.PerfilRef == vinculo.PerfilActivoRef &&
 		entrega.Peticion.Solicitud.MotivoClave == clave && periodo.Fin.IsZero() &&
 		periodo.PoliticaFin.Validar() == nil &&
@@ -328,7 +328,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 			s.centroDeOrganizacionPeticion(solicitud.CentroRef)
 	}
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		solicitud.OrganizacionRef != s.organizacionRef ||
 		!centroValido ||
 		!s.categoriaDeCatalogo(solicitud.CategoriaRef) {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
@@ -349,7 +349,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverMotivoAutorizacionAl
 	solicitud ports.SolicitudResolverMotivoAutorizacionAltaV3,
 ) (dominiovec.ReferenciaEntradaCatalogo, error) {
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		solicitud.OrganizacionRef != s.organizacionRef ||
 		solicitud.Flujo != s.flujo.Flujo {
 		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
 	}

@@ -63,7 +63,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 		return vacio, ports.ErrOperacionContinuacionInvalida
 	}
 	c, valida := e.soporte.capacidadValida(ctx)
-	if !valida || c.ruta != httpinterno.RutaContinuacionLlamamiento || s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if !valida || c.ruta != httpinterno.RutaContinuacionLlamamiento || s.OrganizacionRef != e.soporte.organizacionRef {
 		return vacio, ports.ErrOperacionContinuacionDenegada
 	}
 	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx, s.OrganizacionRef, s.ExpedienteRef, 6)
@@ -71,7 +71,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 		return vacio, ctx.Err()
 	}
 	if err != nil || expediente.Fiscalizado.Validar() != nil ||
-		!expedienteComunicacionLlamamientoDesarrolloValido(expediente, ports.SolicitudRegistrarComunicacionLlamamiento{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef}) {
+		!expedienteComunicacionLlamamientoDesarrolloValido(e.soporte.referenciaCT, expediente, ports.SolicitudRegistrarComunicacionLlamamiento{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef}) {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
@@ -106,7 +106,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 		}
 		l.justificante, l.seleccion = j, j.Seleccion
 	}
-	preparada, err := prepararReferenciasLlamamientoDesarrollo(expediente, a.ComandoSiguiente.SeleccionClave)
+	preparada, err := prepararReferenciasLlamamientoDesarrollo(e.soporte.referenciaCT, expediente, a.ComandoSiguiente.SeleccionClave)
 	if err != nil || preparada.operacionPropuesta != l.seleccion.OperacionRef {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}

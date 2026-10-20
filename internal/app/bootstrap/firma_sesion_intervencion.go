@@ -15,7 +15,7 @@ const fronteraLecturaFirmasIntervencionCT = "ct-firmas-lectura-interna-intervenc
 
 // El lector conserva el canal de Intervención. Su perfil y sesión propios son
 // una dependencia interna escogida por composición, nunca por la petición.
-func nuevaSesionConsultaFirmasIntervencionCTDesarrollo(
+func nuevaSesionConsultaFirmasIntervencionCTDesarrollo(referencia referenciaCT,
 	ctx context.Context, base *proveedorSesionConsultaRRHHDesarrollo,
 	canal *soporteFiscalizacionContratacionTemporalDesarrollo,
 	puente *soporteAltaContratacionTemporalDesarrollo, perfil *perfilFijoCTDesarrollo,
@@ -31,7 +31,7 @@ func nuevaSesionConsultaFirmasIntervencionCTDesarrollo(
 		concesion.TipoRecurso != ports.TipoRecursoConsultaFirmasDocumento ||
 		!slices.Equal(concesion.Finalidades, []string{ports.FinalidadFirmaDocumento}) || concesion.GarantiaMinima != dominiovec.AuthAssuranceHigh ||
 		!slices.Equal(concesion.CamposPermitidos, consultafirmas.CamposConsultaFirmasDocumento()) || len(concesion.Obligaciones) != 0 ||
-		ambito.Clave != "organizacion_ref" || !slices.Equal(ambito.Valores, []string{organizacionAltaContratacionTemporalDesarrollo}) {
+		ambito.Clave != "organizacion_ref" || !slices.Equal(ambito.Valores, []string{referencia.organizacionRef}) {
 		return nil, ports.ErrAutorizacionDenegada
 	}
 	lector, origen := perfil.contexto.Resultado.Contexto, canal.contexto.Resultado.Contexto

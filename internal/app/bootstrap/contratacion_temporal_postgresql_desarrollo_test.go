@@ -145,7 +145,7 @@ func TestAutoridadSinteticaContratacionTemporalDesarrolloEsEstableYNoColisiona(
 		) {
 		t.Fatal("el contexto sintetico cambio entre dos arranques")
 	}
-	altaPrimera, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+	altaPrimera, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"prf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		ahora,
@@ -153,7 +153,7 @@ func TestAutoridadSinteticaContratacionTemporalDesarrolloEsEstableYNoColisiona(
 	if err != nil {
 		t.Fatal(err)
 	}
-	altaRepetida, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+	altaRepetida, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"prf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		ahora.Add(time.Hour),
@@ -161,7 +161,7 @@ func TestAutoridadSinteticaContratacionTemporalDesarrolloEsEstableYNoColisiona(
 	if err != nil {
 		t.Fatal(err)
 	}
-	otraIdentidad, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+	otraIdentidad, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		"per_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		"prf_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		ahora,
@@ -177,7 +177,7 @@ func TestAutoridadSinteticaContratacionTemporalDesarrolloEsEstableYNoColisiona(
 		otraIdentidad.AsignacionPerfil.Referencia() {
 		t.Fatal("dos identidades comparten referencia de asignacion")
 	}
-	otroPerfil, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+	otroPerfil, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"prf_cccccccccccccccccccccccccccccccc",
 		ahora,

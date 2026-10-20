@@ -284,13 +284,13 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ambitosSeguimientoCese(ruta 
 	o, ok := operacionSeguimientoCesePorRuta(ruta)
 	r := d.Recurso
 	if s != nil && rutaReincorporacionTitularDesarrollo(ruta) {
-		if s.perfilFijoParaRuta(ruta) == nil || !solicitudAutorizacionReincorporacionTitularValida(ruta, d) {
+		if s.perfilFijoParaRuta(ruta) == nil || !solicitudAutorizacionReincorporacionTitularValida(s.referenciaCT, ruta, d) {
 			return nil, false
 		}
-		return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}}, true
+		return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{s.organizacionRef}}}, true
 	}
 	if s == nil || !ok || d.Accion != o.accion || d.Finalidad != o.finalidad || d.ReferenciaMotivo != motivoSeguimientoCeseDesarrollo(ruta) ||
-		r.ModuloID != ports.ModuloContratacion || r.Tipo != o.tipo || r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
+		r.ModuloID != ports.ModuloContratacion || r.Tipo != o.tipo || r.Ambitos["organizacion_ref"] != s.organizacionRef ||
 		r.Ambitos["expediente_ref"] != r.Referencia || !domain.ReferenciaOpacaValida(r.Referencia) {
 		return nil, false
 	}
@@ -326,7 +326,7 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 	}
 	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
 		"seguimiento_cese_ct_desarrollo", "Cese, cierre y modificación de desarrollo", "seguimiento-cese-ct-desarrollo", concesiones,
-		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -370,7 +370,7 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 		}
 		otra, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculoReincorporacion.PrincipalID, vinculoReincorporacion.PerfilActivoRef, reloj.Ahora(),
 			"reincorporacion_titular_ct_desarrollo", "Reincorporación titular de desarrollo", "reincorporacion-titular-ct-desarrollo", acciones,
-			[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+			[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 		if err != nil {
 			return err
 		}
@@ -439,7 +439,7 @@ func (a *autoridadSeguimientoCeseDesarrollo) ResolverContextoCanalSeguimiento(ct
 		return application.ContextoCanalSeguimiento{}, ports.ErrAutorizacionDenegada
 	}
 	return application.ContextoCanalSeguimiento{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef,
-		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo}, nil
+		OrganizacionRef: a.alta.soporte.organizacionRef}, nil
 }
 
 func (a *autoridadSeguimientoCeseDesarrollo) exigir(ctx context.Context, accion, finalidad string, recurso vecdomain.RecursoAutorizable) (vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecdomain.ResultadoContextoActorRegistradoV2, error) {
@@ -524,7 +524,7 @@ func (a *autoridadSeguimientoCeseDesarrollo) exigirLecturaAntecedenteReincorpora
 	res := sol.Recurso
 	if !valida || capacidad.ruta != httpinterno.RutaReincorporacionesTitular || res.ModuloID != ports.ModuloContratacion ||
 		res.Tipo != ports.TipoRecursoLecturaReincorporacionTitular || !domain.ReferenciaOpacaValida(res.Referencia) ||
-		len(res.Ambitos) != 1 || res.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo || len(res.Atributos) != 5 ||
+		len(res.Ambitos) != 1 || res.Ambitos["organizacion_ref"] != a.alta.soporte.organizacionRef || len(res.Atributos) != 5 ||
 		res.Atributos["version_expediente"] == "" || res.Atributos["relacion_ref"] == "" ||
 		res.Atributos["fecha_efectiva"] == "" || res.Atributos["documento_ref"] == "" || res.Atributos["documento_sha256"] == "" {
 		return s, d, c, r, ports.ErrAutorizacionDenegada
@@ -554,7 +554,7 @@ func (a *autoridadSeguimientoCeseDesarrollo) AutorizarLecturaSeguimiento(ctx con
 	if elegida := a.paraPeticion(ctx); elegida != a {
 		return elegida.AutorizarLecturaSeguimiento(ctx, organizacionRef, expedienteRef)
 	}
-	if organizacionRef != organizacionAltaContratacionTemporalDesarrollo || !domain.ReferenciaOpacaValida(expedienteRef) {
+	if organizacionRef != a.alta.soporte.organizacionRef || !domain.ReferenciaOpacaValida(expedienteRef) {
 		return ports.ErrAutorizacionDenegada
 	}
 	if a == nil || a.alta == nil || a.alta.soporte == nil {

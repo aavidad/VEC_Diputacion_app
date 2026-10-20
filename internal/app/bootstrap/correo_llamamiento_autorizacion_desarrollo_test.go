@@ -29,7 +29,7 @@ func escenarioCorreoLlamamientoV3Prueba(t *testing.T) (*autorizadorCorreoLlamami
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.instantaneaCorreo, err = nuevaInstantaneaCorreoLlamamientoDesarrollo(v.PrincipalID, v.PerfilActivoRef, s.reloj.Ahora())
+	s.instantaneaCorreo, err = nuevaInstantaneaCorreoLlamamientoDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, s.reloj.Ahora())
 	if err != nil {
 		t.Fatal(err)
 	}

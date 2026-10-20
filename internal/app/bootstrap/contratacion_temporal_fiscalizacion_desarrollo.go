@@ -128,6 +128,7 @@ func nuevasDependenciasFiscalizacionContratacionTemporalDesarrollo(
 // autoridad sintetica de Intervencion. No delega en soporteAlta porque este
 // ultimo debe seguir rechazando cualquier principal que no sea tecnico_rrhh.
 type soporteFiscalizacionContratacionTemporalDesarrollo struct {
+	referenciaCT
 	mu          sync.Mutex
 	sello       *selloConsultasContratacionTemporalDesarrollo
 	principalID string
@@ -166,11 +167,11 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) ResolverPoliticaFis
 	motivo := s.motivo
 	s.mu.Unlock()
 	vinculo, err := contexto.Vinculo.Datos()
-	if err != nil || solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+	if err != nil || solicitud.OrganizacionRef != s.organizacionRef ||
 		!origenFiscalizacionContratacionTemporalDesarrolloValido(
 			s.fase, solicitud.VersionExpediente, solicitud.FaseActual, solicitud.EstadoActual,
 		) ||
-		solicitud.UnidadAsignadaRef != unidadCoberturaContratacionTemporalDesarrollo ||
+		solicitud.UnidadAsignadaRef != s.unidadRef ||
 		solicitud.ResponsableAsignadoRef != responsableAsignacionContratacionTemporalDesarrollo ||
 		solicitud.ActorRef != vinculo.PrincipalID ||
 		solicitud.PerfilRef != vinculo.PerfilActivoRef {
@@ -244,7 +245,7 @@ func (a *autorizadorFiscalizacionContratacionTemporalDesarrollo) ExigirSolicitud
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	datos, err := solicitud.Datos()
-	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos, a.soporte.fase) {
+	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(a.soporte.referenciaCT, datos, a.soporte.fase) {
 		return dominiovec.DecisionAutorizacionLigadaV3{},
 			puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
@@ -274,7 +275,7 @@ func (a *autorizadorFiscalizacionContratacionTemporalDesarrollo) PrepararRegistr
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	datos, err := solicitud.Datos()
-	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos, a.soporte.fase) {
+	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(a.soporte.referenciaCT, datos, a.soporte.fase) {
 		return dominiovec.DecisionAutorizacionLigadaV3{},
 			puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3{},
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
@@ -324,7 +325,7 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	fase, faseValida := alta.soporte.opcionesCatalogo.faseOperacionVigente(operacionFaseFiscalizacionCT)
-	instantanea, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
+	instantanea, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(alta.soporte.referenciaCT,
 		datosVinculo.PrincipalID,
 		datosVinculo.PerfilActivoRef,
 		ahora,
@@ -336,7 +337,7 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	}
 
 	puente := &soporteAltaContratacionTemporalDesarrollo{
-		principalID:       principal.ID,
+		referenciaCT: alta.soporte.referenciaCT, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto,
 		instantanea:       instantanea,
@@ -374,6 +375,7 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	soporte := &soporteFiscalizacionContratacionTemporalDesarrollo{
+		referenciaCT:       alta.soporte.referenciaCT,
 		sello:              sello,
 		principalID:        principal.ID,
 		principalOriginal:  clonarPrincipalDesarrollo(principal),
@@ -468,7 +470,7 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) ResolverContextoCan
 		AutenticacionRef: vinculo.AutenticacionRef,
 		SesionRef:        vinculo.SesionRef,
 		PerfilRef:        vinculo.PerfilActivoRef,
-		OrganizacionRef:  organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef:  s.organizacionRef,
 	}, nil
 }
 
@@ -571,7 +573,7 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) instantaneaParaCont
 	datos, existe := ctx.Value(
 		claveSolicitudAutorizacionContratacionTemporalDesarrollo{},
 	).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
-	if !existe || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos, s.fase) {
+	if !existe || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(s.referenciaCT, datos, s.fase) {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	return s.puente.consumirPerfilFijoCTDesarrollo(ctx, s.fijo)
@@ -580,7 +582,7 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) instantaneaParaCont
 // nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo es
 // la plantilla del perfil fijo de Intervención: la organización y los pares
 // fase/estado del catálogo (c23), sin expediente.
-func nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
+func nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(referencia referenciaCT,
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
@@ -603,7 +605,7 @@ func nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
 			Finalidades:    []string{finalidadFiscalizacionContratacionTemporalDesarrollo},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo),
+		fase.ambitosPerfil(referencia.organizacionRef),
 	)
 }
 
@@ -623,7 +625,7 @@ func referenciaMotivoAutorizacionFiscalizacionDesarrollo() dominiovec.Referencia
 // expediente va en la referencia del recurso; los ámbitos son la organización
 // y un par fase/estado que admite el catálogo, con los atributos coherentes
 // con el origen (inicial, refiscalización o modificación).
-func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
+func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referencia referenciaCT,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 	fase faseOperacionCT,
 ) bool {
@@ -648,7 +650,7 @@ func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
 		datos.Recurso.Referencia != "" &&
 		datos.Finalidad == finalidadFiscalizacionContratacionTemporalDesarrollo &&
 		len(ambitos) == 3 &&
-		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		((origenInicial && datos.Recurso.Atributos["retorno_previo_ref"] == "" &&
 			datos.Recurso.Atributos["subsanacion_recibo_ref"] == "" && datos.Recurso.Atributos["modificacion_recibo_ref"] == "") ||
 			(origenRefiscalizacion && datos.Recurso.Atributos["modificacion_recibo_ref"] == "") || origenModificacion)

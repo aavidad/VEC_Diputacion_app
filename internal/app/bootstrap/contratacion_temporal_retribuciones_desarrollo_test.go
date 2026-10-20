@@ -241,7 +241,7 @@ func TestRetribucionesNoValidasImpidenArrancar(t *testing.T) {
 
 func TestSinRetribucionesElAnalisisContinuaSinCoste(t *testing.T) {
 	derivador := nuevoDerivadorIdempotenciaPrueba(t, 2, 1)
-	capacidad, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
+	capacidad, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		derivador, relojContratacionTemporalDesarrollo{}, nil,
 	)
 	if err != nil {
@@ -402,7 +402,7 @@ func TestCosteDeCategoriaRPTUsaElCatalogoDelPreparador(t *testing.T) {
 	if err != nil {
 		t.Fatalf("catálogo con RPT: %v", err)
 	}
-	capacidad, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
+	capacidad, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		nuevoDerivadorIdempotenciaPrueba(t, 2, 1), relojContratacionTemporalDesarrollo{},
 		fuenteRetribucionesTablaAnteriorPrueba(t), catalogo,
 	)

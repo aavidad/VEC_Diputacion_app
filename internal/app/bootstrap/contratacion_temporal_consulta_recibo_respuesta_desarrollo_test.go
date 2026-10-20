@@ -57,7 +57,7 @@ func TestConsultaReciboRespuestaMontajeLigaPermisoPropioYCamposExactos(t *testin
 		Finalidad: "gestionar_contratacion_temporal", ReferenciaMotivo: motivoConsultaReciboRespuestaDesarrollo(),
 		Accion: postgresct.AccionConsultaReciboRespuesta, Recurso: recurso,
 	}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaConsultaReciboRespuesta, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaConsultaReciboRespuesta, d) {
 		t.Fatal("GET válido denegado")
 	}
 	for _, cambiar := range []func(*dominiovec.DatosSolicitudAutorizacionLigadaV3){
@@ -82,11 +82,11 @@ func TestConsultaReciboRespuestaMontajeLigaPermisoPropioYCamposExactos(t *testin
 		otro.Recurso.Ambitos = map[string]string{"organizacion_ref": s.OrganizacionRef, "expediente_ref": s.ExpedienteRef}
 		otro.Recurso.Atributos = map[string]string{"material_sha256": d.Recurso.Atributos["material_sha256"]}
 		cambiar(&otro)
-		if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaConsultaReciboRespuesta, otro) {
+		if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaConsultaReciboRespuesta, otro) {
 			t.Fatal("permiso o material ajeno admitido")
 		}
 	}
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaRegistroRespuestaRecibida, d) ||
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaRegistroRespuestaRecibida, d) ||
 		!esRutaContratacionTemporalDesarrollo(httptest.NewRequest(http.MethodGet, httpinterno.RutaConsultaReciboRespuesta, nil)) {
 		t.Fatal("la ruta GET reutiliza POST o queda fuera de mTLS")
 	}
