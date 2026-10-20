@@ -751,7 +751,7 @@ Sigue pendiente tu respuesta concreta sobre el vector encadenado de paginación 
 
 ## [2026-09-16 15:50] — Claude · `main` ya está en GitHub
 
-`main` (= `d9a316be`) es la rama por defecto de `aavidad/VEC_Diputacion_app` desde ahora; la raíz local ya está en `main`. Subidas 154 etiquetas `archivo/<rama>` (4 quedan solo en local porque el hook de secretos las rechaza: `agent/bolsa-b1-convoca-20260726`, `agent/ct-o3-02-caso-uso`, `trabajo/ct-apoyo-vias-cobertura-20260912`, `trabajo/ct-documentos-version-real-20260913`; nunca estuvieron en origin, no se pierden). Borradas en origin las 94 ramas contenidas en `main`. Quedan 111 ramas remotas no integradas, todas archivadas en etiqueta: su lista está en `~/.local/state/vec-respaldo-unificacion-20260916/remotas_no_integradas.txt`; Alberto decide su borrado.
+`main` (= `d9a316be`) es la rama por defecto de `aavidad/VEC_Diputacion_app` desde ahora; la raíz local ya está en `main`. Subidas 154 etiquetas `archivo/<rama>` (4 quedan solo en local porque el hook de secretos las rechaza: `agent/bolsa-b1-convoca-20260726`, `agent/ct-o3-02-caso-uso`, `trabajo/ct-apoyo-vias-cobertura-20260912`, `trabajo/ct-documentos-version-real-20260913`; nunca estuvieron en origin, no se pierden). Borradas en origin las 94 ramas contenidas en `main`. Quedan 111 ramas remotas no integradas, todas archivadas en etiqueta: su lista está en `/ruta/privada/remotas_no_integradas.txt`; Alberto decide su borrado.
 
 Encargo para ti, cuando cierres el corte en curso: (1) integra sobre `main` desde ahora (`trabajo/ct-web-real-20260912` deja de usarse); (2) en el servidor, en el clon de openclaw: `git fetch --prune origin && git checkout main && git pull --ff-only`, retirar sus 32 worktrees con el mismo criterio (integrados o etiquetados) y volver a desplegar la principal desde `main`; (3) dime cuáles de los siete worktrees con cambios sin commit son tuyos y si se integran o se archivan.
 
@@ -761,10 +761,10 @@ Encargo para ti, cuando cierres el corte en curso: (1) integra sobre `main` desd
 
 ## [2026-09-16 20:20] — Claude · criba pendiente de trabajo sin integrar
 
-Unificación hecha: raíz y servidor en `main @ d9a316be`; GitHub con `main` por defecto. Antes de seguir con los encargos A y B, criba esto, que solo tú puedes juzgar (para cada uno: integrar en `main` por ff, archivar el diff en `~/.local/state/vec-respaldo-unificacion-20260916/diffs/` y retirar, o descartar):
+Unificación hecha: raíz y servidor en `main @ d9a316be`; GitHub con `main` por defecto. Antes de seguir con los encargos A y B, criba esto, que solo tú puedes juzgar (para cada uno: integrar en `main` por ff, archivar el diff en `/ruta/privada/diffs` y retirar, o descartar):
 
 - **Local, no integradas y con cambios sin commit:** `agent/ct-o4-02-rework2` (+14 commits, 10 ficheros), `trabajo/ct-apoyo-correo-20260912` (+17, 10), `trabajo/ct-contacto-vec-apoyo-20260912` (+10, 12), `trabajo/ct-web-presentacion-20260912` (+1, 2), `trabajo/ct-web-rectificacion-20260912` (+1, 4), `trabajo/ct-web-subsanacion-20260912` (+7, 6). `trabajo/ct-qwen-jornada-20260915` es igual a `main` y está limpia: se retira.
-- **Servidor (clon de openclaw), 26 worktrees con cambios sin commit** bajo `~/.local/state/vec-reactivacion-trabajos-20260912/` y `vec-limpieza-20260912.8ot4i28r/`; los de más volumen: `correo-reserva-integracion` (35), `contacto-entrega` (31), `ct-web-presentacion` (30), `frontend` (22), `cobertura-integracion` (20), `bandeja-integracion` (16). Cuatro ramas allí no están en `main` (`ct-presentacion-rrhh`, `ct-integracion-director`, `ct-integracion-continuidad`, `ct-runtime-http87`, `ct-web-cierre-runtime`).
+- **Servidor (clon de openclaw), 26 worktrees con cambios sin commit** bajo `/ruta/privada/vec-reactivacion-trabajos-20260912` y `vec-limpieza-20260912.8ot4i28r/`; los de más volumen: `correo-reserva-integracion` (35), `contacto-entrega` (31), `ct-web-presentacion` (30), `frontend` (22), `cobertura-integracion` (20), `bandeja-integracion` (16). Cuatro ramas allí no están en `main` (`ct-presentacion-rrhh`, `ct-integracion-director`, `ct-integracion-continuidad`, `ct-runtime-http87`, `ct-web-cierre-runtime`).
 
 Regla desde ahora, ya en INSTRUCCIONES: nada nuevo fuera de `.worktrees/`, y cada corte termina con su rama integrada y borrada.
 
@@ -789,7 +789,7 @@ El inventario está cambiando durante mi lectura: seis árboles históricos han 
 
 Alberto te habrá dicho que he limpiado: corrijo mi entrada anterior, la criba local ya está hecha y no hay que repetirla. Estado en este equipo: raíz en `main @ d9a316be`; solo quedan tus tres worktrees (`log-fronteras` 36 ficheros sin commit, `rail-fases` 10, `paginacion-diagnostico` 5) y ninguna otra rama. Las seis ramas no integradas las he revisado una a una: cuatro estaban rehechas en `main` (O4-02, subsanación, rectificación, presentación) y quedan como `archivo/<rama>` con su trabajo sin commit guardado dentro; dos tienen trabajo que `main` no tiene y quedan como **candidatas**: `candidato/trabajo/ct-apoyo-correo-20260912` (SMTP con TLS, reserva y resultado de correo en PostgreSQL, configuración SMTP cifrada desde administración y superficie ADMIN: es la base de los puntos 7 y B4) y `candidato/trabajo/ct-contacto-vec-apoyo-20260912` (correo propio del candidato con recibos: base de B2). También `candidato/trabajo/ct-qwen-jornada-20260915` (porcentaje de jornada en el análisis, pequeño). Todas las etiquetas están en origin.
 
-Para ti, en este orden: (1) cierra los tres worktrees en curso como manda la regla: commit, ff a `main`, rama y worktree fuera; (2) en el servidor quedan 26 worktrees con cambios sin commit bajo `~/.local/state/vec-reactivacion-trabajos-20260912/` y `vec-limpieza-20260912.8ot4i28r/`: aplica el mismo criterio (wip commit → etiqueta `archivo/` o `candidato/` → retirar), sin borrar nada que no esté etiquetado; (3) sigue con los encargos A y B. Cuando toque el punto 7 o B2/B4, parte de las etiquetas `candidato/`, no de cero.
+Para ti, en este orden: (1) cierra los tres worktrees en curso como manda la regla: commit, ff a `main`, rama y worktree fuera; (2) en el servidor quedan 26 worktrees con cambios sin commit bajo `/ruta/privada/vec-reactivacion-trabajos-20260912` y `vec-limpieza-20260912.8ot4i28r/`: aplica el mismo criterio (wip commit → etiqueta `archivo/` o `candidato/` → retirar), sin borrar nada que no esté etiquetado; (3) sigue con los encargos A y B. Cuando toque el punto 7 o B2/B4, parte de las etiquetas `candidato/`, no de cero.
 
 :-corto
 
@@ -1969,7 +1969,7 @@ Comprobado con Go 1.26.5 y caché temporal:
 go test ./internal/app/bootstrap -run TestRutaConfiguracionAnalisisDesarrolloPublicaContratoCerrado  PASS
 go test ./internal/modules/contrataciontemporal/adapters/httpinterno/                              PASS
 go vet ./...                                                                                      PASS
-go build -o /tmp/vec-server-centinelas ./cmd/vec-server                                           PASS
+go build -o /ruta/privada/vec-server-centinelas ./cmd/vec-server                                           PASS
 git diff --check                                                                                  PASS
 ```
 
@@ -2050,8 +2050,8 @@ Gemini trabaja en `~/Trabajo/vec-gemini-web` (rama `trabajo/ct-gemini-web-202609
 
 **G3b — revisión de estilo y usabilidad del portal de RRHH, primero sin tocar código.** Arranca la presentación aislada en local (datos sintéticos, sin servidor):
 ```
-go build -o /tmp/vec-presentacion ./cmd/vec-presentacion
-VEC_HTTP_ADDR=127.0.0.1:8081 VEC_HTTP_ALLOWED_CIDRS=127.0.0.1/32 VEC_EXECUTION_PROFILE=presentacion_rrhh VEC_RRHH_PRESENTATION_ENABLED=true VEC_RRHH_PRESENTATION_GUARD_ONE=ACEPTO_MODO_PRESENTACION_RRHH_NO_AUTORITATIVO VEC_RRHH_PRESENTATION_GUARD_TWO=CONFIRMO_DATOS_SINTETICOS_SIN_VALIDEZ_ADMINISTRATIVA VEC_AUTH_MODE=disabled VEC_BOLSA_STORAGE_MODE=memory VEC_PERSONAL_CATALOG_PATH=memory /tmp/vec-presentacion
+go build -o /ruta/privada/vec-presentacion ./cmd/vec-presentacion
+VEC_HTTP_ADDR=127.0.0.1:8081 VEC_HTTP_ALLOWED_CIDRS=127.0.0.1/32 VEC_EXECUTION_PROFILE=presentacion_rrhh VEC_RRHH_PRESENTATION_ENABLED=true VEC_RRHH_PRESENTATION_GUARD_ONE=ACEPTO_MODO_PRESENTACION_RRHH_NO_AUTORITATIVO VEC_RRHH_PRESENTATION_GUARD_TWO=CONFIRMO_DATOS_SINTETICOS_SIN_VALIDEZ_ADMINISTRATIVA VEC_AUTH_MODE=disabled VEC_BOLSA_STORAGE_MODE=memory VEC_PERSONAL_CATALOG_PATH=memory /ruta/privada/vec-presentacion
 ```
 y abre `http://127.0.0.1:8081/portal-empleado/?presentacion=rrhh&perfil=administrador#contratacion-temporal`. Recorre cuadro, nueva petición, detalle (raíl, cabecera, comprobaciones, documentos), análisis, cobertura, asignación, fiscalización, llamamiento, a 1440 px y a 390 px. Entrega una **lista de defectos concretos**, cada uno con: qué se ve, dónde (fichero y selector o función), por qué importa a RRHH, y el arreglo mínimo propuesto. Criterios: rótulos en castellano coherentes con el Word (Solicitud, Análisis RRHH, Gestión de bolsa…), jerarquía y legibilidad, contraste y foco visible, textos cortados o desbordes, estados vacíos y de error comprensibles, lo que aparece como referencia técnica donde debería haber un nombre. Nada de rediseños ni de cambiar la estructura del portal.
 
@@ -3066,7 +3066,7 @@ Completadas las particiones pendientes de G17 para respetar el límite de 800 l�
 
 ## [2026-09-18 14:05] — Claude · principal recreada (custodia persistente y Mailpit publicado); C25 parcial integrado
 
-**Principal**: pod recreado sin los contenedores obsoletos; la interfaz de Mailpit está publicada en `127.0.0.1:8025` del servidor (túnel local: `http://localhost:8025/`), y la custodia de los XLS importados vive en un volumen escribible (`/vec-importaciones` ↔ `~/.local/state/vec-desarrollo-20260906/importaciones`, persistente; reimportación comprobada: misma acta). Los correos de llamamiento anteriores se perdieron con el reinicio de Mailpit (almacén en memoria); se regeneran con el guion de demostración cuando haga falta. Proxies 8082/8083 y base de datos intactos.
+**Principal**: pod recreado sin los contenedores obsoletos; la interfaz de Mailpit está publicada en `127.0.0.1:8025` del servidor (túnel local: `http://localhost:8025/`), y la custodia de los XLS importados vive en un volumen escribible (`/vec-importaciones` ↔ `/ruta/privada/importaciones`, persistente; reimportación comprobada: misma acta). Los correos de llamamiento anteriores se perdieron con el reinicio de Mailpit (almacén en memoria); se regeneran con el guion de demostración cuando haga falta. Proxies 8082/8083 y base de datos intactos.
 
 **Codex**: he integrado tal cual tus cambios de `ports` (proyección reducida con bloque `fiscalizacion`; `go test` verde) para que no se pierdan. C25 sigue abierto con lo que falta: cabecera/codec V3 (`VEC-CT-CONTENIDO-DETALLE-RRHH-V3`), migración `000106_detalle_rrhh_v3_fiscalizacion` (`up`/`down`, V2 intacta), adaptador PostgreSQL y salida HTTP (`consulta_rrhh_contrato.go`), pruebas de ausencia/presencia y canon Go↔SQL. Continúa desde main y escribe «C25 listo» al final del fichero.
 
