@@ -51,11 +51,24 @@ común de otros módulos.
 El montaje debe leer una organización canónica publicada y una unidad de
 Personal de una configuración explícita, comprobar su fuente y transmitirlas
 a todos los consumidores: contexto de autorización, padre e hijo,
-idempotencia y adaptadores. Las funciones SQL de petición, entrega, reglas,
-plantillas y Documentos deben conservar esa misma referencia. No se amplía
-la validación de organizaciones maestras ni se crean correspondencias
-implícitas.
+idempotencia y adaptadores. El siguiente cambio SQL acota por organización
+la petición, su entrega y el alta. Ajustes, plantillas y las demás capacidades
+quedan cerradas para la organización nueva hasta su publicación con un ámbito
+propio. No se amplía la validación de organizaciones maestras ni se crean
+correspondencias implícitas.
 
 El ensayo final requiere publicar las fuentes por su vía nativa, recorrer
 las pantallas con las referencias nuevas y comprobar recibos y denegaciones
 después de reiniciar la aplicación y PostgreSQL.
+
+## Comprobaciones del contrato
+
+Las pruebas focales comprueban el montaje y el rechazo de una identidad de
+otra organización. Las pruebas del adaptador conservan la diferencia entre
+la huella del ámbito autorizado y la huella del documento.
+
+Semgrep local no señala incidencias en las 81 fuentes Go modificadas. GoSec
+analiza el paquete de composición completo: conserva 82 avisos anteriores,
+ninguno en las líneas cambiadas. El control de tamaño de ficheros pasa.
+El arranque en copia de esta composición y las dos revisiones independientes
+siguen pendientes; el ensayo del primer corte de adaptadores no los sustituye.
