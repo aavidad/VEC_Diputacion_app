@@ -40,24 +40,37 @@ CLAVE_CONTACTO = 'copia-local:caso-4-0:contacto-antonio:v1'
 REFERENCIA = re.compile(r'[A-Za-z0-9][A-Za-z0-9:._-]{0,255}')
 
 
-def seleccion(repo):
+def seleccion(repo, copia=None):
     """Referencias del caso: organismo, bolsa, candidatura y participación de Antonio."""
     datos = json.loads((repo / DATOS / 'seleccion.json').read_text())
     aspirante = datos['aspirante']
     valores = dict(organismo=datos['organismo_ref'], bolsa=datos['bolsa_ref'],
                    candidato=aspirante['candidato_ref'], participacion=aspirante['participacion_ref'],
                    nombre=aspirante['nombre'])
+    if copia is not None:
+        ruta = copia.raiz / 'caso40-seleccion.json'
+        if ruta.exists() or ruta.is_symlink():
+            if ruta.is_symlink() or not ruta.is_file() or ruta.stat().st_mode & 0o077:
+                raise ValueError('Selección privada del caso insegura')
+            nueva = json.loads(ruta.read_bytes())
+            if (nueva.get('copia_ref') != copia.nombre
+                    or nueva.get('sid_copia') != copia.leer().get('sid_copia')
+                    or set(nueva.get('seleccion', {})) != {'bolsa', 'candidato', 'participacion', 'nombre', 'identidad'}):
+                raise ValueError('Selección del caso ajena a la copia')
+            valores.update(nueva['seleccion'])
     for clave, valor in valores.items():
         if clave != 'nombre' and not (isinstance(valor, str) and REFERENCIA.fullmatch(valor)):
             raise ValueError('seleccion.json del caso 4.0 trae una referencia no válida')
     return valores
 
 
-def aplicar_guiones(copia, repo):
+def aplicar_guiones(copia, repo, *, bolsa_historica=True):
     """Aplica los tres guiones de datos; cada uno es idempotente y transaccional."""
     sel = seleccion(repo)
     with (copia.raiz / 'caso40-datos.log').open('ab') as log:
         for nombre in GUIONES:
+            if nombre == 'antonio_disponible.sql' and not bolsa_historica:
+                continue
             contenido = (repo / DATOS / nombre).read_bytes()
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', copia.nombre, 'psql', '-X', '-q',
                             '-v', 'ON_ERROR_STOP=1', '-v', 'organismo=' + sel['organismo'],
@@ -65,9 +78,9 @@ def aplicar_guiones(copia, repo):
                            input=contenido, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
 
 
-def preparar_antonio(copia, repo):
-    """Identidad de Mi Bolsa de Antonio ligada a su candidatura de la bolsa vigente."""
-    sel = seleccion(repo)
+def preparar_aspirante(copia, repo):
+    """Identidad de Mi Bolsa ligada a la candidatura seleccionada en esta copia."""
+    sel = seleccion(repo, copia)
     # Se comprueba antes de crear la identidad para no dejar material a medias.
     reglas = repo / REGLAS_BOLSA
     if not reglas.is_file():
@@ -80,12 +93,12 @@ def preparar_antonio(copia, repo):
                'VEC_CANDIDATE_BOLSA_REF': sel['bolsa'],
                'VEC_CANDIDATE_BASE_URL': f"https://localhost:{estado['puerto_app']}"}
     with (copia.raiz / 'caso40-antonio.log').open('ab') as log:
-        subprocess.run(['bash', repo / PREPARADOR, '--motor', 'docker', '--identidad', IDENTIDAD,
+        subprocess.run(['bash', repo / PREPARADOR, '--motor', 'docker', '--identidad', sel.get('identidad', IDENTIDAD),
                         '--nombre', sel['nombre'], '--candidato-ref', sel['candidato']],
                        env=entorno, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=180)
     manifiesto = json.loads((copia.material / 'identidad/bolsa-candidato.json').read_text())
     if manifiesto.get('candidato_ref') != sel['candidato']:
-        raise ValueError('La identidad de Antonio no quedó ligada a su candidatura vigente')
+        raise ValueError('La identidad del aspirante no quedó ligada a su candidatura vigente')
     # Con el portal del candidato, Antonio puede responder al llamamiento desde
     # Mi Bolsa. El servidor solo admite ese selector con el catálogo de reglas
     # de Bolsa que rige sus acciones; sin él se detiene en selectores_bolsa_ct.
@@ -107,16 +120,17 @@ def entorno_portal(entorno, propuesto):
 
 
 def peticion_contacto(sel):
-    """Ruta y cuerpo del registro de contacto de la participación de Antonio."""
+    """Ruta y cuerpo del contacto ficticio de la participación seleccionada."""
     ruta = (f"/api/vec/bolsa/bolsas/{sel['bolsa']}/candidatos/"
             f"{sel['participacion']}/datos-contacto")
-    return ruta, json.dumps(CONTACTO, ensure_ascii=False).encode()
+    contacto = {**CONTACTO, 'correo': 'aspirante@example.test'} if 'identidad' in sel else CONTACTO
+    return ruta, json.dumps(contacto, ensure_ascii=False).encode()
 
 
 def registrar_contacto(copia, repo):
-    """Registra con la técnica de RRHH el contacto de Antonio por la API de Bolsa."""
+    """Registra con la técnica de RRHH el contacto por la API de Bolsa."""
     estado = copia.leer()
-    ruta, cuerpo = peticion_contacto(seleccion(repo))
+    ruta, cuerpo = peticion_contacto(seleccion(repo, copia))
     contexto = ssl.create_default_context(cafile=str(copia.material / 'ca/ca.crt'))
     contexto.load_cert_chain(str(copia.material / 'mtls/cliente.crt'), str(copia.material / 'mtls/cliente.key'))
     conexion = http.client.HTTPSConnection('localhost', estado['puerto_app'], context=contexto, timeout=30)
@@ -131,5 +145,5 @@ def registrar_contacto(copia, repo):
         conexion.close()
     # 201 la primera vez; 200 si la misma clave ya lo había registrado.
     if respuesta.status not in (200, 201):
-        raise ValueError(f'El contacto de Antonio no se registró (HTTP {respuesta.status})')
+        raise ValueError(f'El contacto del aspirante no se registró (HTTP {respuesta.status})')
     return respuesta.status

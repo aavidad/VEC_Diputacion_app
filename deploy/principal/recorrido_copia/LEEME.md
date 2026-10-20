@@ -38,8 +38,7 @@ deben estar libres y ser distintos. Las carpetas comunes `/dev/shm/vec` y
 faltan y rechaza otras condiciones sin cambiar permisos compartidos.
 
 La secuencia restaura la referencia y sus permisos, registra el identificador
-de PostgreSQL y aplica la lista SQL indicada. Prepara Bolsa, el aspirante,
-dos técnicos de RRHH y los dos actores del centro seleccionado en el catálogo.
+de PostgreSQL y aplica la lista SQL indicada. Prepara Bolsa, dos técnicos de RRHH y los dos actores del centro seleccionado en el catálogo.
 Compila la aplicación y Administración desde la misma revisión.
 
 Después confirma fuentes, unidad y dos cuentas de Administración con sus
@@ -65,6 +64,15 @@ usa su cuarto certificado propio; la hoja original se reserva a tramitación.
 Personal usa las referencias
 de la identidad propia y la unidad confirmada. Los empleados de los cuatro
 firmantes se preparan con el guion de datos versionado existente.
+
+Al terminar los actos, carga por la API normal el XLS de Administrativo de
+`data/demo/bolsa/convoca/administrativo/resumen.xls`. La confirmación sustituye
+la bolsa anterior sin borrar su historia. Después prepara la identidad y el
+contacto de Yago Lozano Hidalgo, primera persona del listado, con las referencias
+nativas de esa carga y un certificado nuevo. El justificante queda en
+`recorrido/carga-bolsa/recibo.json`; `caso40-seleccion.json` conserva las referencias
+propias de esa copia. No reutiliza el staging cifrado de HZ37 ni una clave ajena.
+Esta etapa aún requiere comprobarse en una copia nueva antes de dar la entrega por lista.
 
 Los certificados de desarrollo pueden cubrir 400 días. Cargos, admisiones,
 asignaciones y autoridades nuevos cubren de 60 a 90 días. La ventana fija
