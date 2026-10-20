@@ -79,9 +79,14 @@ no acredita qué versiones están instaladas allí. No se ha ejecutado SQL.
 
 La receta `deploy/principal/copia_local.py:609` prepara con `--modulos`
 conexiones de Bolsa y Contratación; esa opción por sí sola no acredita Dietas
-activada. Se pidió turno de memoria por el canal, sin crear ni arrancar una
-copia mientras no estuviera concedido. La comprobación web queda pendiente;
-no hay capturas nuevas. No se han usado copias ni servicios ajenos.
+activada. Dirección concedió el turno del equipo d por el canal (20/10, 22:00).
+La orden `crear --equipo d --instancia estudio-dietas-20261021 --modulos`,
+con la lista SQL de main, terminó antes de crear la copia: «Falta
+VEC_COPIA_DATOS_SCRIPT: preparación de datos de su copia». Tampoco está
+definido `VEC_COPIA_ROLES_SCRIPT`. Se solicitaron a dirección los dos
+productores privados que exige la receta. La comprobación web queda pendiente;
+no hay capturas nuevas, contenedor ni base creados. No se han usado copias ni
+servicios ajenos.
 
 ## Documentación e historial que requieren cautela
 
