@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"time"
 
@@ -54,7 +53,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 ) (dependenciasConsultasRRHHDesarrollo, error) {
 	vacio := dependenciasConsultasRRHHDesarrollo{}
 	if len(lectores) == 0 || poolConsultas == nil || motivos == nil || base.cerrar == nil {
-		return vacio, ports.ErrConsultaRRHHNoDisponible
+		return vacio, registrarFalloMontajeCTDesarrollo("lectores_rrhh_dependencias", ports.ErrConsultaRRHHNoDisponible)
 	}
 	mux := nuevoMultiplexoresLectoresRRHHDesarrollo(alta.soporte.sello)
 	cierres := []func(){base.cerrar}
@@ -67,15 +66,18 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		}
 	}()
 	for _, lector := range lectores {
-		// La técnica de RRHH consulta con el circuito dinámico del alta: su
-		// cuenta, su perfil y su sesión ya están compuestos en base. Figurar
-		// en el manifiesto la identifica como lectora para otros módulos; no
-		// abre otro soporte sobre el contexto fijo de Alta, que no concede
-		// consultas ni comparte el acto de las asignaciones dinámicas.
+		// La técnica usa el soporte de Alta y su perfil fijo de lecturas,
+		// compuesto en base. El manifiesto liga su certificado al perfil de
+		// Alta, pero la ruta selecciona la sesión del perfil de lecturas.
 		if lectorTecnicoRRHHDesarrollo(lector) {
-			if !lectorTecnicoEsTitularAltaDesarrollo(alta, lector) ||
-				!mux.registrar(lector.identidad.principal.ID, alta.soporte, base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP) {
-				return vacio, ports.ErrConsultaRRHHNoDisponible
+			if !lectorTecnicoEsTitularAltaDesarrollo(alta, lector) {
+				return vacio, registrarFalloMontajeCTDesarrollo("lector_tecnico_titular_alta", ports.ErrConsultaRRHHNoDisponible)
+			}
+			if perfilFijoConsultasTecnicoCTDesarrollo(alta.soporte) == nil {
+				return vacio, registrarFalloMontajeCTDesarrollo("lector_tecnico_perfil_consultas", ports.ErrConsultaRRHHNoDisponible)
+			}
+			if !mux.registrar(lector.identidad.principal.ID, alta.soporte, base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP) {
+				return vacio, registrarFalloMontajeCTDesarrollo("lector_tecnico_registrar_mux", ports.ErrConsultaRRHHNoDisponible)
 			}
 			mux.descargas[lector.identidad.principal.ID] = base.descargas
 			continue
@@ -170,9 +172,12 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 			return vacio, err
 		}
 		originalPropuesta, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesionOriginal, reloj)
-		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP,
+		if err != nil {
+			return vacio, registrarFalloMontajeCTDesarrollo("lector_rrhh_original_propuesta", ports.ErrConsultaRRHHNoDisponible)
+		}
+		if !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP,
 			consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuesta) {
-			return vacio, ports.ErrConsultaRRHHNoDisponible
+			return vacio, registrarFalloMontajeCTDesarrollo("lector_rrhh_registrar_mux", ports.ErrConsultaRRHHNoDisponible)
 		}
 		mux.descargas[lector.identidad.principal.ID] = descarga
 	}
@@ -187,99 +192,8 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 	}}, nil
 }
 
-// prepararInstantaneasInicialesLectorRRHHDesarrollo publicaba la semilla del
-// perfil dinámico de un lector RRHH. El arranque ya no la llama: los lectores
-// usan el perfil fijo y la técnica el circuito del alta. Solo la usan las
-// pruebas de PostgreSQL; retirarla con ellas queda para otra limpieza. Solo publica la semilla de cuadro si el perfil no
-// tiene asignación (publicación inicial transaccional); si la tiene, no
-// escribe nada. Una asignación ajena a la persona detiene el arranque; una
-// revocada, restringida por otro acto o que no es de consulta queda escrita en
-// el registro y sus peticiones se deniegan (guarda de origen operativo), sin
-// que el arranque la reactive ni se detenga.
-func prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo) error {
-	if soporte == nil || ctx == nil || ctx.Err() != nil || dependenciaEsNulaContratacionTemporalDesarrollo(soporte.reloj) {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
-	autoridad, ok := soporte.autoridadAsignaciones.(*autoridadPostgreSQLContratacionTemporalDesarrollo)
-	if !ok || autoridad == nil || autoridad.pool == nil {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
-	vinculo, err := soporte.contexto.Vinculo.Datos()
-	if err != nil {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
-	publicada, encontrada, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, autoridad.pool, vinculo.PerfilActivoRef)
-	if encontrada {
-		p := publicada.instantanea.AsignacionPerfil
-		if err == nil && (p.PrincipalID != vinculo.PrincipalID || p.PerfilActivoRef != vinculo.PerfilActivoRef) {
-			return ports.ErrConsultaRRHHNoDisponible
-		}
-		if err != nil || !origenOperativoPublicadoCTDesarrollo(publicada, actoAsignacionCTDesarrollo, soporte.reloj.Ahora()) ||
-			!asignacionConsultaLectorRRHHCompatible(soporte, asignacionActualDesdePublicadaDesarrollo(publicada)) {
-			slog.Warn("perfil de lector RRHH sin asignación operativa: sus consultas se deniegan hasta la provisión",
-				"perfil_ref", vinculo.PerfilActivoRef, "estado", string(perfilDinamicoPendienteProvision))
-		}
-		return nil
-	}
-	if err != nil {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
-	soporte.mu.Lock()
-	instantanea := soporte.instantaneaCuadroRRHH
-	soporte.mu.Unlock()
-	comun := autoridad.autoridadComun()
-	comun.soloInicial = true
-	preparada, err := comun.prepararInstantanea(ctx, instantanea, true)
-	if err != nil || !semillaInicialLectorRRHHIntacta(instantanea, preparada) || comun.publicarInstantanea(ctx, preparada) != nil {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
-	soporte.mu.Lock()
-	soporte.instantaneaCuadroRRHH = preparada
-	soporte.mu.Unlock()
-	return nil
-}
-
-// asignacionActualDesdePublicadaDesarrollo resume la instantánea leída sin
-// bloqueo con los campos que cotejan los lectores de la asignación vigente.
-func asignacionActualDesdePublicadaDesarrollo(publicada instantaneaPublicadaDesarrollo) asignacionActualPostgreSQLDesarrollo {
-	a := publicada.instantanea.AsignacionPerfil
-	huella, _ := a.HuellaSHA256()
-	return asignacionActualPostgreSQLDesarrollo{
-		referencia: a.Referencia(), identificador: a.AsignacionID, version: int64(a.Version),
-		perfilRef: a.PerfilActivoRef, principalID: a.PrincipalID, versionRolRef: a.VersionRolRef,
-		huella: huella, actoRef: publicada.actoAsignacion, actualizadaPor: publicada.actualizadaPor,
-	}
-}
-
-func semillaInicialLectorRRHHIntacta(semilla, preparada dominiovec.InstantaneaAutorizacion) bool {
-	huellaSemilla, errSemilla := semilla.AsignacionPerfil.HuellaSHA256()
-	huellaPreparada, errPreparada := preparada.AsignacionPerfil.HuellaSHA256()
-	return errSemilla == nil && errPreparada == nil &&
-		semilla.AsignacionPerfil.Referencia() == preparada.AsignacionPerfil.Referencia() &&
-		semilla.AsignacionPerfil.Version == preparada.AsignacionPerfil.Version &&
-		huellaSemilla == huellaPreparada
-}
-
-func asignacionConsultaLectorRRHHCompatible(soporte *soporteAltaContratacionTemporalDesarrollo, actual asignacionActualPostgreSQLContratacionTemporalDesarrollo) bool {
-	if soporte == nil || actual.version <= 0 || actual.version > int64(^uint(0)>>1) || actual.identificador == "" {
-		return false
-	}
-	soporte.mu.Lock()
-	plantillas := []dominiovec.InstantaneaAutorizacion{soporte.instantaneaCuadroRRHH, soporte.instantaneaDetalleRRHH}
-	soporte.mu.Unlock()
-	for _, plantilla := range plantillas {
-		perfil := plantilla.AsignacionPerfil
-		perfil.AsignacionID, perfil.Version = actual.identificador, int(actual.version)
-		huella, err := perfil.HuellaSHA256()
-		if err == nil && actual.referencia == perfil.Referencia() && actual.versionRolRef == plantilla.VersionRol.Referencia() && actual.huella == huella {
-			return true
-		}
-	}
-	return false
-}
-
 // perfilesLectoresConsultaRRHHDesarrollo son los perfiles que las fronteras
-// de consulta admiten además del dinámico. La técnica consulta con éste.
+// de consulta admiten además del perfil propio de la técnica.
 func perfilesLectoresConsultaRRHHDesarrollo(lectores []identidadConsultaRRHHDesarrollo) []string {
 	perfiles := make([]string, 0, len(lectores))
 	for _, lector := range lectores {
@@ -437,7 +351,11 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	if err = autoridad.configurarProveedorContextoConsultaRRHHDesarrollo(identidad); err != nil {
+	perfilLectura := perfilFijoConsultasTecnicoCTDesarrollo(alta.soporte)
+	if perfilLectura == nil {
+		return vacio, ports.ErrConsultaRRHHNoDisponible
+	}
+	if err = ligarAutoridadConsultasTecnicoPerfilFijoDesarrollo(autoridad, perfilLectura); err != nil {
 		return vacio, err
 	}
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())

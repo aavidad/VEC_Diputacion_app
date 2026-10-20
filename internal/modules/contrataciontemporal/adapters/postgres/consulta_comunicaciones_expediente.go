@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -74,6 +75,21 @@ func NuevoLectorComunicacionesExpedientePostgreSQL(pool *pgxpool.Pool, proveedor
 }
 
 func (l *LectorComunicacionesExpedientePostgreSQL) ConsultarComunicacionesExpediente(ctx context.Context, c ports.ConsultaComunicacionesExpediente) (ports.PaginaComunicacionesExpediente, error) {
+	var pagina ports.PaginaComunicacionesExpediente
+	err := ejecutarConReintentoSerializable(ctx, func() error {
+		var err error
+		// El intento anterior ya revirtió consumo y auditoría. Cada intento
+		// obtiene autorización fresca y abre su propia transacción.
+		pagina, err = l.consultarComunicacionesExpediente(ctx, c)
+		return err
+	})
+	if err != nil {
+		return ports.PaginaComunicacionesExpediente{}, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
+	}
+	return pagina, nil
+}
+
+func (l *LectorComunicacionesExpedientePostgreSQL) consultarComunicacionesExpediente(ctx context.Context, c ports.ConsultaComunicacionesExpediente) (ports.PaginaComunicacionesExpediente, error) {
 	vacia := ports.PaginaComunicacionesExpediente{}
 	if l == nil || ctx == nil || dependenciaNula(l.pool) || dependenciaNula(l.proveedor) {
 		return vacia, ports.ErrConsultaComunicacionesExpedienteNoDisponible
@@ -107,14 +123,14 @@ func (l *LectorComunicacionesExpedientePostgreSQL) ConsultarComunicacionesExpedi
 	}
 	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return vacia, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
+		return vacia, err
 	}
 	defer revertirTransaccion(tx)
 	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true),
 		set_config('row_security','on',true),set_config('timezone','UTC',true),
 		set_config('lock_timeout','2s',true),set_config('statement_timeout','15s',true),
 		set_config('idle_in_transaction_session_timeout','20s',true)`); err != nil {
-		return vacia, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
+		return vacia, err
 	}
 	secretos := [][]byte{a.CapacidadCanonica(), a.DecisionCanonica(), a.MotivoCanonico(), a.ContextoActorCanonico(),
 		a.PayloadVECAD3(), a.SobreCOSESign1(), a.EvidenciaVerificacion(), a.RaizPublicaSPKI()}
@@ -125,11 +141,11 @@ func (l *LectorComunicacionesExpedientePostgreSQL) ConsultarComunicacionesExpedi
 	}()
 	var salida string
 	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.consultar_comunicaciones_expediente_rrhh_v1(
-		$1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text`,
+		$1::text,$2,$3,$4,$5,$6::text::numeric,$7::text::numeric,$8,$9,$10,$11)::text`,
 		string(contenido), secretos[0], secretos[1], secretos[2], secretos[3],
-		int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		strconv.FormatUint(a.PersonaVersion(), 10), strconv.FormatUint(a.PerfilVersion(), 10), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
 	if err != nil {
-		return vacia, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
+		return vacia, err
 	}
 	var respuesta struct {
 		Encontrado *bool `json:"encontrado"`
@@ -153,7 +169,7 @@ func (l *LectorComunicacionesExpedientePostgreSQL) ConsultarComunicacionesExpedi
 		// La ausencia es un resultado autorizado. Confirmar su consumo y su
 		// auditoría antes de traducirla a 404 en la frontera HTTP.
 		if err = tx.Commit(ctx); err != nil {
-			return vacia, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
+			return vacia, err
 		}
 		if err = ctx.Err(); err != nil {
 			return vacia, err
@@ -175,7 +191,7 @@ func (l *LectorComunicacionesExpedientePostgreSQL) ConsultarComunicacionesExpedi
 		return vacia, err
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return vacia, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
+		return vacia, err
 	}
 	if err = ctx.Err(); err != nil {
 		return vacia, err
@@ -189,7 +205,8 @@ func normalizarErrorConsultaComunicacionesExpediente(ctx context.Context, err er
 	}
 	if errors.Is(err, ports.ErrConsultaComunicacionesExpedienteDenegada) ||
 		errors.Is(err, ports.ErrConsultaComunicacionesExpedienteNoEncontrado) ||
-		errors.Is(err, ports.ErrConsultaComunicacionesExpedienteInvalida) {
+		errors.Is(err, ports.ErrConsultaComunicacionesExpedienteInvalida) ||
+		errors.Is(err, ports.ErrResultadoComunicacionesExpedienteNoConfiable) {
 		return err
 	}
 	var pg *pgconn.PgError
