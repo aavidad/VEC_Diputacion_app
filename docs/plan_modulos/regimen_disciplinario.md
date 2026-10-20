@@ -139,7 +139,8 @@ un dato penal. Cancelar un antecedente impide reutilizarlo como vigente.
 Dirección confirma SHA base actual y archivos exclusivos por corte. Rutas nuevas
 son previsiones. B1: identidad/autorización/auditoría; B2: vínculo; B3: organización/
 catálogo; B4: expediente; B5: Documentos/firma; B6: intercambio. Los cambios comunes
-pertenecen a B/los servicios comunes de identidad y autorización y demás custodios, en PR separadas, fuera de estas horas.
+pertenecen a Personal, Identidad, Autorización y los demás módulos
+propietarios, en cortes separados.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
@@ -167,7 +168,8 @@ archivos distintos cuando exista criterio jurídico. D12–D15 esperan órganos 
 servicios acreditados; ninguna dependencia se reemplaza por memoria, aviso o tabla
 ajena. Cada ampliación de persistencia reserva su número nuevo, se mantiene en
 borrador hasta ensayo en clon principal y recibe dos revisiones antes de instalar.
-Dirección instala y conserva historia; A no ejecuta SQL ni servicios en cidonia.
+La instalación conserva la historia y se ensaya en copia local; este
+módulo no opera sobre el servidor compartido.
 
 ## Dependencias, paralelismo y estimación
 

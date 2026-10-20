@@ -179,7 +179,8 @@ el caso de uso de decisión y los contratos compartidos tienen un solo escritor.
 | Personal, los servicios comunes de identidad y autorización, Usuarios/Cronos/Documentos | Estimación por sus dueños | Puertos y composición comunes; sus desarrollos no están incluidos en I02/I03/I08. |
 
 Las horas miden esfuerzo, sin prometer fechas de publicación o respuesta externa.
-La instalación solo corresponde a dirección y no se ejecuta SQL en cidonia desde A.
+La instalación requiere revisión y ensayo; este módulo no ejecuta SQL
+en el servidor compartido.
 
 ## Comprobación y entrega
 
