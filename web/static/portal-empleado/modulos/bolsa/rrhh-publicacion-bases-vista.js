@@ -38,10 +38,10 @@ export function cuerpoDeFormulario(item, campos) {
 export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClientePublicacionBases(),
   cargarCatalogo = cargarTextos, reintentarCatalogo = reintentarTextos, anunciar = () => {},
   alDenegacion = () => {}, alDisponibilidad = () => {}, ahora = () => Date.now(),
-  nuevaClave = nuevaClavePublicacion, signal } = {}) {
+  nuevaClave = nuevaClavePublicacion, confirmar = (mensaje) => globalThis.confirm?.(mensaje) ?? true, signal } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || typeof raiz?.replaceChildren !== "function"
     || typeof cliente?.listar !== "function" || typeof cliente?.declarar !== "function"
-    || typeof anunciar !== "function" || typeof alDenegacion !== "function" || typeof alDisponibilidad !== "function") {
+    || typeof anunciar !== "function" || typeof confirmar !== "function" || typeof alDenegacion !== "function" || typeof alDisponibilidad !== "function") {
     throw new TypeError("vista de publicación de bases no disponible");
   }
   let catalogo;
@@ -64,6 +64,7 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
   let resguardo = null;
   let abierta = null;       // elemento de la lista cuyo formulario está abierto
   let campos = camposVacios();
+  let camposIniciales = camposVacios(); // para avisar al cancelar con cambios sin guardar
   let errores = [];
   let avisoEnvio = "";
   let enviando = false;
@@ -86,24 +87,27 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
         ? `<time datetime="${esc(item.plazo_inscripcion_abre_en)}">${esc(fechaHora(item.plazo_inscripcion_abre_en))}</time>` : et("sin_fecha_plazo");
       const accion = item.publicacion ? "corregir" : "declarar";
       return `<tr${abierta?.convocatoria_ref === item.convocatoria_ref ? ' aria-current="true"' : ""}><th scope="row"><strong>${esc(item.titulo)}</strong><small>${esc(item.identificador_publico)}</small></th>
-        <td>${et("version", { secuencia: catalogo.numero(item.secuencia) })}</td><td>${plazo}</td>
-        <td><div class="publicacion-bases-estado">${chip(item)}${item.publicacion ? resumenPublicacion(item.publicacion) : ""}</div></td>
+        <td data-etiqueta="${et("col_version")}">${esc(catalogo.numero(item.secuencia))}</td><td data-etiqueta="${et("col_plazo")}">${plazo}</td>
+        <td class="envuelve" data-etiqueta="${et("col_publicacion")}"><div class="publicacion-bases-estado">${chip(item)}${item.publicacion ? resumenPublicacion(item.publicacion) : ""}</div></td>
         <td><button type="button" class="${item.publicacion ? "boton-secundario" : "boton-primario"}" data-pb-abrir="${esc(item.convocatoria_ref)}" aria-label="${et(`${accion}_etiqueta`, { titulo: item.titulo })}">${et(accion)}</button></td></tr>`;
     }).join("");
   }
   function htmlResguardo() {
     if (!resguardo) return "";
-    return `<section class="publicacion-bases-resguardo" aria-labelledby="pb-resguardo-titulo">
+    // La referencia del registro es técnica: va plegada, nunca como número a citar.
+    return `<section class="confirmacion-tramite publicacion-bases-resguardo" aria-labelledby="pb-resguardo-titulo">
       <h3 id="pb-resguardo-titulo" tabindex="-1">${et("resguardo_titulo")}</h3>
+      <p>${et("resguardo_frase", { titulo: resguardo.titulo })}</p>
       ${resguardo.reutilizada ? `<p>${et("resguardo_repetida")}</p>` : ""}
-      <dl><div><dt>${et("resguardo_convocatoria")}</dt><dd>${esc(resguardo.titulo)}</dd></div>
-      <div><dt>${et("resguardo_recibo")}</dt><dd><code>${esc(resguardo.recibo_ref)}</code></dd></div>
-      <div><dt>${et("resguardo_fecha")}</dt><dd><time datetime="${esc(resguardo.registrada_en)}">${esc(fechaHora(resguardo.registrada_en))}</time></dd></div></dl>
-      <button type="button" class="boton-secundario" data-pb-cerrar-resguardo>${et("cerrar_resguardo")}</button></section>`;
+      <dl class="datos-clave"><div><dt>${et("resguardo_fecha")}</dt><dd><time datetime="${esc(resguardo.registrada_en)}">${esc(fechaHora(resguardo.registrada_en))}</time></dd></div></dl>
+      <p>${et("resguardo_siguiente")}</p>
+      <details class="detalle-tecnico-plegado"><summary>${et("detalle_tecnico")}</summary>
+      <dl class="datos-clave"><div><dt>${et("resguardo_recibo")}</dt><dd><code>${esc(resguardo.recibo_ref)}</code></dd></div></dl></details>
+      <div class="acciones-vista"><button type="button" class="boton-secundario" data-pb-cerrar-resguardo>${et("cerrar_resguardo")}</button></div></section>`;
   }
   function campo(nombre, control, { opcional = false, oculto = false } = {}) {
     const error = errores.includes(nombre);
-    return `<div class="publicacion-bases-campo"${oculto ? " hidden" : ""}><label for="pb-${nombre}">${et(`campo_${nombre === "medio" ? "medio" : nombre === "boletin_numero" ? "boletin" : nombre === "anuncio_ref" ? "anuncio" : nombre === "fecha_publicacion" ? "fecha" : "direccion"}`)}${opcional ? ` <span class="publicacion-bases-opcional">${et("opcional")}</span>` : ""}</label>
+    return `<div class="campo"${oculto ? " hidden" : ""}><label for="pb-${nombre}">${et(`campo_${nombre === "medio" ? "medio" : nombre === "boletin_numero" ? "boletin" : nombre === "anuncio_ref" ? "anuncio" : nombre === "fecha_publicacion" ? "fecha" : "direccion"}`)}${opcional ? ` <span class="texto-secundario">${et("opcional")}</span>` : ""}</label>
       ${control(error ? ` aria-invalid="true" aria-describedby="pb-error-${nombre}"` : "")}
       <span class="error-campo" id="pb-error-${nombre}"${error ? "" : " hidden"}>${error ? et(`error_${nombre}`) : ""}</span></div>`;
   }
@@ -111,7 +115,7 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
     if (!abierta) return "";
     const sinBoletin = campos.medio === MEDIO_SIN_BOLETIN;
     const corregir = !!abierta.publicacion;
-    const resumen = errores.length ? `<div class="publicacion-bases-errores" role="alert" id="pb-resumen" tabindex="-1"><p>${et("resumen_errores")}</p><ul>${errores
+    const resumen = errores.length ? `<div class="resumen-errores" role="alert" id="pb-resumen" tabindex="-1"><h3>${et("resumen_errores")}</h3><ul>${errores
       .map((nombre) => `<li><a href="#pb-${nombre}" data-pb-ir="${nombre}">${et(`error_${nombre}`)}</a></li>`).join("")}</ul></div>` : "";
     const opciones = MEDIOS_PUBLICACION.map((medio) => `<option value="${medio}"${campos.medio === medio ? " selected" : ""}>${et(`medio_${medio}`)}</option>`).join("");
     const deshabilitar = enviando ? " disabled" : "";
@@ -119,9 +123,9 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
       <div class="cabecera-panel"><div><h3 id="pb-form-titulo" tabindex="-1">${et(corregir ? "formulario_titulo_corregir" : "formulario_titulo")}</h3>
       <p>${et("formulario_convocatoria", { titulo: abierta.titulo, secuencia: catalogo.numero(abierta.secuencia) })}</p></div></div>
       <form class="cuerpo-panel" data-pb-formulario novalidate${enviando ? ' aria-busy="true"' : ""}>
-      ${resumen}${avisoEnvio ? `<p class="publicacion-bases-aviso" role="alert" id="pb-aviso-envio" tabindex="-1">${et(avisoEnvio)}</p>` : ""}
+      ${resumen}${avisoEnvio ? `<p class="resumen-errores" role="alert" id="pb-aviso-envio" tabindex="-1">${et(avisoEnvio)}</p>` : ""}
       ${corregir ? `<p>${et("formulario_corrige", { fecha: fechaHora(abierta.publicacion.registrada_en) })}</p>` : ""}
-      <div class="publicacion-bases-campos">
+      <div class="rejilla-dos publicacion-bases-campos">
       ${campo("medio", (a) => `<select id="pb-medio" name="medio" required${a}${deshabilitar}><option value=""${campos.medio ? "" : " selected"}>${et("elegir_medio")}</option>${opciones}</select>`)}
       ${campo("boletin_numero", (a) => `<input id="pb-boletin_numero" name="boletin_numero" type="text" inputmode="numeric" maxlength="5" autocomplete="off" value="${esc(campos.boletin_numero)}"${sinBoletin ? " disabled" : " required"}${a}${deshabilitar}>`, { oculto: sinBoletin })}
       ${campo("anuncio_ref", (a) => `<input id="pb-anuncio_ref" name="anuncio_ref" type="text" maxlength="80" autocomplete="off" spellcheck="false" required value="${esc(campos.anuncio_ref)}"${a}${deshabilitar}>`)}
@@ -134,13 +138,12 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
   }
   function htmlCuerpo() {
     if (estado === "cargando" && !lista) return `<p role="status" aria-busy="true">${et("cargando")}</p>`;
-    if (estado === "denegada") return `<p role="alert">${et("denegada")}</p>`;
     if (estado === "error") return `<p role="alert">${et("error")}</p><button type="button" class="boton-secundario" data-pb-actualizar>${et("reintentar")}</button>`;
-    const avisoLista = aviso ? `<p class="publicacion-bases-aviso" role="alert">${et(aviso)}</p>` : "";
+    const avisoLista = aviso ? `<p class="resumen-errores" role="alert">${et(aviso)}</p>` : "";
     if (lista.items.length === 0) return `${avisoLista}<p>${et("vacio")}</p>`;
     return `${avisoLista}${lista.completa ? "" : `<p role="status">${et("incompleta")}</p>`}
       <div class="tabla-contenedor publicacion-bases-tabla" role="region" tabindex="0" aria-label="${et("lista")}">
-      <table class="tabla-datos"><thead><tr><th scope="col">${et("col_convocatoria")}</th><th scope="col">${et("col_version")}</th>
+      <table class="tabla-datos tabla-apilable"><thead><tr><th scope="col">${et("col_convocatoria")}</th><th scope="col">${et("col_version")}</th>
       <th scope="col">${et("col_plazo")}</th><th scope="col">${et("col_publicacion")}</th><th scope="col">${et("col_accion")}</th></tr></thead>
       <tbody>${filas()}</tbody></table></div>`;
   }
@@ -149,19 +152,22 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
     // Repintar sustituye el DOM: se devuelve el foco al mismo control si lo tenía.
     const activo = globalThis.document?.activeElement;
     const idActivo = activo && raiz.contains?.(activo) && typeof activo.id === "string" ? activo.id : "";
-    if (estado === "no_disponible") {
+    if (estado === "no_disponible" || estado === "denegada") {
+      // Sin acceso o sin servicio no hay nada que explicar tras «?»: solo la salida.
+      const denegada = estado === "denegada";
       raiz.innerHTML = `<section class="panel publicacion-bases" data-publicacion-bases aria-labelledby="pb-no-disponible"><div class="cuerpo-panel vacio-controlado">
-        <h2 id="pb-no-disponible" tabindex="-1">${et("no_disponible_titulo")}</h2><p>${et("no_disponible_texto")}</p>
+        <h2 id="pb-no-disponible" tabindex="-1">${et(denegada ? "denegada_titulo" : "no_disponible_titulo")}</h2><p${denegada ? ' role="alert"' : ""}>${et(denegada ? "denegada" : "no_disponible_texto")}</p>
         <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="portal">${et("volver")}</button></div></div></section>`;
     } else {
       const total = lista ? `<p>${esc(catalogo.plural("publicacion.total", lista.items.length))}</p>` : "";
-      const actualizar = lista && estado !== "denegada"
+      const actualizar = lista
         ? `<button type="button" id="pb-actualizar" class="boton-secundario" data-pb-actualizar${estado === "cargando" ? ' disabled aria-busy="true"' : ""}>${et("actualizar")}</button>` : "";
       raiz.innerHTML = `<div class="publicacion-bases" data-publicacion-bases><section class="panel" aria-labelledby="pb-titulo">
-        <header class="cabecera-panel"><div><h2 id="pb-titulo" tabindex="-1">${et("titulo")}</h2>${total}</div>
+        <header class="cabecera-panel"><div><h2 id="pb-titulo" tabindex="-1">${et("lista")}</h2>${total}</div>
         <div class="acciones-vista">${actualizar}<button type="button" class="boton-secundario publicacion-bases-ayuda-boton" data-pb-ayuda aria-expanded="${ayuda}" aria-controls="pb-ayuda" aria-label="${et("ayuda_boton")}">?</button></div></header>
-        <div class="cuerpo-panel"><p id="pb-ayuda" class="publicacion-bases-ayuda"${ayuda ? "" : " hidden"}>${et("ayuda")}</p>
-        ${htmlResguardo()}${htmlCuerpo()}</div></section>${estado === "denegada" ? "" : htmlFormulario()}</div>`;
+        <div class="cuerpo-panel"><div id="pb-ayuda" class="publicacion-bases-ayuda"${ayuda ? "" : " hidden"}><ol class="lista-ayuda">${["ayuda_1", "ayuda_2", "ayuda_3"]
+          .map((clave) => `<li>${et(clave)}</li>`).join("")}</ol></div>
+        ${htmlResguardo()}${htmlCuerpo()}</div></section>${htmlFormulario()}</div>`;
     }
     const destino = enfocar || idActivo;
     enfocar = "";
@@ -171,7 +177,7 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
   function denegar() {
     ++secuencia; controlador?.abort();
     lista = null; abierta = null; resguardo = null; intento = null; enviando = false;
-    estado = "denegada"; alDenegacion(); alDisponibilidad("oculta"); pintar();
+    estado = "denegada"; alDenegacion(); alDisponibilidad("oculta"); enfocar = "pb-no-disponible"; pintar();
     anunciar(t("denegada"));
   }
   function noDisponible(disponibilidad = "no_habilitada") {
@@ -216,6 +222,7 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
       anuncio_ref: item.publicacion.anuncio_ref, fecha_publicacion: item.publicacion.fecha_publicacion,
       direccion: item.publicacion.direccion ?? "",
     } : camposVacios();
+    camposIniciales = { ...campos };
     enfocar = "pb-form-titulo"; pintar();
   }
   function cerrarFormulario(foco = true) {
@@ -245,7 +252,7 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
       if (!vivo || senal.aborted || carga !== secuencia) return;
       enviando = false; intento = null; abierta = null; campos = camposVacios(); errores = [];
       resguardo = { ...recibido, titulo: declarada.titulo };
-      anunciar(`${t("resguardo_titulo")}. ${t("resguardo_recibo")}: ${recibido.recibo_ref}`);
+      anunciar(`${t("resguardo_titulo")}. ${t("resguardo_frase", { titulo: declarada.titulo })} ${t("resguardo_siguiente")}`);
       enfocar = "pb-resguardo-titulo";
       await cargar();
     } catch (error) {
@@ -278,7 +285,11 @@ export async function montarPublicacionBasesRRHH({ raiz, cliente = crearClienteP
     }
     if (objetivo?.closest?.("[data-pb-actualizar]")) { aviso = ""; void cargar(); return; }
     if (objetivo?.closest?.("[data-pb-cerrar-resguardo]")) { resguardo = null; enfocar = "pb-titulo"; pintar(); return; }
-    if (objetivo?.closest?.("[data-pb-cancelar]")) { cerrarFormulario(); return; }
+    if (objetivo?.closest?.("[data-pb-cancelar]")) {
+      const cambiado = CAMPOS.some((nombre) => String(campos[nombre] ?? "") !== String(camposIniciales[nombre] ?? ""));
+      if (!cambiado || confirmar(t("confirmar_cancelar"))) cerrarFormulario();
+      return;
+    }
     const ir = objetivo?.closest?.("[data-pb-ir]");
     if (ir) { evento.preventDefault?.(); raiz.querySelector?.(`[id="pb-${ir.getAttribute("data-pb-ir")}"]`)?.focus?.(); return; }
     const abrirBoton = objetivo?.closest?.("[data-pb-abrir]");
