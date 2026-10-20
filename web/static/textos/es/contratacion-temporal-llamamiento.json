@@ -339,6 +339,24 @@
     "llamamiento_confirmacion_expiracion": "Va a dar el llamamiento por no aceptado por falta de respuesta. Después podrá llamar a la siguiente persona.",
     "llamamiento_revision_respuesta_rrhh_expiracion": "He comprobado que no ha llegado ninguna respuesta",
     "llamamiento_revision_plazo_rrhh_expiracion": "He comprobado que el plazo ha terminado",
-    "llamamiento_confirmar_expiracion": "Confirmar"
+    "llamamiento_confirmar_expiracion": "Confirmar",
+    "llamamiento_portal_titulo": "Aceptación en Mi Bolsa",
+    "llamamiento_portal_origen": "Origen del llamamiento",
+    "llamamiento_portal_origen_ct": "Iniciado desde este expediente",
+    "llamamiento_portal_emitido_en": "Llamamiento emitido el",
+    "llamamiento_portal_respondida_en": "Respondió el",
+    "llamamiento_portal_recibo_respuesta": "Justificante de la respuesta",
+    "llamamiento_portal_aceptacion": "La persona aceptó en Mi Bolsa",
+    "llamamiento_portal_revision_respuesta": "He comprobado la aceptación y su justificante",
+    "llamamiento_portal_revision_plazo": "He revisado el plazo de respuesta",
+    "llamamiento_portal_confirmar": "Confirmar aceptación",
+    "llamamiento_portal_confirmacion": "Va a confirmar en el expediente la aceptación registrada en Mi Bolsa. Compruebe la respuesta y el plazo antes de continuar.",
+    "llamamiento_portal_revision_incompleta": "Marque las dos comprobaciones para confirmar la aceptación.",
+    "llamamiento_portal_confirmada": "Aceptación confirmada en el expediente",
+    "llamamiento_portal_resuelta_en": "Confirmada el",
+    "llamamiento_portal_recibo_ct": "Justificante de la confirmación",
+    "llamamiento_portal_denegado": "No tiene permiso para confirmar esta aceptación. Vuelva a cargar el expediente si su acceso ha cambiado.",
+    "llamamiento_portal_conflicto": "No se ha podido confirmar esta aceptación. Vuelva a cargar el expediente y revise su estado.",
+    "llamamiento_portal_resultado_incierto": "No se ha podido comprobar si se guardó. Vuelva a intentar con la misma operación."
   }
 }
