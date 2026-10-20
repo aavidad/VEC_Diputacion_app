@@ -553,6 +553,14 @@ restauración de copias sigue el mismo patrón (`docs/plan_modulos/copias_seguri
 
 ### Lecturas y actos
 
+F1-104 conecta la selección de Contratación con Organización histórica de
+Personal mediante un puerto en proceso. Revalida el certificado y la cuenta
+de la petición y selecciona el perfil de consulta propio de esa cuenta, sin
+sumarlo al perfil de Contratación. Conserva la ruta original, la autorización
+y la auditoría de Personal. El cliente M10 con certificado fijo deja de usarse
+en este recorrido. Si falta el montaje de Personal, falla solo la selección.
+
+
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe
   el estado (apartado 7).
 - **Lecturas.** Hoy también pasan por fachadas V3 nominales y eso las encarece.

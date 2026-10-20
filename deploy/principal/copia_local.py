@@ -292,6 +292,12 @@ class Copia:
             # La clave OH se deriva cuando la aplicación ya la ha publicado; el
             # reinicio carga la consulta con su material.
             import copia_local_organizacion_historica as organizacion_historica
+            if args.segundo_rrhh:
+                from copia_local_organizacion_historica_actores import extender_contextos
+                huella_segunda = extender_contextos(self, REPO)
+                estado = self.leer()
+                estado['organizacion_historica_segunda_semilla_sha256'] = huella_segunda
+                guardar(self.estado, estado)
             organizacion_historica.preparar_material(self, self.raiz / 'vec-preparar-material-interno')
             self.parar()
             self.arrancar()
