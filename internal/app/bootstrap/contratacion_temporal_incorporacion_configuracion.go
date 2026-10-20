@@ -147,9 +147,9 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if !cfg.DevelopmentEnabledByDoubleKey() || alta == nil || alta.postgresql.registroAutorizacion == nil || consultas.identidad == nil || consultas.sesion == nil || consultas.motivos == nil || consultas.emisorCuadro == nil || consultas.materialDetalle == nil || fronteras.identidad == nil {
 		return vacia, nil, f
 	}
-	perfil := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
 	descriptorDetalle, existe := fronteras.resolver(http.MethodPost, httpinterno.RutaConsultaDetalleRRHH)
-	if !existe || !descriptorDetalle.admitePerfil(perfil) || !fronteras.mismaInstancia(consultas.identidad.fronteras) {
+	if !existe || !esDescriptorDetalleContratacionTemporalDesarrollo(descriptorDetalle, alta.soporte) ||
+		!fronteras.mismaInstancia(consultas.identidad.fronteras) {
 		return vacia, nil, f
 	}
 	c, raiz, err := leerConfiguracionIncorporacionV2(cfg.IncorporacionV2File)
