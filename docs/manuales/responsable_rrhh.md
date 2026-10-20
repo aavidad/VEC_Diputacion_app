@@ -44,7 +44,7 @@ Las descargas de este recorrido histórico se comprobaron en la fase **Nombramie
 
 En el ejemplo aparecen ocho documentos: informe definitivo, resolución, diligencia, toma de posesión, notificación, comunicación al centro, contrato laboral de duración determinada y nombramiento de personal funcionario interino.
 
-En un expediente que todavía no ha llegado a **Nombramiento** también se ve la lista, pero la descarga no se completa. La ficha muestra primero «El expediente o el catálogo cambió. Actualice el detalle antes de descargar.» y después «No se pudo comprobar la descarga. No se ha guardado ningún documento.». Si el expediente no está en **Nombramiento**, no repita la descarga: el documento aún no se puede preparar. Los documentos de **cese** y de **modificación del nombramiento** solo se pueden descargar después de registrar esa actuación en el expediente.
+En el recorrido histórico del 9 de octubre, un expediente que todavía no había llegado a **Nombramiento** mostraba la lista pero no completaba la descarga. La ficha mostró primero «El expediente o el catálogo cambió. Actualice el detalle antes de descargar.» y después «No se pudo comprobar la descarga. No se ha guardado ningún documento.». Ese resultado describía los antecedentes de aquel caso. En la pantalla actual, espere la propuesta y compruebe la disponibilidad de cada documento; no todos se preparan en cualquier fase. Los documentos de **cese** y de **modificación del nombramiento** solo se pueden descargar después de registrar esa actuación en el expediente.
 
 ## Alcance de este acceso
 

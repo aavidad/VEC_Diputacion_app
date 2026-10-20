@@ -178,10 +178,10 @@ El orden es importante: primero acredita la incorporación el centro; después
 RRHH confirma el alta en Personal y prepara la grabación manual.
 
 1. Espere el recibo con el que el centro acredita la incorporación y su documento. Una aceptación del llamamiento no sustituye esa acreditación.
-2. En **Paso a Personal**, revise el plan de incorporación: persona, categoría, puesto, plaza, fechas y documento de formalización. Confirme solo si las comprobaciones son correctas y conserve el recibo de alta confirmado.
-3. En **GINPIX**, descargue la ficha para grabarla manualmente en la aplicación de personal. Confirme en VEC el número y la fecha de esa grabación cuando se haya hecho. El recibo de VEC no acredita una transmisión automática a GINPIX.
+2. En **Paso a Personal**, abra **Registrar incorporación en Personal** y revise el plan: persona, categoría, puesto, plaza, fechas y documento de formalización. Pulse **Registrar incorporación** solo si las comprobaciones son correctas y conserve el recibo de alta confirmado. Si el resultado es incierto, use **Comprobar la operación**.
+3. En **GINPIX**, pulse **Descargar ficha GINPIX** para grabarla manualmente en la aplicación de personal. Cuando se haya hecho, complete número y fecha y pulse **Registrar la confirmación de GINPIX** en Seguimiento. El recibo de VEC no acredita una transmisión automática a GINPIX.
 4. Cuando proceda el cese, registre causa y justificante desde **Cese**, revise las fechas y conserve el recibo.
-5. Compruebe en la bolsa que la persona vuelve a **Disponible** o **Disponible desde**, según la regla aplicable. Después cierre el expediente cuando la ficha lo permita.
+5. Compruebe en la bolsa que la persona vuelve a **Disponible** o **Disponible desde**, según la regla aplicable. Después pulse **Cerrar el expediente** cuando la ficha lo permita.
 
 El alta, la ocupación y el cese se realizan durante el recorrido: no se dan
 por hechos porque la copia tenga ya preparada la bolsa. Falta acreditar este
