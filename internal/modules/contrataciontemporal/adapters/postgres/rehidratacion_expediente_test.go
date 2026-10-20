@@ -200,3 +200,64 @@ func TestRehidratarExpedienteSQLLegadoYFechasInvalidas(t *testing.T) {
 		t.Fatal("la prueba modificó el original")
 	}
 }
+
+// expedienteConRCSQLPrueba sustituye la RC ausente de la muestra civil por
+// una RC existente como la guarda el alta v3 cuando el centro la declara.
+func expedienteConRCSQLPrueba(t *testing.T, civil []byte, fecha string) []byte {
+	t.Helper()
+	var raiz map[string]json.RawMessage
+	if err := json.Unmarshal(civil, &raiz); err != nil {
+		t.Fatal(err)
+	}
+	var solicitud map[string]json.RawMessage
+	if err := json.Unmarshal(raiz["solicitud"], &solicitud); err != nil {
+		t.Fatal(err)
+	}
+	solicitud["rc"] = json.RawMessage(`{"existe":true,"numero":"220260000001","fecha":"` + fecha +
+		`","importe":{"centimos":845032,"moneda":"EUR"},"documento_ref":"rc-declarado:220260000001"}`)
+	var err error
+	raiz["solicitud"], err = json.Marshal(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conRC, err := json.Marshal(raiz)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return conRC
+}
+
+// F1-98: el análisis de un expediente nuevo cuya petición declara la RC daba
+// 503 porque la fecha civil de la RC no se rehidrataba.
+func TestRehidratarExpedienteSQLConRCDeclaradaCivil(t *testing.T) {
+	civil, _ := expedienteAltaCivilSQLPrueba(t)
+	conRC := expedienteConRCSQLPrueba(t, civil, "2026-10-15")
+	original := bytes.Clone(conRC)
+	var recuperado domain.Expediente
+	if err := decodificarExpedienteSQL(conRC, &recuperado); err != nil {
+		t.Fatal(err)
+	}
+	esperada := time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC)
+	rc := recuperado.Solicitud.RC
+	if err := recuperado.Validar(); err != nil || !rc.Existe || !rc.Fecha.Equal(esperada) ||
+		rc.Fecha.Location() != time.UTC || rc.Numero != "220260000001" ||
+		rc.Importe.Centimos != 845032 || rc.DocumentoRef != "rc-declarado:220260000001" {
+		t.Fatalf("RC declarada no rehidratada: %v %+v", err, rc)
+	}
+	if !bytes.Equal(conRC, original) {
+		t.Fatal("el contenido histórico se modificó al rehidratar")
+	}
+	rfc := expedienteConRCSQLPrueba(t, civil, "2026-10-15T00:00:00Z")
+	if adaptado, err := rehidratarFechasExpedienteSQL(rfc); err != nil ||
+		bytes.Contains(adaptado, []byte(`"fecha":"2026-10-15"`)) {
+		t.Fatalf("RC en RFC3339 alterada: %v", err)
+	}
+	for _, valor := range []string{"2026-02-30", "2026-9-15", "2026-13-01", "2026-10-1x"} {
+		t.Run(valor, func(t *testing.T) {
+			invalido := expedienteConRCSQLPrueba(t, civil, valor)
+			if err := decodificarExpedienteSQL(invalido, &domain.Expediente{}); err == nil {
+				t.Fatal("fecha civil inválida de la RC aceptada")
+			}
+		})
+	}
+}
