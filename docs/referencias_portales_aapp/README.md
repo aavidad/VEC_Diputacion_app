@@ -65,9 +65,9 @@ permanecen como fuentes del estudio, sin una nueva verificación de su vigencia.
 - [Portal del Empleo Público de Andalucía](https://portalempleopublico.juntadeandalucia.es/): espacio público, perfil personal, procesos selectivos y servicios del personal empleado.
 - [FIDES y expediente administrativo de la Xunta de Galicia](https://www.xunta.gal/FUNCION-PUBLICA/EXPEDIENTE-ADMINISTRATIVO): expediente personal electrónico compartido por personas candidatas y empleadas.
 - [Portal del Empleado de Castilla-La Mancha](https://portaldelempleado.jccm.es/portaldelempleado/): expediente, carrera, concursos, comisiones y formación. El manual de acogida localizado en la Escuela de Administración Regional devolvía HTTP 404 el 14/07/2026, por lo que no se almacenó una copia dudosa.
-- Los manuales locales de Cádiz y Mérida recopilados para CONVOCA figuraban en
-  `convoca_dipgra/04_Manuales` y forman parte de la comparación histórica.
-  Esa carpeta no está incluida en este árbol remoto; no es una descarga disponible.
+- Los manuales de Cádiz y Mérida consultados como referencias históricas de
+  CONVOCA se conservan fuera del repositorio público. No se distribuyen como
+  parte de VEC.
 
 ## Condiciones de uso y cautelas
 

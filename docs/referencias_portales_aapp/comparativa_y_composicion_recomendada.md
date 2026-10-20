@@ -351,7 +351,8 @@ Empleado solicita permiso
 
 ## 7. Relación con las fuentes de la Diputación
 
-La petición de RRHH y `convoca_dipgra` siguen siendo la base funcional local:
+Los requisitos de VEC proceden de RRHH y de la normativa aplicable. CONVOCA
+se utiliza como origen de importación de datos. El estudio histórico abarcó:
 
 - gestión de bolsas y candidatos;
 - llamamientos según reglamento;

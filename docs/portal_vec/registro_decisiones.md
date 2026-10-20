@@ -39,7 +39,7 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Mejora: exclusiones explicitas y Dockerfile con lista cerrada de directorios.
 - Motivo: minimizacion, privacidad, cadena de suministro y tamano de imagen.
 - Limite de producto: `Baremador`, `Bolsa_Diputacion`,
-  `Bolsa_Diputacion_app`, `cegid_peoplenet_aapp`, `convoca_dipgra`, los PDF de
+  `Bolsa_Diputacion_app`, `cegid_peoplenet_aapp`, las referencias de terceros, los PDF de
   entrada y los datos OSRM son fuentes de estudio, prototipos o datos locales;
   no forman parte del binario, imagen, despliegue ni frontera de seguridad de
   VEC. Algunos contienen otro `go.mod`, por lo que tampoco quedan cubiertos por

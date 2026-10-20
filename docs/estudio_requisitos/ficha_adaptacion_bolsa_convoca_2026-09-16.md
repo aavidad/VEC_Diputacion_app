@@ -1,9 +1,10 @@
-# Ficha de adaptación de VEC Bolsa a CONVOCA — 16 de septiembre de 2026
+# Estudio histórico de Bolsa e importación de CONVOCA — 16 de septiembre de 2026
 
-Decisión de Alberto (16/09/2026): VEC sustituye a CONVOCA, con importación desde CONVOCA
-al menos para la carga inicial. Esta ficha traduce las fuentes disponibles en requisitos
-numerados, dice qué hay en VEC para cada uno y qué cambio haría falta. No es una orden de
-trabajo: Bolsa está aparcada hasta cerrar el orden de correcciones de Contratación.
+Documento histórico de septiembre. Conserva el análisis funcional de aquel
+corte; no fija el estado ni el orden actual de trabajo. Para requisitos y
+prioridades vigentes se consultan los documentos de `docs/producto/`.
+VEC importa datos de CONVOCA; las reglas de gestión proceden de RRHH y de la
+normativa aplicable.
 
 ## Estado al 26 de septiembre de 2026
 
@@ -19,15 +20,15 @@ en `NO-GO`.
 ## Fuentes
 
 - **P** — Pliego de Prescripciones Técnicas SE 15/2020, §1 a) y c), páginas 2–3
-  (`docs/convoca_dipgra/01_Pliegos_Oficiales/`, capturas en `06_Capturas_Pliego_Oficial/`).
+  (referencia externa conservada fuera del repositorio público).
   Es la descripción oficial de lo que CONVOCA hace en la Diputación. CONVOCA forma parte de
   Ginpix 7 (SAVIA): el mismo proveedor y la misma suite que el GINPIX al que RRHH quiere
   trasladar los nombramientos.
-- **M** — Manual de bolsas de empleo de Mérida (`04_Manuales/Manual_Bolsas_Empleo_Convoca_Merida.pdf`).
+- **M** — Manual de bolsas de empleo de Mérida (referencia externa, fuera del repositorio público).
   Misma plataforma; describe pantallas y operaciones de listas de sustitución. Sus **reglas**
   (3 llamadas, 24 horas, larga/corta duración, +6 meses) son de Mérida, no de Granada: sirven
   como ejemplo de parametrización, no como norma.
-- **C** — Guía de solicitudes de Cádiz (`04_Manuales/Manual_Presentacion_Solicitudes_Convoca_Cadiz.pdf`):
+- **C** — Guía de solicitudes de Cádiz (referencia externa, fuera del repositorio público):
   inscripción con tasas, documentación y registro.
 - **R** — `Peticion.pdf` del Servicio de selección externa de la Diputación.
 - **W** — Word de RRHH (paso 5, llamamiento).
