@@ -108,6 +108,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialComprobacion                    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPublicacionOficial              *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConfirmacionDirecta             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaSolicitudesDocumentales *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaReincorporacionTitular  *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -742,6 +743,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		if cfg.BolsaBorradoresEnabled {
 			dependencias.proveedorMaterialComprobacion = proveedorComprobacionOfrecimiento(ctx, gobierno, material, reloj)
+			dependencias.proveedorMaterialPublicacionOficial = proveedorPublicacionOficialBases(ctx, gobierno, material, reloj)
 			dependencias.proveedorMaterialCargaConvoca = proveedorCargaConvocaOpcionalDesarrollo(nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConfirmarCargaConvoca))
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"

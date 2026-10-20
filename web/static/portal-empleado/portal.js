@@ -162,6 +162,7 @@ const TITULOS = Object.freeze({
   resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_bolsas_de_trabajo")],
   elaboracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_borradores_de_convocatorias")],
   convocatorias: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_convocatorias_bases_y_calendario")],
+  "publicacion-bases": [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_publicacion_de_las_bases")],
   solicitudes: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_solicitudes_y_admision")],
   meritos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_revision_de_meritos")],
   baremacion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_baremacion_y_ranking")],
@@ -246,6 +247,7 @@ const estado = {
   politicaCeseComprobada: false,
   inscripcionesDisponibles: null, // null sin comprobar; false si el servidor no publica la bandeja
   cargaConvocaDisponible: null, // null sin comprobar; true solo si el servidor monta la carga CONVOCA
+  publicacionBases: null, // null sin comprobar; "disponible", "no_habilitada" (503) u "oculta" (403/404)
   politicaCeseAusente: false, // 404: la instalación no compone la política de cese
   modalResultado: null,
 };
@@ -403,6 +405,16 @@ function desmontarAlegacionesBolsa() {
   controladorAlegacionesBolsa?.abort(); controladorAlegacionesBolsa = null;
   vistaAlegacionesBolsa?.desmontar(); vistaAlegacionesBolsa = null;
 }
+let controladorPublicacionBases = null;
+let vistaPublicacionBases = null;
+function desmontarPublicacionBases() {
+  controladorPublicacionBases?.abort(); controladorPublicacionBases = null;
+  vistaPublicacionBases?.desmontar(); vistaPublicacionBases = null;
+}
+function cambiarDisponibilidadPublicacionBases(disponibilidad) {
+  if (estado.publicacionBases === disponibilidad) return;
+  estado.publicacionBases = disponibilidad; actualizarNavegacionModulos();
+}
 let controladorInscripcionesBolsa = null;
 function desmontarInscripcionesBolsa() {
   controladorInscripcionesBolsa?.abort();
@@ -509,6 +521,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
         if (vista === "configuracion") desmontarConfiguracionBolsa();
         if (vista === "baremacion") desmontarRankingBolsa();
         if (vista === "alegaciones") desmontarAlegacionesBolsa();
+        if (vista === "publicacion-bases") desmontarPublicacionBases();
         if (["solicitudes", "meritos", "convocatorias"].includes(vista)) desmontarInscripcionesBolsa(); } });
     },
   }),
@@ -649,6 +662,7 @@ function capacidadesBolsa() {
     politicaCese: estado.politicaCese !== null,
     inscripciones: estado.inscripcionesDisponibles === true,
     cargaConvoca: estado.cargaConvocaDisponible === true,
+    publicacionBases: estado.publicacionBases === "disponible" || estado.publicacionBases === "no_habilitada",
   };
 }
 function vistaPermitida(vista) {
@@ -821,6 +835,7 @@ async function cargarFuenteDatos() {
   estado.politicaCese = null;
   estado.politicaCeseComprobada = false;
   estado.politicaCeseAusente = false;
+  estado.publicacionBases = null;
   if (destinoPoliticaCeseInicial) void comprobarAccesoPoliticaCese();
   // Una vista de Bolsa ya montada no depende del catálogo de módulos: se
   // conserva (el coordinador tampoco la retira) y no se vuelve a montar.
@@ -1007,7 +1022,7 @@ function actualizarNavegacionModulos() {
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const enlacePlantillas = porId("enlace-plantillas-rrhh");
   if (enlacePlantillas) enlacePlantillas.hidden = estado.plantillasAutorizadas !== true;
-  if (moduloActivo === "bolsa") cargaConvocaDisponible();
+  if (moduloActivo === "bolsa") { cargaConvocaDisponible(); sondearPublicacionBases(); }
   const enlaceConvoca = porId("navegacion-bolsa")?.querySelector('[data-vista="importacion"]');
   if (enlaceConvoca) enlaceConvoca.setAttribute("href", RUTA_PANTALLA_CARGA_CONVOCA);
   aplicarDisponibilidadMenuBolsa(porId("navegacion-bolsa"), capacidadesBolsa())
@@ -1225,6 +1240,29 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
       console.error("ranking_vista_carga", { tipo: error?.name });
       raiz.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-ranking-carga-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
       raiz.querySelector("[data-ranking-carga-reintentar]")?.addEventListener("click", () => { desmontarRankingBolsa(); montarVistaBolsa(vista, contenedor); }, { once: true });
+    });
+    return;
+  }
+  if (vista === "publicacion-bases") {
+    if (controladorPublicacionBases && contenedor.querySelector("[data-publicacion-bases-montaje]")) return;
+    desmontarPublicacionBases();
+    const controlador = new AbortController();
+    controladorPublicacionBases = controlador;
+    contenedor.innerHTML = `<div data-publicacion-bases-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section></div>`;
+    const raiz = contenedor.querySelector("[data-publicacion-bases-montaje]");
+    import("./modulos/bolsa/rrhh-publicacion-bases-vista.js?v=VEC_WEB_VERSION").then(async ({ montarPublicacionBasesRRHH }) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      const montaje = await montarPublicacionBasesRRHH({ raiz, signal: controlador.signal, anunciar,
+        alDisponibilidad: cambiarDisponibilidadPublicacionBases });
+      if (controlador.signal.aborted || estado.vista !== vista) { montaje?.desmontar(); return; }
+      vistaPublicacionBases = montaje;
+    }).catch((error) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      console.error("publicacion_bases_vista_carga", { tipo: error?.name });
+      raiz.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-publicacion-bases-montaje-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
+      raiz.querySelector("[data-publicacion-bases-montaje-reintentar]")?.addEventListener("click", () => {
+        desmontarPublicacionBases(); montarVistaBolsa(vista, contenedor, opciones);
+      }, { once: true });
     });
     return;
   }
@@ -1991,8 +2029,20 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "publicacion-bases", "alegaciones"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
+}
+// La publicación oficial de las bases se ofrece en el menú según responda su
+// lista: 200 o 503 (montada sin habilitar) la muestran; 403, 404 o un fallo, no.
+// Se comprueba una vez, al pintar por primera vez la cabecera de Bolsa.
+let sondeoPublicacionBases = null;
+function sondearPublicacionBases() {
+  if (estado.publicacionBases !== null || sondeoPublicacionBases) return;
+  sondeoPublicacionBases = import("./modulos/bolsa/rrhh-publicacion-bases-api.js?v=VEC_WEB_VERSION")
+    .then(({ crearClientePublicacionBases, sondearPublicacionBases: sondear }) => sondear(crearClientePublicacionBases()))
+    .then((disponibilidad) => { if (estado.publicacionBases === null) cambiarDisponibilidadPublicacionBases(disponibilidad); })
+    .catch(() => { if (estado.publicacionBases === null) cambiarDisponibilidadPublicacionBases("oculta"); })
+    .finally(() => { sondeoPublicacionBases = null; });
 }
 // La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
 // comprueba una vez, al pintar por primera vez la cabecera de Bolsa.

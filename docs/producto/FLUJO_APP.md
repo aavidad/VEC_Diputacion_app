@@ -485,9 +485,15 @@ versión nueva. Calcularlas desde la publicación queda para un catálogo
 posterior.
 
 Hoy solo declara el propietario de la base (despliegue o dato de copia,
-`deploy/principal/f1_61_publicacion_oficial_bases/`). El acto de RRHH desde
-la web, con su permiso, espera a su consumidor en el núcleo de autorización;
-hasta entonces ninguna cuenta de aplicación declara. `ConfirmarPublicacion`,
+`deploy/principal/f1_61_publicacion_oficial_bases/`). F1-95 añade el acto de
+RRHH desde la web (`deploy/principal/f1_95_publicacion_bases_web/`): fachada
+BC15 del propietario de convocatorias que consume la decisión V3 y llama a la
+declaración en la misma transacción, ruta
+`/api/vec/bolsa/convocatorias/publicaciones-oficiales` y pantalla. Declarante
+y motivo salen de la decisión; los ámbitos, de la política de la versión. La
+ruta deniega (503) hasta que el núcleo tenga el consumidor (AD301, entrega
+aparte para el equipo de permisos) y el rol de RRHH la concesión.
+`ConfirmarPublicacion`,
 el puerto de la publicación gobernada borrador→publicada, no se usa en este
 corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
 web y se recorra la inscripción de punta a punta.

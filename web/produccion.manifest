@@ -496,6 +496,11 @@ static/portal-empleado/modulos/bolsa/rrhh-plazos.css
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese.css
+static/portal-empleado/modulos/bolsa/rrhh-publicacion-bases-api.js
+static/portal-empleado/modulos/bolsa/rrhh-publicacion-bases-vista.js
+static/portal-empleado/modulos/bolsa/rrhh-publicacion-bases.css
+static/textos/es/bolsa-publicacion-bases.json
+static/textos/en/bolsa-publicacion-bases.json
 static/portal-empleado/modulos/bolsa/reglas-situacion-api.js
 static/portal-empleado/modulos/bolsa/reglas-situacion-ui.js
 static/textos/es/bolsa-reglas-transiciones.json

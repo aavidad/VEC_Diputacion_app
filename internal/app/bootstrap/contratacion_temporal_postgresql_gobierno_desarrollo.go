@@ -290,6 +290,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaConfirmarCargaConvoca,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,
 		puertosbolsa.AudienciaComprobacionOfrecimiento,
+		// F1-95: la admite AD301; sin ella la clave no se publica y la ruta deniega.
+		puertosbolsa.AudienciaDeclararPublicacionOficialBases,
 		puertosbolsa.AudienciaConfirmarAceptacionDirecta,
 		puertosbolsa.AudienciaConsultarReincorporacionTitular,
 		puertosbolsa.AudienciaRegistrarContactoParticipacion,

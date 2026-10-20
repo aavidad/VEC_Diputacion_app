@@ -45,6 +45,9 @@ const (
 	claveFronteraVistaPreviaCargaConvocaBolsa       = "bolsa-carga-convoca-vista-previa"
 	claveFronteraConfirmarCargaConvocaBolsa         = "bolsa-carga-convoca-confirmar"
 	claveCapacidadCargaConvocaBolsa                 = "capacidad-bolsa-carga-convoca-confirmar"
+	claveFronteraConsultarPublicacionOficialBolsa   = "bolsa-f195-publicacion-oficial-consultar"
+	claveFronteraDeclararPublicacionOficialBolsa    = "bolsa-f195-publicacion-oficial-declarar"
+	claveCapacidadPublicacionOficialBolsa           = "capacidad-bolsa-f195-publicacion-oficial-declarar"
 
 	dominioMaterialCrearBorradorLlamamientoBolsa      = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
 	prefijoMaterialCrearBorradorLlamamientoBolsa      = "clave:capacidad:bolsa-borrador-crear:"
@@ -162,6 +165,10 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			Metodo: metodo, Ruta: bolsahttp.RutaPoliticaCese, PerfilesActivosRef: []string{perfilActivoRef},
 			ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarBorradorLlamamientoBolsa})
 	}
+	// F1-95: la ruta existe siempre; sin consumidor del núcleo deniega (503).
+	descriptores = append(descriptores,
+		descriptorFronteraComunDesarrollo{Clave: claveFronteraConsultarPublicacionOficialBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaPublicacionesOficialesBases, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPublicacionOficialBolsa},
+		descriptorFronteraComunDesarrollo{Clave: claveFronteraDeclararPublicacionOficialBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaPublicacionesOficialesBases, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPublicacionOficialBolsa})
 	if len(capacidades) > 2 && capacidades[2] {
 		descriptores = append(descriptores,
 			descriptorFronteraComunDesarrollo{Clave: claveFronteraVistaPreviaCargaConvocaBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadCargaConvocaBolsa},
@@ -211,6 +218,7 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		},
 		{Accion: puertosbolsa.AccionCambiarSituacionParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa, claveFronteraOperacionesSituacionBolsa, claveFronteraContratosParticipacionBolsa, claveFronteraConsultarSancionesBolsa, claveFronteraRecursoSancionBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionComprobacionOfrecimiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
+		{Accion: puertosbolsa.AccionDeclararPublicacionOficialBases, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPublicacionOficialBolsa, Fronteras: []string{claveFronteraConsultarPublicacionOficialBolsa, claveFronteraDeclararPublicacionOficialBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionConfirmarAceptacionDirecta, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConfirmacionDirectaBolsa, Fronteras: []string{claveFronteraConfirmacionDirectaBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSolicitudesDocumentalesRRHH, Fronteras: []string{claveFronteraSolicitudesDocumentalesRRHH}, Politica: politica},
 		{Accion: puertosbolsa.AccionRegistrarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
