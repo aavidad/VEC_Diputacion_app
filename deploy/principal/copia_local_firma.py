@@ -33,11 +33,14 @@ NOMBRE_ETAPA = re.compile(r'[a-z0-9][a-z0-9-]{0,40}')
 MAXIMO_ETAPAS = 40
 PLAZO_ETAPA = 1800
 RECURSOS = ('plan-firma-publicado.json', 'circuito_rrhh_v2.json',
-            'ct_plantillas_documentos.v4.json', 'clientes.crl')
+            'ct_plantillas_documentos.v4.json', 'clientes.crl', 'ct_subsanacion_politica.json')
 # Fuentes del repositorio que la aplicación lee desde una copia privada.
 FUENTES_REPO = {
     'circuito_rrhh_v2.json': 'config/contratacion_temporal_circuito_rrhh_v2.json',
     'ct_plantillas_documentos.v4.json': 'data/catalogos/contratacion-temporal/plantillas_documentos.v4.json',
+    # F1-26: la política sintética de subsanación que ya usa la principal
+    # (su motivo está publicado en el respaldo HZ37), sin actor ni secreto.
+    'ct_subsanacion_politica.json': 'config/contratacion_temporal_subsanacion_politica_desarrollo.json',
 }
 OPERACION_V4 = 'PUBLICA-INFORME-PREVIO-V4'
 CLAVES_PLAN = {'archivo', 'referencia', 'version', 'huella_sha256'}
@@ -278,6 +281,9 @@ def entorno_firma(copia, recursos, puerto):
         'VEC_CT_FIRMA_VEC_R5_ENABLED': 'true',
         'VEC_CT_CIRCUITO_RRHH_SOURCE_PATH': str(recursos / 'circuito_rrhh_v2.json'),
         'VEC_CT_PLANTILLAS_SOURCE_PATH': str(recursos / 'ct_plantillas_documentos.v4.json'),
+        # F1-26: subsanación del reparo y ruta de Plantillas de documentos.
+        'VEC_CT_SUBSANACION_POLITICA_FILE': str(recursos / 'ct_subsanacion_politica.json'),
+        'VEC_CT_PLANTILLAS_GOBIERNO_ENABLED': 'true',
         'VEC_FIRMA_VERIFICACION_ENABLED': 'true',
         'VEC_FIRMA_VERIFICACION_URL': f'https://127.0.0.1:{puerto}',
         'VEC_FIRMA_VERIFICACION_CA_FILE': str(carpeta / 'ca.crt'),

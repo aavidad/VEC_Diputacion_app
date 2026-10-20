@@ -16,6 +16,23 @@ import (
 
 type autoridadSeguimientoPrueba struct{ lecturaDenegada bool }
 
+type autoridadEntregaSeguimientoPrueba struct {
+	autoridadSeguimientoPrueba
+	denegar bool
+	propia  bool
+}
+
+func (a autoridadEntregaSeguimientoPrueba) ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (EntregaSeguimiento, error) {
+	if a.denegar {
+		return EntregaSeguimiento{}, ports.ErrAutorizacionDenegada
+	}
+	return EntregaSeguimiento{Revision: true, PropuestaPropia: a.propia}, nil
+}
+
+func (autoridadSeguimientoPrueba) ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (EntregaSeguimiento, error) {
+	return EntregaSeguimiento{}, nil
+}
+
 func (autoridadSeguimientoPrueba) ResolverContextoCanalSeguimiento(context.Context) (application.ContextoCanalSeguimiento, error) {
 	return application.ContextoCanalSeguimiento{AutenticacionRef: "aut_" + strings.Repeat("a", 32), SesionRef: "ses_" + strings.Repeat("b", 32),
 		PerfilRef: "prf_0123456789abcdefghijkl", OrganizacionRef: "organizacion:prueba"}, nil
@@ -28,8 +45,9 @@ func (a autoridadSeguimientoPrueba) AutorizarLecturaSeguimiento(context.Context,
 }
 
 type ejecutorSeguimientoPrueba struct {
-	cese  application.SolicitudRegistrarCese
-	error error
+	cese   application.SolicitudRegistrarCese
+	error  error
+	estado *ports.EstadoSeguimientoExpediente
 }
 
 func (e *ejecutorSeguimientoPrueba) recibo(op string) (ports.ReciboOperacionSeguimiento, error) {
@@ -53,7 +71,48 @@ func (e *ejecutorSeguimientoPrueba) Opciones(context.Context) (ports.OpcionesSeg
 		Condiciones: []string{"cese_registrado"}, FaseRetorno: domain.FaseFiscalizacion}, nil
 }
 func (e *ejecutorSeguimientoPrueba) Estado(context.Context, string, string) (ports.EstadoSeguimientoExpediente, error) {
+	if e.estado != nil {
+		return *e.estado, nil
+	}
 	return ports.EstadoSeguimientoExpediente{ExpedienteRef: "expediente:prueba"}, nil
+}
+
+func TestSeguimientoHTTPEntregaRevisionAcotadaConVersion(t *testing.T) {
+	estado := ports.EstadoSeguimientoExpediente{ExpedienteRef: "expediente:prueba", VersionExpediente: 9,
+		FaseClave: domain.FaseNombramiento, EstadoClave: domain.EstadoEnCurso, NumeroExpediente: "2026/CT-9",
+		Acreditada: &ports.EstadoIncorporacionAcreditada{
+			PropuestaNoIncorporacion: &ports.EstadoPropuestaNoIncorporacion{PropuestaRef: "recibo:propuesta:9"},
+			NoIncorporacion:          &ports.EstadoNoIncorporacion{ReciboRef: "recibo:anterior:7"},
+			Propuestas:               []ports.EstadoPropuestaExpediente{{ReciboRef: "recibo:nombramiento:7"}},
+		}}
+	ejecutor := &ejecutorSeguimientoPrueba{estado: &estado}
+	lector := autoridadEntregaSeguimientoPrueba{}
+	m, err := NuevosManejadoresSeguimiento(lector, lector, ejecutor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := peticionSeguimiento(t, m, RutaSeguimientoCese, `{"expediente_ref":"expediente:prueba"}`)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"version_expediente":9`) ||
+		!strings.Contains(w.Body.String(), `"numero_expediente":"2026/CT-9"`) ||
+		!strings.Contains(w.Body.String(), `"propuesta_ref":"recibo:propuesta:9"`) ||
+		!strings.Contains(w.Body.String(), `"propuesta_propia":false`) ||
+		strings.Contains(w.Body.String(), `"recibo:anterior:7"`) || strings.Contains(w.Body.String(), `"recibo:nombramiento:7"`) ||
+		strings.Contains(w.Body.String(), `"propuestas"`) {
+		t.Fatalf("proyección de revisión: %d %s", w.Code, w.Body.String())
+	}
+	// Quien hizo la propuesta lo sabe por un booleano; nunca por su referencia.
+	estado.Acreditada.PropuestaNoIncorporacion.PropuestaActorRef = "per_quien_propone"
+	propia := autoridadEntregaSeguimientoPrueba{propia: true}
+	m, _ = NuevosManejadoresSeguimiento(propia, propia, ejecutor)
+	if w := peticionSeguimiento(t, m, RutaSeguimientoCese, `{"expediente_ref":"expediente:prueba"}`); w.Code != http.StatusOK ||
+		!strings.Contains(w.Body.String(), `"propuesta_propia":true`) || strings.Contains(w.Body.String(), "per_quien_propone") {
+		t.Fatalf("propuesta propia: %d %s", w.Code, w.Body.String())
+	}
+	denegado := autoridadEntregaSeguimientoPrueba{denegar: true}
+	m, _ = NuevosManejadoresSeguimiento(denegado, denegado, ejecutor)
+	if w := peticionSeguimiento(t, m, RutaSeguimientoCese, `{"expediente_ref":"expediente:prueba"}`); w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), "recibo:propuesta:9") {
+		t.Fatalf("entrega denegada: %d %s", w.Code, w.Body.String())
+	}
 }
 
 func peticionSeguimiento(t *testing.T, manejadores map[string]http.Handler, ruta, cuerpo string) *httptest.ResponseRecorder {

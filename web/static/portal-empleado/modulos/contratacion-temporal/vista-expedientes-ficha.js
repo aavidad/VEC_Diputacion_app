@@ -8,6 +8,7 @@
  * deduce responsables o plazos que el servidor no haya dado.
  */
 import { faseRRHH } from "./fases-rrhh-datos.js?v=VEC_WEB_VERSION";
+import { informeNuevoVigenteEnExpediente } from "./ronda-informe-nuevo.js?v=VEC_WEB_VERSION";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -103,7 +104,10 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     && resumen?.fase_clave === "informe_juridico" && resumen.estado_clave === "en_curso"
     && resumen.version === expediente.version && estado.expediente_ref === expediente.expediente_ref
     && ultimoHito?.accion_clave === "contratacion_temporal.informe_juridico.generar"
-    && ultimoHito.version_expediente === expediente.version;
+    && ultimoHito.version_expediente === expediente.version
+    // Tras subsanar un reparo, el informe nuevo también se firma antes de volver a Intervención.
+    || !bloqueado && !terminado && estado.expediente_ref === expediente.expediente_ref
+    && informeNuevoVigenteEnExpediente(expediente, resumen);
   const quien = guiaInforme ? t("ficha_siguiente_paso_informe_quien")
     : guiaCobertura || fiscalizacionFavorable ? t("unidad_recursos_humanos")
     : esperaIntervencion ? t("ficha_siguiente_paso_intervencion_quien")
@@ -124,7 +128,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
   const plazo = guiaCobertura ? t("siguiente_paso_plazo_desconocido") : conPlazo ? t("ficha_plazo_fase_estado", {
     fecha: resumen.plazo, estado: t(`plazo_fase_${resumen.plazo_estado}`),
   }) : t("siguiente_paso_plazo_desconocido");
-  const clase = terminado || espera ? " en-espera" : (incidencia ? " con-incidencia" : "");
+  const clase = terminado || espera ? " en-espera" : (incidencia && !guiaInforme ? " con-incidencia" : "");
   return `<section class="siguiente-paso ct-exp-siguiente-paso${clase}" aria-labelledby="ct-exp-siguiente-paso-titulo">
     <div>
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>

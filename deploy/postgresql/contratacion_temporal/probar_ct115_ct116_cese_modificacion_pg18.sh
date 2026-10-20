@@ -91,6 +91,14 @@ for m in 000115_cese_y_cierre_expediente 000116_modificacion_tras_nombramiento; 
   igual "$(escalar "SELECT md5(prosrc) FROM pg_proc WHERE proname='leer_contratos_bolsa_v1'")" "$antes_bolsa" "DOWN $m restaura la lectura de Bolsa"
   run <"$ct/$m.up.sql"; igual "$(escalar "$origen")" "$despues" "UP $m reproduce"
 done
+echo '== CT242 añade metadatos de revisión a la lectura exacta CT115'
+# CT242 lee además la numeración anual de CT142; un volcado anterior no la tiene.
+if [[ $(escalar "SELECT to_regprocedure('vec_contratacion_temporal.numero_visible_vigente_v1(text,text)') IS NOT NULL") == t ]]; then
+  run <"$ct/000242_lectura_revision_no_incorporacion.up.sql"; ok 'UP CT242'
+  falla_con "$ct/000242_lectura_revision_no_incorporacion.up.sql" 'CT242: preimagen incompatible'; ok 'doble UP rechazado CT242'
+else
+  echo 'CT242 omitida: el volcado no tiene CT142'
+fi
 echo '== CT115 DOWN se niega con CT116 instalada y CT113 DOWN con CT115'
 falla_con "$ct/000115_cese_y_cierre_expediente.down.sql" 'CT116 instalada'
 falla_con "$ct/000113_publicacion_contratos_bolsa.down.sql" 'CT113 no está instalada'
