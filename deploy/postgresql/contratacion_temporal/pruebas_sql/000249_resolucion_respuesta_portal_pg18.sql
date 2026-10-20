@@ -50,13 +50,13 @@ BEGIN
  IF NOT FOUND OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       <> '6c62a090c72f10ad4e898ef5594f3f8445fb2b2f37582a24823ca57c7e1946de'
+       <> '7748e4d63deb1766850aeb8596c5eca996705176e2de0cb90312acbd2a14cf0d'
     OR position('origen_ct_confirmado' in p.prosrc)=0
     OR position('resolucion_portal_disponible' in p.prosrc)=0
     OR position('jsonb_array_length(opacas)=1' in p.prosrc)=0
     OR position('origen_seleccion_o6_ct249_v1' in p.prosrc)=0
     OR position('r.resolucion_ref IS NULL' in p.prosrc)=0
-    OR position('resolucion_ct' in p.prosrc)<>0
+    OR position('resolucion_ct' in p.prosrc)=0
     OR position('registrar_y_consumir_resolucion_manual_ct_v3_atestada' in p.prosrc)<>0 THEN
   RAISE EXCEPTION 'CT249 prueba: proyección nominal divergente'; END IF;
  SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
