@@ -574,7 +574,8 @@ test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones 
     expediente: { expediente_ref: ref, version: 8, demostracion: false },
     documentos: { expediente_ref: ref, version: 8, demostracion: false },
     cuadro: { demostracion: false, expedientes: [] } };
-  const zona = { innerHTML: "" };
+  const tarjetaFirmante = { hidden: true };
+  const zona = { innerHTML: "", closest: selector => selector === ".ct-exp-ficha-documentos[data-ct-solo-firmante]" ? tarjetaFirmante : null };
   const insertados = [];
   const ancla = { insertAdjacentHTML: (_posicion, html) => insertados.push(html) };
   const raiz = { querySelector: (selector) => selector === "[data-ct-exp-firmados]" ? zona
@@ -589,6 +590,7 @@ test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones 
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.match(zona.innerHTML, /data-ct-descargar-firmado/u);
+  assert.equal(tarjetaFirmante.hidden, false, "el PDF custodiado revela la tarjeta del firmante");
   assert.match(zona.innerHTML, new RegExp(custodiado.huella_sha256, "u"));
   assert.equal(insertados.length, 1);
   assert.doesNotMatch(insertados[0], /data-ct-descargar-firmado/u);
@@ -608,6 +610,12 @@ test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones 
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(zona.innerHTML, "", "404 o fuente no disponible no crea un firmado");
+  assert.equal(tarjetaFirmante.hidden, true, "sin PDF custodiado se oculta la tarjeta vacía");
+  zona.closest = () => null;
+  tarjetaFirmante.hidden = false;
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(tarjetaFirmante.hidden, false, "sin marca de firmante no se oculta la tarjeta de RRHH");
   gestor.retirar();
 });
 
