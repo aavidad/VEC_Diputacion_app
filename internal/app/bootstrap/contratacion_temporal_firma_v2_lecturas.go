@@ -127,16 +127,16 @@ func nuevasLecturasFirmaV2(ctx context.Context, m *montajeFirmaVecR5CT,
 	if m == nil || m.nominal == nil || m.consultas.motivos == nil || m.consultas.sesion == nil || m.consultas.sesionOriginal == nil ||
 		m.emisorCuadro == nil || m.emisorDetalle == nil || m.consultas.repoDescarga == nil ||
 		m.alta.auditoriaLecturasCT == nil || motivos == nil || derivador == nil || ctx == nil {
-		return nil, errMontajeFirmaVecR5
+		return nil, marcarFalloMontajeCT("lecturas_requisitos", errMontajeFirmaVecR5)
 	}
 	emisor, err := ports.NuevoEmisorMaterialConsultaRRHH(m.consultas.motivos,
 		seguridadvec.GeneradorReferenciasCriptograficas{}, m.reloj, m.emisorCuadro, m.emisorDetalle)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_emisor", err)
 	}
 	cuadro, err := ctapp.NuevoServicioConsultaCuadroRRHH(m.nominal, emisor, m.consultas.sesion, m.reloj)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_cuadro", err)
 	}
 	cuadro.ConfigurarPlazosFase(m.consultas.plazosFase)
 	cuadroNominal := &continuadorCuadroFirmaV2{delegado: cuadro, nominal: m.nominal,
@@ -148,11 +148,11 @@ func nuevasLecturasFirmaV2(ctx context.Context, m *montajeFirmaVecR5CT,
 		filtroUnidadSelectoresFirmaCT{nominal: m.nominal},
 	)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_detalle", err)
 	}
 	historico, err := ctapp.NuevoServicioConsultaOriginalPropuestaRRHH(m.nominal, emisor, m.consultas.sesionOriginal, m.reloj)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_historico", err)
 	}
 	var descriptorDescarga descriptorMaterialConsumidorV3Desarrollo
 	for _, descriptor := range descriptoresMaterialAutorizacionContratacionTemporalDesarrollo() {
@@ -161,15 +161,15 @@ func nuevasLecturasFirmaV2(ctx context.Context, m *montajeFirmaVecR5CT,
 		}
 	}
 	if descriptorDescarga.Audiencia == "" {
-		return nil, errMontajeFirmaVecR5
+		return nil, marcarFalloMontajeCT("lecturas_descriptor_descarga", errMontajeFirmaVecR5)
 	}
 	materialDescarga, err := emisorMaterialFirmaR5Actual(ctx, m.alta, derivador, m.reloj, descriptorDescarga)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_material_descarga", err)
 	}
 	motivoDetalle, err := m.consultas.motivos.ResolverMotivoDetalleRRHH(ctx, m.reloj.Ahora())
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_motivo_detalle", err)
 	}
 	denegaciones := auditoriaLecturasCT{resolver: func(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
 		return contextoNominalLecturaCT(ctx, m.nominal)
@@ -179,31 +179,31 @@ func nuevasLecturasFirmaV2(ctx context.Context, m *montajeFirmaVecR5CT,
 		accion: ports.AccionDescargarBorradorRRHH, motivo: motivoDetalle,
 		finalidad: ports.FinalidadDescargarBorradorRRHH}
 	if !procesoAuditoriaIntentosConfigurado(denegaciones.configuracion.Proceso) {
-		return nil, errMontajeFirmaVecR5
+		return nil, marcarFalloMontajeCT("lecturas_proceso_auditoria", errMontajeFirmaVecR5)
 	}
 	descargas := &registradorDescargaFirmaV2{nominal: m.nominal, alta: m.alta,
 		material: materialDescarga, repo: m.consultas.repoDescarga, auditoria: denegaciones,
 		motivo: motivoDetalle}
 	motivoCircuito, err := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivos, motivoConsultaCircuitoRRHHDesarrollo().CatalogoID)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_motivo_circuito", err)
 	}
 	material, err := emisorMaterialFirmaR5Actual(ctx, m.alta, derivador, m.reloj, descriptorMaterialConsultaCircuitoRRHHDesarrollo())
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_material_circuito", err)
 	}
 	preparador := &preparadorCircuitoFirmaV2{nominal: m.nominal, alta: m.alta, material: material, reloj: m.reloj}
 	lector, err := postgresct.NuevoLectorCircuitoRRHHPostgreSQL(m.alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_lector_circuito", err)
 	}
 	servicio, err := ctapp.NuevoServicioConsultaCircuitoRRHH(preparador, lector)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_servicio_circuito", err)
 	}
 	hCircuito, err := httpinterno.NuevoManejadorConsultaCircuitoRRHH(preparador, servicio)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloMontajeCT("lecturas_manejador_circuito", err)
 	}
 	return &montajeLecturasFirmaV2{nominal: m.nominal, cuadro: cuadroNominal, detalle: detalle,
 		descargas: descargas,
