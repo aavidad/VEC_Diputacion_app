@@ -28,7 +28,8 @@ misma instancia no es una actualización admitida; se crea otra instancia.
 Reserve puertos propios y un nombre que no use otro equipo.
 
 Compruebe `free -g`, `df -h /dev/shm` y `df -h /home`. No trabaje
-con menos de 10 GB libres en disco, según la orden del 20/10. Con menos de 40 GB disponibles,
+con menos de 10 GB libres en disco para evitar que una copia o compilación
+lo agote. Con menos de 40 GB disponibles,
 retire copias y temporales propios sin uso y avise a dirección; el sistema
 conserva 32 GB. La guarda del creador rechaza menos de 34 GiB: ese umbral del
 código no sustituye la orden de avisar por debajo de 40 GB.
@@ -118,7 +119,7 @@ persistencia se repiten las lecturas después de reiniciar aplicación y
 PostgreSQL y se cotejan recibos, fechas y ausencia de duplicados.
 El caso único y sus variantes están en
 [FLUJO_APP §4.0](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
-El hito fijado por dirección el 20/10 pide un expediente completo con reinicio
+El hito exige un expediente completo con reinicio
 antes del 6 de noviembre; si no se alcanza, se recalcula la fecha de fin de
 fase 1, prevista para la segunda quincena de noviembre. El cierre exige además
 las condiciones del [plan](../producto/PLAN_IMPLEMENTACION.md).
@@ -148,7 +149,7 @@ propia en disco; PGDATA y carpetas de trabajo desechables van en `/dev/shm/vec`.
 La memoria se pierde al apagar el equipo. Haga commit y push de los documentos
 y guiones sin secretos al menos cada 30 minutos mientras haya trabajo nuevo,
 y deje ESTADO en el canal. Una cabeza congelada esperando CI o revisión solo
-necesita ese ESTADO, según la aclaración de dirección del 20/10 a las 12:22.
+necesita ese ESTADO, para no reiniciar comprobaciones con commits vacíos.
 
 Cuando ya no necesite su instancia y haya guardado su evidencia:
 
