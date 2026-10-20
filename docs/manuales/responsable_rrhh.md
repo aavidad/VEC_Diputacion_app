@@ -1,6 +1,6 @@
 # RRHH: consultar una petición, su historial y sus documentos
 
-Esta guía recoge consultas comprobadas en el Portal del Empleado el 9 de octubre de 2026. Con el acceso de RRHH se puede localizar un expediente, leer su fase, sus datos y las actuaciones registradas, y descargar sus documentos en PDF y Word cuando el expediente está en la fase de nombramiento. Las imágenes muestran un ejemplo; su número y sus datos pueden cambiar.
+Actualizado el 20 de octubre de 2026. Use el acceso autorizado de la copia local, con datos ficticios. Esta guía conserva consultas y capturas históricas del Portal del Empleado del 9 de octubre de 2026. Con el acceso de RRHH se puede localizar un expediente, leer su fase, sus datos y las actuaciones registradas, y descargar sus documentos en PDF y Word cuando el expediente está en la fase de nombramiento. Las imágenes muestran un ejemplo; su número y sus datos pueden cambiar.
 
 ## Abrir la ficha
 
@@ -22,9 +22,9 @@ Para regresar, pulse **Volver a la lista**. Si actualiza la página y aparece la
 
 ## Descargar los documentos del expediente
 
-Baje hasta el panel **Documentos generados**, dentro de la misma ficha. Cada documento aparece en su tarjeta con la marca **Borrador sin firmar** y dos botones: **Descargar PDF** y **Descargar Word**. Los archivos llevan el logotipo de la Diputación. El PDF del informe del ejemplo indica en su primera página que es un borrador no firmado ni validado.
+Baje hasta el panel **Documentos generados**, dentro de la misma ficha. Los borradores aparecen en su tarjeta con la marca **Borrador sin firmar** y dos botones: **Descargar PDF** y **Descargar Word**. Los archivos llevan el logotipo de la Diputación. El PDF del informe del ejemplo indica en su primera página que es un borrador no firmado ni validado.
 
-La descarga solo funciona cuando el expediente está en la fase **Nombramiento**. En el ejemplo se usó `2026/CT-000127`, que está en esa fase:
+Las descargas de este recorrido histórico se comprobaron en la fase **Nombramiento**. Se usó `2026/CT-000127`, que está en esa fase:
 
 1. En **Peticiones de personal temporal**, escriba la referencia en **Buscar** y abra la ficha.
 
@@ -48,7 +48,7 @@ En un expediente que todavía no ha llegado a **Nombramiento** también se ve la
 
 ## Alcance de este acceso
 
-Este recorrido comprobó la **consulta** de la ficha, del historial y de los documentos. No comprobó una acción propia para **resolver** ni para **firmar** con este acceso. Un documento descargado sigue siendo un borrador: no está firmado ni produce efectos.
+Este recorrido comprobó la **consulta** de la ficha, del historial y de los documentos. No comprobó una acción propia para **resolver** ni para **firmar** con este acceso. Los archivos obtenidos mediante **Descargar PDF** y **Descargar Word** en el panel de borradores siguen siendo borradores. Para consultar una firma, use el panel de firma del expediente: compruebe el documento, las firmas verificadas y su recibo, y recupere el PDF firmado por el botón correspondiente. Descargar un borrador no recupera ese PDF firmado.
 
 Si el panel de documentos muestra «No se pudieron consultar los borradores publicados», pulse **Reintentar consulta**. Si el mensaje continúa, conserve el número del expediente y comunique el mensaje a Informática.
 
@@ -67,3 +67,11 @@ Falta conectar la oferta con el expediente de varias personas y bloquear
 la cancelación mientras se recupera una publicación pendiente. También quedan
 la retirada de la oferta tras cancelar y el aviso por correo de la Diputación.
 El envío de correo por VEC no se acredita en este corte.
+
+## Consultar después de una interrupción
+
+Abra el mismo expediente y compruebe el historial y los recibos ya registrados
+antes de pedir que se repita una operación. Si no puede recuperar un documento
+firmado con su acceso, conserve el mensaje y solicite revisión; no use el
+certificado de otra persona. La conservación del recorrido completo después de
+reiniciar sigue pendiente de acreditación conjunta en [los recorridos pendientes](PENDIENTES.md).
