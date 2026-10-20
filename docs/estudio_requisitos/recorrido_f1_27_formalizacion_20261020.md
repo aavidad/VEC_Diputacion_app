@@ -216,3 +216,31 @@ Este resultado sigue sin acreditar los pasos 12 a 21.
 
 - [Informe firmado, recuperado tras el reinicio](recorrido_f1_27_formalizacion_20261020/copia_nueva_firmas.png).
 - [Aceptación firme y recibo, recuperados tras el reinicio](recorrido_f1_27_formalizacion_20261020/copia_nueva_aceptacion.png).
+
+## Reconocimiento de incorporación, Personal y cese
+
+Se restauró la misma candidata, sin cambiar fuente ni binario. Los archivos
+del tramo 16 a 21 coinciden con `main@bf055fc99`. Solo se abrieron pantallas
+y se hicieron consultas; no se registró ningún acto dependiente de la firma.
+El histórico 2026/CT-000127 se usó para abrir los paneles posteriores,
+separado del expediente de Antonio.
+
+| Consulta | HTTP | Resultado y requisito pendiente |
+| --- | --- | --- |
+| Incorporaciones del centro | 200 | Antonio sigue en fiscalización: «Aún no procede» |
+| Plan de alta del histórico 127 | 409 `preparacion_pendiente` | Faltan antecedentes de aceptación, formalización o periodo; categorías y vínculo RPT responden 200 |
+| Seguimiento del histórico 127 | 200 | Cese bloqueado por falta de incorporación; cierre exige cese y GINPIX |
+| Registro de Personal y catálogos | 200 | Listado sin empleados en el organismo B2 y regímenes publicados visibles |
+| Vacantes de Personal | 200 | Plaza 2026/0033 y puesto Administrativo visibles; falta la denominación de la unidad |
+
+La ficha GINPIX requiere el recibo B2 confirmado. Se conserva el orden
+17 → 18 → 16a → 16b; no se ha forzado su descarga ni su confirmación.
+La vuelta a Bolsa tampoco se ha ejecutado: necesita aceptación anclada,
+alta nativa y cierre en Personal. La falta de vínculo CT201 no bloquea
+por sí sola ese relevo.
+
+El listado vacío de empleados no acredita un fallo del alta: los firmantes
+se cargaron en otro organismo y el listado usa el configurado en B2.
+Tras este reconocimiento, las instantáneas de Antonio permanecen idénticas:
+dos firmas, versión 6 y una respuesta firme. La copia actualizada vuelve a
+quedar detenida y conservada en disco con integridad comprobada.
