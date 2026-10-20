@@ -258,6 +258,10 @@ class Copia:
                                            puerto=args.puerto_admin)
             guardar(self.estado, estado)
             ejecutar_admin(self, 'preparar')
+            # Solo una preparación confirmada habilita el arranque en cada reinicio.
+            estado = self.leer()
+            estado['admin_preparada'] = True
+            guardar(self.estado, estado)
             ejecutar_admin(self, 'arrancar')
             ejecutar_admin(self, 'comprobar')
         if args.portal_externo:
