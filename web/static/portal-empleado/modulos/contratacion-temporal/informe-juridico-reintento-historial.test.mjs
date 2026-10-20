@@ -125,7 +125,9 @@ test("informe confirmado, consulta de historial fallida y reintento conserva rec
   await primero;
   assert.equal(posts, 1);
   assert.equal(consultas.length, 2);
-  assert.match(raiz.innerHTML, /Historial persistido del expediente/u);
+  assert.match(raiz.innerHTML, /<caption>Actuaciones del expediente<\/caption>/u);
+  assert.match(raiz.innerHTML, /<th scope="row" data-etiqueta="Secuencia">\d+<\/th>/u);
+  assert.doesNotMatch(raiz.innerHTML, /persistid|Historial real/u);
   assert.match(raiz.innerHTML, /data-ct-informe-historial tabindex="-1"/u);
   assert.match(raiz.innerHTML, /<tbody>[\s\S]*Informe jurídico generado[\s\S]*<\/tbody>/u);
   assert.match(raiz.innerHTML, /recibo:ct:informe:sintetico-001/u);
@@ -160,7 +162,7 @@ test("la consulta diferida no recupera foco ni desplaza si se pasó a otro exped
   await reintento;
   assert.equal(raiz.ownerDocument.activeElement, otroExpediente);
   assert.deepEqual(raiz.foco, focoAlIniciar);
-  assert.match(raiz.innerHTML, /Historial persistido del expediente/u);
+  assert.match(raiz.innerHTML, /<caption>Actuaciones del expediente<\/caption>/u);
   assert.match(raiz.innerHTML, /data-ct-informe-recibo/u);
   assert.equal(posts, 1);
   assert.equal(consultas, 2);

@@ -64,6 +64,36 @@ Copia propia con la lista única (`--sin-inscripcion` bastó). El ensayo SQL con
 - **Admitir la fuente v2 y publicar la versión del rol.** La copia no tiene todavía la cadena de administración necesaria (F0-28). Cuando la tenga, los pasos son: admitir la fuente v2 en un catálogo nuevo con `vec-catalogo-acciones-admitir` (AUT58 y AUT61), cuya vigencia cubra la de la v2; proponer la versión del rol candidato con los diez campos; y cerrarla con un segundo administrador. Después, repetir en la copia el GET y el PUT con recibo y reinicio usando el certificado de la aspirante.
 - **Asimetría heredada.** La escritura de preferencias (B104 y B138) acepta una decisión emitida para un rol de semilla y la lectura no. Ya ocurría antes de esta parte; se deja anotada para la revisión de seguridad.
 - **Orden de las claves en B138.** Sus `ORDER BY` usan la colación de la base y Go ordena por bytes. Con las ocho claves actuales coinciden; con otras, el guardado fallaría cerrado. Una migración futura debe usar `COLLATE "C"`.
-- **Parte 4 (B139).** Aplicar la elección a la vista de ofertas publicadas y a los avisos, sin tocar el orden de llamamiento ni la inscripción.
+- **Parte 4 (B139).** Hecha; ver el apartado siguiente.
 
 Sigue sin acreditar: la fuente v2 admitida, la versión del rol publicada, el GET/PUT de modalidades con recibo y reinicio, y el recorrido en Chrome. Cuando lleguen, el ensayo debe comprobar con datos ficticios que `null` muestra todas las modalidades, que `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, que una clave desconocida se rechaza y que una repetición conserva versión, recibo y fecha tras reiniciar. Después hay que contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Un fallo de configuración debe cerrar solo esta función y dejar disponible el resto de Mi Bolsa.
+
+## Parte 4: vista de ofertas y avisos (20/10/2026)
+
+**Vista de Mi Bolsa.** Si la lectura de modalidades está montada, `GET /api/vec/bolsa/mi-bolsa` quita las ofertas abiertas sin respuesta de la persona cuya modalidad no eligió. Las ofertas sin modalidad, las ya respondidas y las resueltas se ven siempre. Con `null` o sin elección guardada se ven todas; con `[]` solo desaparecen las abiertas con modalidad. La respuesta lleva `ofertas_segun_modalidades: true` cuando la lista ya aplica la elección. La elección solo se lee si hay alguna oferta que pueda quitarse. Si la lectura falla (rol sin la concesión, función ausente o error), se devuelven todas las ofertas sin esa marca y el registro técnico solo anota `denegada`, `no_disponible` o `error`. Ocultar ofertas por un fallo haría perder a la persona ofertas a las que puede responder. Participaciones, posición, situación y llamamientos no cambian.
+
+**Avisos (B139).** `crear_aviso_oferta_b129()` congela los destinatarios al publicar. Ahora excluye a quien tiene una elección guardada que no incluye la modalidad de la oferta; lee la última versión de `preferencia_modalidades_version` por `vinculo_candidato`. Una oferta sin modalidad llega a todos los disponibles, como antes. La cola, la reclamación y el reintento usan la lista congelada y no vuelven a leer la elección; un cambio posterior solo cuenta para ofertas nuevas. B139 coteja la huella del cuerpo instalado (`464f8f0c…`), propietario, configuración y permisos, y comprueba la huella final (`56206ed1…`). No crea funciones ni toca el núcleo. Solo hay UP y se instala al final de la lista única.
+
+| Migración | SHA-256 del fichero |
+| --- | --- |
+| B139 `bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql` | `ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879` |
+
+La prueba `bolsa_llamamientos/pruebas_sql/b139_avisos_modalidades.sql` necesita una copia con semilla (dos personas disponibles con vínculo en una bolsa vigente) y lo revierte todo. Comprueba el filtro, que la lista anterior no cambia al cambiar la elección, que una oferta sin modalidad llega a todos, que `null` vuelve a incluir y que la reclamación usa solo la lista congelada.
+
+### Evidencia en copia local
+
+`ensayar.py --pruebas`: 120 migraciones, 10 pruebas SQL antes y después del reinicio. Copia propia con portal externo: B139 instalada con su huella final.
+
+En la bolsa de Administrativo (25 disponibles) dos personas de la semilla recibieron una elección como dato de copia, sin acto gobernado: A solo «vacante» y B solo «sustitucion». Se publicaron tres ofertas con las dos guardas de política V3 desactivadas solo durante la inserción:
+
+- «vacante»: 24 avisos, A incluida y B no.
+- «sustitucion»: 24 avisos, B incluida y A no.
+- sin modalidad: 25 avisos, las dos incluidas.
+
+Después A pasó a «ninguna» y B a «todas». Las tres listas anteriores no cambiaron. Otra oferta «vacante» excluyó a A e incluyó a B. Dos reclamaciones de diez y, tras reiniciar aplicación y PostgreSQL, otra de cuatro: 24 avisos reclamados de 24, 24 identificadores de mensaje distintos y un intento cada uno. El orden vigente de la bolsa (posición y situación de cada participación en el mismo instante) dio la misma huella antes, después y tras el reinicio. Mi Bolsa respondió 200 tras el reinicio.
+
+La vista filtrada no se pudo ver en la copia: la aspirante del portal no tiene participaciones y su lectura de modalidades sigue denegada (403) hasta publicar la versión del rol por actos gobernados. Las pruebas de la aplicación cubren la vista.
+
+Ensayo: unas funciones de ayuda de la demostración con `EXECUTE` para PUBLIC impidieron montar Bolsa y Contratación al reiniciar. La guarda de arranque hizo lo que debía; al retirar ese permiso la aplicación arrancó.
+
+Queda: la pantalla para elegir y «Ver todas» (F1-14), publicar la versión del rol y acreditar la vista con la aspirante en Chrome. El portal interno no tiene todavía consulta de modalidades.
