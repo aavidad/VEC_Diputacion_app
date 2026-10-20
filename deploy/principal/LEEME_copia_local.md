@@ -100,7 +100,31 @@ esos selectores y los catálogos se preparan para el recorrido que los use.
 El segundo RRHH que exige la regla c22 necesita su identidad y perfil
 publicados por el circuito de Administración; esta conexión no los concede.
 
-Tras el productor de datos, el guion coteja los 23 LOGIN internos: opciones
+`VEC_CALENDARIOS_DATABASE_URL` usa otro LOGIN, solo con el grupo
+`vec_calendarios_lector`. Bolsa consulta el calendario oficial para saber si
+una llamada cae en día hábil y para calcular el plazo de las ofertas. Sin esa
+conexión, registrar una llamada y ver la lista de contactos respondían 503.
+
+Desde F1-99, `crear --modulos` sin `--portal-externo` prepara además los datos
+del caso 4.0 para los pasos 9 y 10 (`copia_local_caso40.py`):
+
+- aplica los tres guiones de `candidata_hz39/datos` (puesto 9/01 del centro
+  520, Antonio disponible en la bolsa vigente y cargo de Manuel);
+- crea con `preparar_candidato_desarrollo.sh --candidato-ref` una identidad
+  nueva de Antonio ligada a su candidatura vigente. La persona del material
+  original tiene el permiso de Mi Bolsa ligado a la candidatura de la bolsa
+  sustituida y recibía 403. El permiso nuevo lo publica la aplicación al
+  arrancar. El certificado queda en `material/mtls/candidato.crt` y se activa
+  `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED`;
+- registra por la API de Bolsa, como la técnica de RRHH, el correo
+  `antonio.reyes@example.test` y un teléfono ficticio. El buzón de la copia
+  solo acepta ese dominio, así que el aviso del llamamiento llega a él y no
+  sale fuera.
+
+Los nombres de las participaciones no se tocan: el nombre que muestra la lista
+de la bolsa es el del acta. Lo revisa F1-100.
+
+Tras el productor de datos, el guion coteja los 24 LOGIN internos: opciones
 sin privilegios de administración y membresías directas exactas. La conexión
 de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
 y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
@@ -508,6 +532,13 @@ consulta, y la selección fallaba.
   guardada y está en acumulación de tareas, que no admite puesto ni huella. En
   tu copia puedes usar la variante vacante del caso 4.0 con dos personas
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
+- «Llamar a la siguiente persona» desde la ficha del expediente sigue dando
+  409 en una copia nueva (F1-99, 20/10). Ningún perfil de RRHH de la copia
+  tiene la concesión `personal.organizacion_historica.consultar` y en
+  desarrollo nadie la publica: hace falta un acto de Administración. Además,
+  los expedientes de la semilla (2026/93001 y 2026/94011) no guardan
+  necesidad de la RPT. Hasta resolverlo, el llamamiento del paso 9 se emite
+  desde el asistente de Bolsa.
 
 ## 7. Arrancar `vec-server`
 
@@ -584,6 +615,9 @@ mismo volcado y las listas necesarias.
 | La selección desde la bolsa constituida da 404, 409 o 503 | Organización histórica sin montar en el combinado o sin material | #1150 y su material (apartado 6) |
 | La selección rechaza el puesto 9/01 | Unidad gestora frente a unidad del puesto | Esperar a F1-21 (#1153); no tocar el dato |
 | La selección exige una necesidad de la RPT | La solicitud de la copia no la guardó | Variante vacante del caso 4.0 como dato de copia |
+| Mi Bolsa responde 403 a Antonio | Su permiso estaba ligado a la candidatura de la bolsa sustituida | Arreglado en F1-99: la copia crea su identidad ligada a la candidatura vigente (apartado 2) |
+| Registrar una llamada o ver los contactos de una participación da 503 | Faltaba la conexión del calendario oficial | Arreglado en F1-99: `VEC_CALENDARIOS_DATABASE_URL` (apartado 2) |
+| El aviso del llamamiento no llega al buzón | La participación no tenía datos de contacto | Arreglado en F1-99: la copia registra un correo `@example.test` (apartado 2) |
 | El cliente de Personal (M10) llama a un puerto ajeno | `cliente_m10_ct.json` copiado sin cambiar | Apuntarlo a tu servicio |
 | La consulta de firmas da 503 con «autenticación histórica inválida» | Falta IS20 | Aplicar la lista 1b |
 | El contenedor de la app no arranca al montar `/app` en solo lectura y `/app/var` en escritura | Falta la carpeta `var/` en tu carpeta de trabajo | Crea `var/` en tu carpeta de trabajo antes de montar (lo vio T el 16/10) |

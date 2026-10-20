@@ -68,8 +68,8 @@ copia de partida antes de usar esta versión; el guion rechaza esa carga
 incompatible y conserva su historia. No se borra ni se reescribe lo instalado.
 
 Cada guion se ejecuta en una transacción. La receta de Personal añade cinco
-filas de historia. La de Bolsa añade una procedencia, una versión del vínculo
-de Antonio, su situación y la traza que registra el disparador existente. La segunda
+filas de historia. La de Bolsa añade una procedencia, la situación de Antonio
+y la traza que registra el disparador existente. La segunda
 ejecución reconoce las mismas referencias y termina sin cambios. Repetirla
 después del recorrido conserva también sus actuaciones posteriores; no vuelve a
 poner disponible a Antonio ni restablece su turno. Una carga distinta con esas
@@ -112,7 +112,7 @@ La carga original y su repetición se comprobaron en la copia K con PostgreSQL
 18 y HZ37; esa comprobación no incluía la consulta de vacantes. La comprobación
 focal de esta corrección se indica en la PR. El recorrido completo de Chrome y
 el reinicio corresponden al ensayo único de P. Este paquete no cambia el
-arranque; el ajuste del manifiesto privado se indica a continuación.
+arranque.
 
 El ajuste de Antonio reutiliza `constitucion_entrada`, `vinculo_candidato`,
 `situacion_participacion` y `leer_origen_llamamiento_ct_v1` existentes. No cambia
@@ -126,11 +126,14 @@ conservan. Se reutiliza la primera participación de la bolsa vigente para los
 datos ficticios de Antonio; no se añaden integrantes al acta ni se cambian
 canónicos o huellas.
 
-CONFIG NUEVA: conservar la misma persona, cuenta y certificado de Antonio y
-actualizar `candidato_ref` a
-`can_Vxd6XlZE9ctNzw38AUSmgQbCcRyoFKhaojDaFsEKC1M` en los manifiestos privados
-`identidad/bolsa-candidato.json` que use la copia. No se añaden opciones de
-arranque ni credenciales.
+Desde F1-99 el guion de Bolsa ya no mueve el vínculo de la persona de origen
+(`persona_ref` de `seleccion.json`) a la candidatura vigente. Esa persona
+conserva su permiso de Mi Bolsa ligado a la candidatura de la bolsa sustituida,
+y la aplicación no admite cambiar sus ámbitos: Mi Bolsa respondía 403. En su
+lugar, `copia_local.py crear --modulos` llama a `preparar_candidato_desarrollo.sh
+--candidato-ref` y crea una identidad nueva de Antonio, con su certificado,
+ligada a `candidato_ref`. El permiso lo publica la aplicación al arrancar. El
+apartado 2 de `LEEME_copia_local.md` explica el resto de la preparación.
 
 Comprobación del ajuste de Antonio en PostgreSQL 18.4, sobre la copia actual de
 HZ37: dos ejecuciones, mismo estado en las 11 tablas comparadas. Con la categoría
