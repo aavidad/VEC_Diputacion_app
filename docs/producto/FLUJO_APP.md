@@ -842,6 +842,14 @@ migraciones de `deploy/postgresql/contratacion_temporal/`):
 | Cierre | Técnico de RRHH | `cierres-expediente` (exige cese y GINPIX) | `nombramiento/completado` | En cidonia *(por verificar)* |
 | Cancelación | RRHH o centro | `cancelaciones-expediente` / `peticiones-centro/cancelaciones` | Fase actual con estado `cancelado` | Por verificar |
 
+**Propuesta desde Mi Bolsa (F1-127, preparada; falta activación y ensayo).**
+La aceptación firme requiere una resolución de RRHH. Su referencia y su recibo
+alimentan la propuesta desde la ficha del expediente, sin adjuntar un correo.
+La propuesta vuelve a comprobar la aceptación, la selección, el expediente y
+la autorización. La repetición debe recuperar el mismo recibo. La resolución
+por correo conserva su recorrido; este corte no resuelve ofertas de varias
+plazas ni sustituye el acto de RRHH.
+
 Estados que admite la tabla: `en_curso`, `completado`, `incidencia` y
 `cancelado`. El dominio nombra también `pendiente` y `espera_externa`, pero no
 se guardan. Las fases no son una lista cerrada en el código: son claves de

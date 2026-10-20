@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"reflect"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -76,6 +77,21 @@ func (e EvidenciaAceptacionBolsaNativa) Validar() error {
 }
 
 func (e EvidenciaAceptacionBolsaNativa) ValidarPara(a AntecedentePropuestaFormalizacion) error {
+	if a.Portal != nil {
+		p := a.Portal
+		s := p.Seleccion
+		if e.Validar() != nil || p.Validar() != nil ||
+			e.Selector.ClaveCT != s.ClaveCT || e.Selector.OrganizacionRef != p.OrganizacionRef ||
+			e.Selector.ExpedienteRef != p.ExpedienteRef || e.Selector.LlamamientoRef != p.LlamamientoRef ||
+			e.Selector.UnidadRef != s.UnidadRef || e.Selector.CategoriaRef != s.CategoriaRef ||
+			e.Selector.NecesidadRef != s.NecesidadRef || e.Selector.BolsaRef != s.BolsaRef ||
+			e.Selector.ReciboEmisionRef != s.ReciboEmisionRef ||
+			e.Selector.ReciboRespuestaRef != p.ReciboRespuestaPortalRef ||
+			e.RespuestaRef != p.RespuestaPortalRef || !e.RespondidaEn.Equal(p.RespondidaEn) {
+			return ErrResolucionLlamamientoNoAceptada
+		}
+		return nil
+	}
 	r := a.Resolucion
 	j := a.Justificante
 	if e.Validar() != nil || r.ValidarPara(r.Solicitud) != nil ||
@@ -100,9 +116,17 @@ type AntecedentePropuestaFormalizacion struct {
 	Resolucion     ResultadoResolucionLlamamiento
 	Justificante   JustificanteRespuestaRecibida
 	SeleccionClave string
+	Portal         *AntecedentePortalPropuesta `json:",omitempty"`
 }
 
 func (a AntecedentePropuestaFormalizacion) ValidarPara(s SolicitudPropuestaFormalizacion) error {
+	if a.Portal != nil {
+		if !reflect.ValueOf(a.Resolucion).IsZero() || !reflect.ValueOf(a.Justificante).IsZero() ||
+			a.SeleccionClave != "" {
+			return ErrResultadoPropuestaFormalizacionNoConfiable
+		}
+		return a.Portal.ValidarPara(s)
+	}
 	r := a.Resolucion
 	if (MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s}).Validar() != nil ||
 		r.ValidarPara(r.Solicitud) != nil || r.Solicitud.Respuesta != RespuestaLlamamientoAceptada ||
