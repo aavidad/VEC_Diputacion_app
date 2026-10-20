@@ -238,7 +238,7 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		etiquetador.catalogo = catalogosAlta[0]
 	}
 	alta.etiquetasPeticionesRRHH = etiquetador
-	repo, err := postgresct.NuevoRepositorioPeticionesCentroPostgreSQL(alta.postgresql.ejecucion, p)
+	repo, err := postgresct.NuevoRepositorioPeticionesCentroPostgreSQL(alta.postgresql.ejecucion, p, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		return nil, err
 	}
@@ -386,14 +386,14 @@ func motivoPeticionCentroDesarrollo() vecdomain.ReferenciaEntradaCatalogo {
 }
 
 func (p *proveedorPeticionCentroDesarrollo) AutorizarLecturaPeticionCentro(ctx context.Context, c ports.ConsultaPeticionCentro) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	r, err := postgresct.RecursoConsultaPeticionCentro(c)
+	r, err := postgresct.RecursoConsultaPeticionCentro(c, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
 	return p.autorizar(ctx, c.Actor, ports.AccionConsultarPeticionCentro, r, materialAutorizacionPeticionCentroDesarrollo{consulta: &c})
 }
 func (p *proveedorPeticionCentroDesarrollo) AutorizarEscrituraPeticionCentro(ctx context.Context, m ports.MaterialPeticionCentro) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	r, err := postgresct.RecursoEscrituraPeticionCentro(m)
+	r, err := postgresct.RecursoEscrituraPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
@@ -453,10 +453,10 @@ func solicitudAutorizacionPeticionCentroDesarrolloValida(ctx context.Context, d 
 	}
 	if m.consulta != nil && m.escritura == nil && d.Accion == ports.AccionConsultarPeticionCentro {
 		actor = m.consulta.Actor
-		r, err = postgresct.RecursoConsultaPeticionCentro(*m.consulta)
+		r, err = postgresct.RecursoConsultaPeticionCentro(*m.consulta, organizacionAltaContratacionTemporalDesarrollo)
 	} else if m.escritura != nil && m.consulta == nil && d.Accion == postgresct.AccionEscrituraPeticionCentro(*m.escritura) {
 		actor = m.escritura.Actor
-		r, err = postgresct.RecursoEscrituraPeticionCentro(*m.escritura)
+		r, err = postgresct.RecursoEscrituraPeticionCentro(*m.escritura, organizacionAltaContratacionTemporalDesarrollo)
 	} else {
 		return false
 	}
