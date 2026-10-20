@@ -146,6 +146,11 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
   "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  // F1-96: nombres de los documentos generados en el idioma elegido.
+  "i18n-borradores-publicados.js": ["bp_documento_informe_definitivo", "bp_documento_resolucion",
+    "bp_documento_diligencia", "bp_documento_toma_posesion", "bp_documento_notificacion",
+    "bp_documento_comunicacion_centro", "bp_documento_contrato_laboral", "bp_documento_nombramiento",
+    "bp_documento_cese", "bp_documento_modificacion_nombramiento"],
   // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
   // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
   "i18n-llamamiento.js": [
@@ -174,14 +179,18 @@ const CLAVES_ADICIONALES = Object.freeze({
   // F1-93: textos de recibos e historial de la ficha, trasladados desde el código en lenguaje llano.
   "i18n-textos-vistas.js": ["motivo_sustitucion", "cobertura_recibo_descripcion",
     "asignacion_recibo_descripcion", "informe_recibo_descripcion", "informe_historial_titulo",
-    "informe_historial_descripcion", "informe_historial_tabla"],
+    "informe_historial_descripcion", "informe_historial_tabla",
+    // F1-96: la confirmación del informe nombra el expediente por su número.
+    "informe_resumen_numero"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle",
     // F1-89: orientación de la ficha tras preparar el informe jurídico.
     "ficha_siguiente_paso_informe_titulo", "ficha_siguiente_paso_informe_que",
     "ficha_siguiente_paso_informe_quien", "ficha_siguiente_paso_intervencion_quien",
     // F1-93: la cabecera nombra el paso dentro de la fase.
-    "ficha_fase_con_subfase"],
+    "ficha_fase_con_subfase",
+    // F1-96: el paso propio de la ficha tras asignar la unidad.
+    "ficha_siguiente_paso_preparar_informe_titulo", "ficha_siguiente_paso_preparar_informe_que"],
 });
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");

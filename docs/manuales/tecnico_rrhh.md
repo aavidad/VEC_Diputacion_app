@@ -78,6 +78,8 @@ En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**
 
 La cabecera de la ficha indica también el paso de la fase en el que está el expediente. Tras la asignación muestra «Fase 3 de 8: Gestión de bolsa · Asignación de unidad» y, cuando se prepara el informe jurídico, «Fase 3 de 8: Gestión de bolsa · Informe jurídico».
 
+Con la unidad asignada, **Siguiente paso** dice «preparar el informe jurídico». **Ir al trámite de esta fase** lleva al apartado **Preparar informe jurídico**, que nombra el expediente por su número (por ejemplo, «Expediente 2026/94010, versión 4.»). Al confirmar el informe, la cabecera y **Siguiente paso** cambian en el momento a «revisar las firmas del informe». No hace falta volver a abrir la ficha, y el recibo y el historial siguen en pantalla. En los dos historiales la fase se escribe igual que en la cabecera, por ejemplo «Gestión de bolsa · Informe jurídico».
+
 ![Propuesta de Bolsa vigente y comprobaciones que la acompañan.](img/rrhh-20261009-cobertura.webp)
 
 ![Unidad y responsable que se revisan antes de confirmar la asignación.](img/rrhh-20261009-asignacion.webp)

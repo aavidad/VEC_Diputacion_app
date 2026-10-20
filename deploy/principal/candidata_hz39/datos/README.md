@@ -27,11 +27,10 @@ catálogos publicados `regimen:funcionario_interino` v1 y `modalidad:vacante` v1
 
 P conserva la preparación de la identidad de Antonio con los guiones existentes en
 [inscripcion_recorrido_20261013](../../inscripcion_recorrido_20261013/LEEME.md).
-[antonio_disponible.sql](antonio_disponible.sql) vincula a Antonio con su
-propia fila del acta vigente, la del puesto 5, que el acta da a «Antonio Reyes
-Álvarez». La misma persona de Antonio se vincula a ese candidato mediante una
-nueva versión de su proyección común; las anteriores permanecen en la historia.
-Las cuatro personas de los puestos 1 a 4 pasan a **No disponible** con una
+[antonio_disponible.sql](antonio_disponible.sql) parte de la fila del acta
+vigente que lleva el nombre de Antonio, la del puesto 5, «Antonio Reyes
+Álvarez». Sus referencias de candidatura y participación están en
+`seleccion.json`. Las cuatro personas de los puestos 1 a 4 pasan a **No disponible** con una
 clave fija, así que el primer turno es el de Antonio. El guion solo las marca
 si siguen disponibles; si alguna ya cambió de situación (por ejemplo, porque el
 recorrido la llamó o la contrató), se para sin tocar nada. No comprueba
@@ -40,7 +39,8 @@ nadie. Se conservan la bolsa
 sustituida y el orden del acta. La fuente de Bolsa que usa el llamamiento CT
 debe devolverlo como primer candidato disponible, con orden de acta 5; si no
 lo hace, la transacción se revierte.
-No se crean otra persona, candidatura, bolsa ni inscripción.
+Este guion no crea otra persona, candidatura, bolsa ni inscripción, ni mueve
+vínculos de personas.
 
 El recorrido principal empieza en la petición del centro, con Antonio ya en la
 bolsa. Los pasos e1 a e5 son una demostración aparte, no bloqueante, como indica
@@ -74,8 +74,8 @@ copia de partida antes de usar esta versión; el guion rechaza esa carga
 incompatible y conserva su historia. No se borra ni se reescribe lo instalado.
 
 Cada guion se ejecuta en una transacción. La receta de Personal añade cinco
-filas de historia. La de Bolsa añade una procedencia, una versión del vínculo
-de Antonio, su situación y la traza que registra el disparador existente. La segunda
+filas de historia. La de Bolsa añade la situación de Antonio
+y la traza que registra el disparador existente. La segunda
 ejecución reconoce las mismas referencias y termina sin cambios. Repetirla
 después del recorrido conserva también sus actuaciones posteriores; no vuelve a
 poner disponible a Antonio ni restablece su turno. Una carga distinta con esas
@@ -118,7 +118,7 @@ La carga original y su repetición se comprobaron en la copia K con PostgreSQL
 18 y HZ37; esa comprobación no incluía la consulta de vacantes. La comprobación
 focal de esta corrección se indica en la PR. El recorrido completo de Chrome y
 el reinicio corresponden al ensayo único de P. Este paquete no cambia el
-arranque; el ajuste del manifiesto privado se indica a continuación.
+arranque.
 
 El ajuste de Antonio reutiliza `constitucion_entrada`, `vinculo_candidato`,
 `situacion_participacion` y `leer_origen_llamamiento_ct_v1` existentes. No cambia
@@ -130,23 +130,27 @@ Dirección cambió la referencia del caso a la bolsa vigente: la del 17/09 ya
 estaba sustituida por el acta del 12/10. Esa sustitución y ambas actas se
 conservan. No se añaden integrantes al acta ni se cambian canónicos o huellas.
 
-La primera versión de este guion (F1-100) vinculaba a Antonio con la fila 1 del
-acta, que es de Isabel Ramírez Vargas. La lista de la bolsa mostraba su nombre
-en la participación de Antonio, y su propia fila, la del puesto 5, aparecía
-como de otra persona. El nombre visible sale del acta protegida, que solo la
-aplicación puede descifrar; por eso el guion fija las referencias de la fila
-del acta que lleva su nombre y no puede comprobar el nombre en SQL. Si el
-guion anterior ya se aplicó, este añade otra versión del vínculo y las cuatro
-situaciones; no deshace nada.
+Hasta F1-100, `seleccion.json` y este guion tomaban como de Antonio la fila 1
+del acta, que es de Isabel Ramírez Vargas. La lista de la bolsa mostraba ese
+nombre en la participación de Antonio, y su propia fila, la del puesto 5,
+aparecía como de otra persona. El nombre visible sale del acta protegida, que
+solo la aplicación puede descifrar; por eso `seleccion.json` y el guion fijan
+las referencias de la fila que lleva su nombre, y el nombre no se puede
+comprobar en SQL. En una copia preparada con la versión anterior, este guion
+añade las cuatro situaciones y no deshace nada, pero la identidad de Antonio
+de esa copia sigue ligada a la fila 1: hay que crear la copia de nuevo.
 
-CONFIG NUEVA: conservar la misma persona, cuenta y certificado de Antonio y
-actualizar `candidato_ref` a
-`can_dJo5qQLf4agrD4c3jkIlHUkga2uQ-BusRCLCYPzKLyY` en los manifiestos privados
-`identidad/bolsa-candidato.json` que use la copia. No se añaden opciones de
-arranque ni credenciales.
+Desde F1-99 el guion de Bolsa ya no mueve el vínculo de la persona de origen
+(`persona_ref` de `seleccion.json`) a la candidatura vigente. Esa persona
+conserva su permiso de Mi Bolsa ligado a la candidatura de la bolsa sustituida,
+y la aplicación no admite cambiar sus ámbitos: Mi Bolsa respondía 403. En su
+lugar, `copia_local.py crear --modulos` llama a `preparar_candidato_desarrollo.sh
+--candidato-ref` y crea una identidad nueva de Antonio, con su certificado,
+ligada a `candidato_ref`, la candidatura del puesto 5. El permiso lo publica la aplicación al arrancar. El
+apartado 2 de `LEEME_copia_local.md` explica el resto de la preparación.
 
 Comprobación del ajuste de Antonio en PostgreSQL 18.4, sobre la copia actual de
-HZ37: dos ejecuciones, mismo estado en las 11 tablas comparadas. Con la categoría
+HZ37, con la versión anterior del guion (que aún movía el vínculo): dos ejecuciones, mismo estado en las 11 tablas comparadas. Con la categoría
 de la petición conservada en K, la fuente del llamamiento CT devuelve a Antonio
 como disponible en el turno 1 de la bolsa vigente (19,278 ms). La segunda carga
 tardó 78,59 ms, incluidos Docker y psql. El recorrido completo de pantalla y
