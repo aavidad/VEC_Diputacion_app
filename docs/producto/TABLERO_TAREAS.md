@@ -88,17 +88,17 @@ se copia de su salida.
 | Fase | Pendiente | Bloqueada | En curso | En revisión | Fusionada | Hecha | Aparcada | Cancelada | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0 Base común | 14 | 4 | 3 | 1 | 11 | 0 | 3 | 1 | 37 |
-| 1 Bolsa y CT | 18 | 5 | 11 | 0 | 63 | 5 | 6 | 3 | 111 |
+| 1 Bolsa y CT | 19 | 5 | 11 | 0 | 63 | 5 | 6 | 3 | 112 |
 | 2 Personal y Organización | 10 | 3 | 1 | 0 | 0 | 0 | 0 | 1 | 15 |
 | 3 Cronos | 5 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 10 |
 | 4 Dietas | 2 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 7 |
 | 5 Sustituir Convoca | 8 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
 | 6 Resto de módulos | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 0 | 13 |
 | 7 Uso real y producción | 18 | 14 | 0 | 0 | 0 | 0 | 1 | 0 | 33 |
-| **Total** | **75** | **39** | **15** | **1** | **74** | **5** | **25** | **5** | **239** |
+| **Total** | **76** | **39** | **15** | **1** | **74** | **5** | **25** | **5** | **240** |
 
 F0-24A y F1-65A llevan letra y el recuento no las cuenta. Los números de
-tres cifras (F1-100 a F1-113) sí se cuentan.
+tres cifras (F1-100 a F1-114) sí se cuentan.
 
 Empezables ya: 21 en las fases 0 y 1 (pendientes con todas sus
 dependencias hechas o fusionadas). De ellas, 15 tienen equipo:
@@ -115,8 +115,8 @@ Fuera de las fases 0 y 1 salen ocho más (F2-01, F2-02, F3-02, F3-03, F3-06,
 F7-13, F7-23 y F7-30), pero la prioridad vigente no deja encargarlas antes de
 cerrar la fase 1.
 
-Fase 1 sin aparcadas ni canceladas: 102 tareas. 68 están en `main`
-(63 fusionadas y 5 hechas), 11 en curso, 5 bloqueadas y 18 pendientes.
+Fase 1 sin aparcadas ni canceladas: 103 tareas. 68 están en `main`
+(63 fusionadas y 5 hechas), 11 en curso, 5 bloqueadas y 19 pendientes.
 
 ### Cambios del 20/10 por la mañana
 
@@ -130,7 +130,7 @@ Fase 1 sin aparcadas ni canceladas: 102 tareas. 68 están en `main`
   borrador hasta el 22/10.
 - F1-34 sigue en curso: el acta está en corrección y no se cierra hasta
   F1-105.
-- Tareas nuevas: F1-102 a F1-113. En curso F1-103, F1-105 y F1-110.
+- Tareas nuevas: F1-102 a F1-114. En curso F1-103, F1-105 y F1-110.
 
 ### Cambios del 20/10 de madrugada
 
@@ -523,7 +523,7 @@ motivo y lecturas por debajo de 300 ms.
 | F1-101 | Versión nueva de la fuente, del catálogo y del rol de inscripción con `modalidad_inscripcion` y `solicitudes_propias[]`, que piden F1-40 y F1-41 (hoy la lista y la ficha de convocatorias dan 403) | Catálogo de acciones; SQL de autorización | F0-28 | - | M | Claude | #1285 | Fusionada | 20/10 | Lista y ficha de convocatorias 200 para la aspirante en la copia, con reinicio | Cierre de F0-28, 20/10 03:45 |
 | F1-102 | Cancelar un expediente se entiende en castellano y en inglés | `web/static` | F1-96 | - | S | Claude | #1289 | Fusionada | 20/10 | Cancelación en Chrome en los dos idiomas | Revisión de F1-96, 20/10 |
 | F1-103 | La copia da a RRHH el permiso de leer los puestos mediante una semilla declarada | `deploy/principal` | F0-28 | - | S | Claude | - | En curso | 20/10 | Carmen lee los puestos en la copia sin 403 | Decisión de dirección con Fable, 20/10 05:10 |
-| F1-104 | Lo que sigue a F1-103 en el recorrido de los puestos | `deploy/principal` | F1-103 | - | S | Claude | - | Pendiente | 20/10 | Se define al cerrar F1-103 | Dirección, 20/10 05:10 |
+| F1-104 | Cada técnico lee los puestos de Personal con su propio perfil: puerto en proceso con el perfil del mismo actor y retirada del certificado fijo M10, que hoy hace que todos lean con la identidad de una sola persona | `deploy/principal`; `internal/app/bootstrap` | F1-103 | - | M | Claude | - | Pendiente | 20/10 | Dos técnicos leen los puestos en la copia, cada uno con su perfil | Canal, DECISIÓN F1-103, 20/10 05:35 |
 | F1-105 | Las lecturas simultáneas no se bloquean entre sí (ficha del candidato y CT) | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-34 | - | M | Claude | - | En curso | 20/10 | Ficha del candidato sin 503 y CT sin 40001 con lecturas a la vez | Medición de F1-34, 20/10 05:15 |
 | F1-106 | Publicar el rol con el acto de dos administradores de verdad, no con la semilla | SQL de autorización; `internal/app/bootstrap` | F0-28 | - | M | Claude | - | Pendiente | 20/10 | Rol publicado en la copia por dos administradores, con reinicio | Dirección, 20/10 05:10 |
 | F1-107 | El llamamiento conserva el recibo y la auditoría que devuelve Personal | `internal/modules/contrataciontemporal` | - | - | S | Claude | - | Pendiente | 20/10 | Prueba Go con las dos referencias guardadas | Dirección, 20/10 05:10 |
@@ -533,6 +533,7 @@ motivo y lecturas por debajo de 300 ms.
 | F1-111 | Pulir la cancelación: quitar «Case file cancelled» del catálogo antiguo, la línea de fases y la opción vacía del desplegable | `web/static` | F1-102 | - | S | Claude | - | Pendiente | 20/10 | Cancelación en Chrome sin esos tres restos | Revisión de F1-102, 20/10 06:10 |
 | F1-112 | Pruebas Go de plazos y avisos con el catálogo de reglas v7 de Bolsa encendido | `internal/modules/bolsa` | F1-109 | - | S | Claude | - | Pendiente | 20/10 | Pruebas Go que cargan reglas v7 | Revisión de F1-109, 20/10 06:05 |
 | F1-113 | Mis preferencias, mi imagen y el orden de mis bolsas cargan en la copia (hoy dan 404: el menú de identidad sale con «—») | `deploy/principal`; `web/static/area-personal` | F1-29 | - | S | Claude | - | Pendiente | 20/10 | Menú de identidad con nombre y «Orden de mis bolsas» cargado | Revisión de F1-101 y F1-100, 20/10 |
+| F1-114 | En desarrollo, la técnica de RRHH no cambia de perfil entre el cuadro y el detalle de Contratación temporal; con la ficha del candidato abierta a la vez, Contratación temporal da 404/503. Perfil fijo o rol combinado | `deploy/principal`; `internal/modules/contrataciontemporal` | F1-105 | - | S | Claude | - | Pendiente | 20/10 | Cuadro, detalle y ficha del candidato abiertos a la vez sin 404 ni 503 | Dirección, 20/10 |
 
 ## 7. Fase 2. Personal y Organización (por capacidad)
 
