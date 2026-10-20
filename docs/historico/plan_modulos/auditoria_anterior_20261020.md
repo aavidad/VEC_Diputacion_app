@@ -109,11 +109,9 @@ consumo no deja rastro. Hay dos partes:
 2. Identificar la descarga correcta (tipo de borrador, formato y huella del
    archivo) en la auditoría común. Necesita una decisión de diseño: o una acción
    propia de descarga con su concesión en el catálogo RRHH, o ligar el tipo y el
-   formato al recurso de la consulta antes de consumir. Se coordina con E
-   (Documentos/firma) y se escribe aquí antes de programar.
+   formato al recurso de la consulta antes de consumir. Se coordina con Documentos y Firma y se escribe aquí antes de programar.
 
-Decisión y estado (05/10, rama una rama histórica,
-apilada sobre #713): acción propia `contratacion_temporal.borrador_rrhh.descargar`,
+Contrato de descarga del 05/10: acción propia `contratacion_temporal.borrador_rrhh.descargar`,
 con la finalidad y el motivo de la consulta del expediente. La consulta del
 detalle no cambia; después de generar y validar el archivo, la descarga pide
 otra decisión cuyo recurso es el expediente y cuya huella de contexto liga el
