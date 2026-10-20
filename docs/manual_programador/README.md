@@ -110,7 +110,8 @@ certificados y configuración privada fuera de Git.
 La estructura y los permisos se describen en
 [ESQUEMA_BACKEND](../producto/ESQUEMA_BACKEND.md). Antes de crear una migración,
 reserve su número en `RESERVAS_MIGRACIONES.md`, fuera de Git. Las nuevas
-migraciones del núcleo de autorización son del equipo R.
+migraciones del núcleo de autorización tienen un propietario único, indicado
+en el tablero, para evitar reconstrucciones concurrentes.
 
 Las migraciones viven en `deploy/postgresql/<esquema>/migraciones/`.
 La lista común posterior al esquema de referencia es
