@@ -119,6 +119,7 @@ test("la ficha cancelada dice que está cancelada, en los dos idiomas", async ()
     assert.ok(html.includes(`>${titulo}</h3>`), idioma);
     assert.ok(html.includes(que), idioma);
     assert.doesNotMatch(html, /terminado|finished|data-ct-exp-accion="ir-tramite"/u);
+    assert.ok(!html.includes(t("siguiente_paso_hasta")), idioma);
   }
 });
 

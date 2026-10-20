@@ -147,7 +147,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
         <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaInforme || guiaPrepararInforme || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? escapar(que)
     : `<span class="ct-exp-que-con-tramite">${escapar(t("siguiente_paso_tramite_abajo"))}</span><span class="ct-exp-que-sin-tramite">${escapar(que)}</span>`}</dd></div>
         ${quien ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(quien)}</dd></div>` : ""}
-        <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
+        ${cancelado ? "" : `<div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>`}
       </dl>
       <p id="ct-exp-siguiente-paso-estado" role="status" aria-live="polite" aria-atomic="true">${bloqueado ? escapar(t(mensajeBloqueo)) : ""}</p>
     </div>
@@ -289,6 +289,8 @@ export function actualizarHistorialFicha(raiz, expediente, t) {
   fraseAnterior.replaceWith(fraseNueva);
   const tablaNueva = tabla(nueva);
   const tablaAnterior = tabla(seccion);
+  const version = seccion.querySelector(".ct-exp-historial dl.datos-clave > div:first-child > dd");
+  if (version) version.textContent = String(expediente.version);
   if (tablaAnterior && tablaNueva) tablaAnterior.replaceWith(tablaNueva);
   else if (tablaNueva) seccion.querySelector(".ct-exp-historial")?.append(tablaNueva);
   return true;
