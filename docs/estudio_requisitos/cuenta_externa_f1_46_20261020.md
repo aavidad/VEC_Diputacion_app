@@ -85,5 +85,5 @@ y antivirus son precondiciones del [recorrido del justificante](../../deploy/pri
 
 El preparador usa admisiones y asignaciones ficticias declaradas como datos de
 copia. No son actos de Administración ni resuelven el productor gobernado de
-admisiones de F0-21. El rol de la copia tiene su tarea propia, F1-115.
+admisiones de F0-21.
 No se ha tocado cidonia ni se acredita aquí una instalación compartida.
