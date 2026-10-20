@@ -36,6 +36,7 @@ export function validarReglas(payload) {
     exigir(CLAVE.test(c?.modulo) && CLAVE.test(c?.catalogo_id) && ESTADOS.has(c?.estado)
       && typeof c?.paquete_ejemplo === "boolean" && Array.isArray(c?.reglas) && c.reglas.length <= 1024);
     exigir(c.estado === "disponible" || c.reglas.length === 0);
+    exigir(c.edicion_disponible === undefined || typeof c.edicion_disponible === "boolean");
     for (const r of c.reglas) {
       exigir(CLAVE.test(r?.clave) && texto(r?.etiqueta, 400) && opcional(r?.descripcion) && CLAVE.test(r?.unidad)
         && ORIGENES.has(r?.origen) && texto(r?.norma) && texto(r?.duda) && Number.isInteger(r?.version) && r.version >= 1
@@ -203,14 +204,21 @@ function traducirDocumento(doc) {
 }
 
 export async function iniciar(doc, cliente) {
-  // El panel CT se carga por separado para que una incidencia en la tabla común
-  // no oculte la lectura ni el historial de los plazos.
+  let lecturaInicial;
+  const consultarInicial = () => lecturaInicial ??= cliente.reglas().catch((error) => {
+    lecturaInicial = undefined;
+    throw error;
+  });
+  // Compartir el montaje evita consultar una ruta de edición desactivada.
+  // Si falla esa lectura, se permite recuperarla sin suponer la edición activa.
   const contenedorAjustes = doc.getElementById("rg-ajustes");
   if (contenedorAjustes?.querySelector) {
     const contenedor = contenedorAjustes;
     const montarAjustes = () => {
-      void import("./ajustes.js?v=VEC_WEB_VERSION")
-        .then(({ iniciarAjustes }) => iniciarAjustes(doc))
+      void Promise.all([import("./ajustes.js?v=VEC_WEB_VERSION"), consultarInicial()])
+        .then(([{ iniciarAjustes }, datos]) => iniciarAjustes(doc, undefined,
+          datos.catalogos.some((catalogo) => catalogo.modulo === "contratacion_temporal"
+            && catalogo.edicion_disponible === true)))
         .catch(async () => {
           let mensaje = "";
           let etiquetaReintentar = "";
@@ -284,7 +292,7 @@ export async function iniciar(doc, cliente) {
     if (conservarFoco) aviso.focus({ preventScroll: true });
     let datos;
     try {
-      datos = await cliente.reglas();
+      datos = await (disparador ? cliente.reglas() : consultarInicial());
     } catch (error) {
       avisar(mensajeError(error), true);
       const reintentar = doc.createElement?.("button");

@@ -131,6 +131,10 @@ y permite reconciliar si la respuesta fue ambigua. Ejemplo:
 
 ### Reglas, plazos y categorías configurables
 
+La lectura de reglas vigentes incluye `edicion_disponible` por catálogo.
+Describe si está montada la ruta de edición; no concede permisos. El portal
+explica la edición desactivada sin consultar una ruta ausente (F1-33).
+
 Órdenes de Alberto del 25/09 y del 29/09: lo que RRHH no ha decidido todavía se
 guarda como dato modificable, y cada cambio deja constancia de quién lo hizo.
 
@@ -345,6 +349,15 @@ de dos personas, sus decisiones, auditoría y recibo. No se reconstruye la
 función central ni se alteran los conjuntos anteriores.
 
 ### 7.2 Auditoría encadenada y sellada
+
+AD303 (F1-105) limita a la revalidación de las lecturas de CT la preferencia
+por índices (`enable_seqscan=off`). La comprobación de una secuencia de
+`pendiente_sellado_auditoria_v5` usa su clave primaria existente: un recorrido
+completo de esa cola puede provocar conflictos de serialización con otras
+consultas. Conserva el cuerpo, las verificaciones, los permisos y la auditoría;
+comprueba la huella de la función y que el índice sigue siendo válido. La
+preferencia termina al salir de la función, incluso si la llamada falla.
+Guía: `deploy/principal/revalidacion_indice_sellado_f1_105_20261020.md`.
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
   cada asiento calcula su huella sin bloqueo común y entra en
@@ -602,6 +615,14 @@ lista congelada y no vuelven a leer la elección. Situaciones, orden e
 inscripción no cambian.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
+
+Los adaptadores de petición del centro y entrega a RRHH reciben su organización
+como argumento explícito de composición y la conservan en el repositorio. Esa
+referencia forma parte de la huella del recurso de autorización; el material
+JSON conserva su contrato SQL. Los adaptadores de reglas y plantillas admiten
+la referencia explícita y mantienen su cotejo exacto. El montaje con fuentes
+maestras publicadas sigue pendiente. Contrato y activación del primer corte de
+F1-128 en [`referencia_organizativa_ct_f1_128.md`](../../deploy/principal/referencia_organizativa_ct_f1_128.md).
 
 F1-47 amplía la consulta existente de seguimiento con la versión, fase,
 estado y número visible actuales del expediente (CT242). Fase y estado salen

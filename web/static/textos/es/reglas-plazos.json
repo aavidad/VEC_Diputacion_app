@@ -1,5 +1,6 @@
 {
   "general": {
+    "ajustesEdicionInactiva": "La edición de plazos no está activada. Solicite su activación a Administración para poder modificarlos.",
     "computo_administrativo": "Cómputo administrativo",
     "computo_civil": "Cómputo civil",
     "unidad_dias_habiles": "Días hábiles",

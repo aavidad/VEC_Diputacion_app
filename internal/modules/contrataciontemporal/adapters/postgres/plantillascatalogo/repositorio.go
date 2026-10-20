@@ -14,14 +14,14 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	app "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
-	funcion                = `SELECT vec_contratacion_temporal.operar_catalogo_plantillas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
-	audiencia              = "vec_contratacion_temporal.catalogo_plantillas.v1"
-	organizacionCatalogoCT = "organizacion:desarrollo:dipgra"
+	funcion   = `SELECT vec_contratacion_temporal.operar_catalogo_plantillas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+	audiencia = "vec_contratacion_temporal.catalogo_plantillas.v1"
 	// CT131 admite hasta 16 MiB de catálogo y 17 MB de material JSONB.
 	// El límite de lectura cubre esa representación sin aceptar una respuesta
 	// mayor que la frontera SQL.
@@ -44,7 +44,7 @@ type Repositorio struct {
 }
 
 func NuevoRepositorio(pool *pgxpool.Pool, proveedor ProveedorAutorizacion, organizacionRef string) (*Repositorio, error) {
-	if pool == nil || proveedor == nil || organizacionRef != organizacionCatalogoCT {
+	if pool == nil || proveedor == nil || !domain.ReferenciaOpacaValida(organizacionRef) {
 		return nil, app.ErrNoDisponible
 	}
 	return &Repositorio{pool: pool, proveedor: proveedor, organizacionRef: organizacionRef}, nil
