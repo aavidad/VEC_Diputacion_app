@@ -72,7 +72,7 @@ Resultados reproducidos antes del commit:
 - tamaños: 180 líneas productivas, 332 de prueba y 100 documentales, todos por
   debajo de 500/800 según corresponda;
 - modos: los tres ficheros nuevos son `0644`;
-- Gitleaks: binario `/tmp/vec-gitleaks-20260831` verificado con SHA-256
+- Gitleaks: binario `/ruta/privada/vec-gitleaks-20260831` verificado con SHA-256
   `c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`;
   el escaneo individual de cada fichero del write-set terminó sin hallazgos.
 

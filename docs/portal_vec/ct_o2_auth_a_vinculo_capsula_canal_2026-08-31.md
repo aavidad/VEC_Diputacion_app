@@ -136,7 +136,7 @@ Con `GOTOOLCHAIN=go1.26.5` y `GOPROXY=off`:
 - `git diff --check`: verde;
 - blob Git inmutable de `identidad.go`: el valor exigido; y
 - Gitleaks acumulado sobre el cambio exacto: cero hallazgos con
-  `/tmp/vec-gitleaks-20260831`, cuya huella SHA-256 es
+  `/ruta/privada/vec-gitleaks-20260831`, cuya huella SHA-256 es
   `c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`.
 
 Los tres ficheros del write-set permanecen bajo el tope duro de 800 líneas. La

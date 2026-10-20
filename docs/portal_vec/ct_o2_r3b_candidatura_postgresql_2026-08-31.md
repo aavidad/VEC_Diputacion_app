@@ -155,7 +155,7 @@ al resolutor, con el error Go normalizado:
 contratacion temporal: persistencia no disponible
 ```
 
-El log `/tmp/vec-o2-r3b-r3-dynamic-20260831.log` conserva 10 líneas y 816
+El log `/ruta/privada/vec-o2-r3b-r3-dynamic-20260831.log` conserva 10 líneas y 816
 bytes; su SHA-256 es
 `9fb15e6e88ce974362b50a0f343bb86e8ef97ea9aec814ed7b4872300c10167c`.
 La normalización del adaptador impidió conservar en ese log el `PgError` crudo:
@@ -381,9 +381,9 @@ con generaciones `[2,1]`. Por ello el SQL recibía una política ya rotada
 el adaptador opacificaba el detalle. El fallo pertenece al orden de la prueba,
 no demuestra un defecto nuevo del SQL, de su ABI, de las ACL ni de los locks.
 
-El log `/tmp/vec-o2-r3b-r7b-dynamic-20260901.log` tiene SHA-256
+El log `/ruta/privada/vec-o2-r3b-r7b-dynamic-20260901.log` tiene SHA-256
 `92c660c7001c597a32e82922d247ac45a7ac92c672839a75962ec9cc4c45c581`. Su
-metadato `/tmp/vec-o2-r3b-r7b-dynamic-20260901.meta` tiene SHA-256
+metadato `/ruta/privada/vec-o2-r3b-r7b-dynamic-20260901.meta` tiene SHA-256
 `31f884f1585bf7877d3f6d7c1fca8347c7699e6b6107ab131c35cbce61832320` y
 registra `RC=1`, ocho segundos, fuente limpia, cero residuos y cerrojo libre.
 El contenedor ajeno permaneció idéntico antes y después:
@@ -433,9 +433,9 @@ La ejecución dinámica posterior sobre el hash exacto
 contratacion temporal: persistencia no disponible
 ```
 
-El log inmutable `/tmp/vec-o2-r3b-r8-dynamic-20260902.log` tiene SHA-256
+El log inmutable `/ruta/privada/vec-o2-r3b-r8-dynamic-20260902.log` tiene SHA-256
 `3a0d80dda00cd6582c629f7a8487a8d5ef3bead1b3539d40bef9c27aa216525a`.
-Su metadato `/tmp/vec-o2-r3b-r8-dynamic-20260902.meta` tiene SHA-256
+Su metadato `/ruta/privada/vec-o2-r3b-r8-dynamic-20260902.meta` tiene SHA-256
 `261f3c61d37d744b0c01545b3696f1ab3d0b788b7ad43dad833929395fc3a1b2`
 y registra quince segundos, fuente limpia, cero residuos y cerrojo libre. El
 contenedor ajeno permaneció idéntico antes y después:
@@ -523,11 +523,11 @@ ni autoriza una nueva validación dinámica.
 La única ejecución dinámica autorizada de R10 se consumió sobre el candidato
 exacto `4fb08c9e178bc284725abdb3120db1b5680cc3ef`, con padre
 `b4732d9095d0732b8c4feb2bb80a6d47da230a20`. La autorización inmutable
-`/tmp/vec-o2-r3b-r10-dynamic-20260901.authorization` tiene SHA-256
+`/ruta/privada/vec-o2-r3b-r10-dynamic-20260901.authorization` tiene SHA-256
 `b981c9ea101aeb4b776e9b4ffdb42e4371625f7fbd58deeaf102a92eade75670`.
-El log inmutable `/tmp/vec-o2-r3b-r10-dynamic-20260901.log` tiene SHA-256
+El log inmutable `/ruta/privada/vec-o2-r3b-r10-dynamic-20260901.log` tiene SHA-256
 `77c2f8c76c6a7025146630f7c983d8b4e5574bf9ffde8fe884ca7cf05f61b1e7`
-y el metadato `/tmp/vec-o2-r3b-r10-dynamic-20260901.meta` tiene SHA-256
+y el metadato `/ruta/privada/vec-o2-r3b-r10-dynamic-20260901.meta` tiene SHA-256
 `90991f88fd3c812c32566fc7b3f6b8adedc4465744c196a6b85f435dd6c1050d`.
 
 La ejecución alcanzó el adaptador público, las doce entradas y ocho columnas
@@ -635,13 +635,13 @@ exacto `b59d009b3827addab1da993e50c284a101bf81f6`, con padre
 independientes exactas con `GO`, `P0=0`, `P1=0` y `P2=0`. Sus artefactos
 inmutables son:
 
-- autorización `/tmp/vec-o2-r3b-r12-dynamic-20260901.authorization`, SHA-256
+- autorización `/ruta/privada/vec-o2-r3b-r12-dynamic-20260901.authorization`, SHA-256
   `aad4245908176ea3c17d55fe4c5c415e16c49ab0f1e658fe99b5f99e44717ad7`;
-- log `/tmp/vec-o2-r3b-r12-dynamic-20260901.log`, SHA-256
+- log `/ruta/privada/vec-o2-r3b-r12-dynamic-20260901.log`, SHA-256
   `5e2924e5d67c928c3e97931798fb864211e0b7c4264306794a62baa5c561947a`;
-- metadato `/tmp/vec-o2-r3b-r12-dynamic-20260901.meta`, SHA-256
+- metadato `/ruta/privada/vec-o2-r3b-r12-dynamic-20260901.meta`, SHA-256
   `a1b44877e248bf6bcc785ff82ec505987f8930e4ce516a5b747918cf342df02b`; y
-- envoltorio `/tmp/vec-o2-r3b-r12-dynamic-20260901.wrapper.sh`, SHA-256
+- envoltorio `/ruta/privada/vec-o2-r3b-r12-dynamic-20260901.wrapper.sh`, SHA-256
   `3744dfb2f9fd433c8d520fe9aef30a4a34b25c23b9ff421800f7263842875bb4`.
 
 El envoltorio fijó el runner con SHA-256

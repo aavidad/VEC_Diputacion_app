@@ -19,7 +19,7 @@ producción.
   su seguimiento local y la referencia remota ya disponible continúan
   coincidiendo en ese hash. No se actualizó ninguna referencia por red.
 - El dictamen independiente conservado en
-  `/tmp/vec-review-o5-01-hmac-a-20260901.log` declaró `NO-GO`,
+  `/ruta/privada/vec-review-o5-01-hmac-a-20260901.log` declaró `NO-GO`,
   `P0=0, P1=1, P2=0`: ambos métodos podían propagar éxito cuando el conector
   cancelaba el contexto dentro de la última llamada y devolvía un sello
   válido.
@@ -115,7 +115,7 @@ go test -count=50 -run 'Asignacion|Reasignacion' ./internal/modules/contratacion
 go test -race -count=2 -run 'Asignacion|Reasignacion' ./internal/modules/contrataciontemporal/adapters/seguridad
 go vet ./internal/modules/contrataciontemporal/adapters/seguridad
 git diff --check
-/tmp/vec-gitleaks-20260831 protect --staged --redact --no-banner --log-level warn
+/ruta/privada/vec-gitleaks-20260831 protect --staged --redact --no-banner --log-level warn
 ```
 
 El ejecutable focal de Gitleaks se verificó antes de usarlo con SHA-256

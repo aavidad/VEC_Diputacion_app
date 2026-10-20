@@ -113,7 +113,7 @@ Después de la ejecución se acreditaron cero:
 
 - contenedores por nombre propio;
 - contenedores por etiqueta propietaria;
-- rutas `/tmp/vec-f0-h0-*`;
+- rutas `/ruta/privada/vec-f0-h0-*`;
 - procesos del runner o con prefijo propio.
 
 El worktree permaneció limpio antes y después.

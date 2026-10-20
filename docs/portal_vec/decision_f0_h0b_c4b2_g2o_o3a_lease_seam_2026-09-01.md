@@ -35,7 +35,7 @@ El write-set exclusivo es este fichero.
 Se leyeron completos `/srv/fabrica/AGENTS.md`, los `AGENTS.md` aplicables, O3,
 la especificación común y las autoridades O3a, O3b, O3c, O4a, O4b, O4c y O5,
 incluidas sus enmiendas enlazadas. También se leyó íntegro el dictamen remoto
-`/tmp/vec-review-o3a-lease-r3-20260901.log` y el segundo dictamen entregado por
+`/ruta/privada/vec-review-o3a-lease-r3-20260901.log` y el segundo dictamen entregado por
 Dirección. Los ficheros de `/tmp` no son evidencia durable.
 
 El dictamen remoto fue `NO-GO`, `P0=5`, `P1=2`, `P2=0`. El local resumió

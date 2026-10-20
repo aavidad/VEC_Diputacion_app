@@ -127,7 +127,7 @@ quedaron verdes:
   estado 0 en 21,362 segundos.
 
 Después de H0 se acreditaron cero contenedores por nombre y etiqueta propios,
-cero rutas `/tmp/vec-f0-h0-*` y cero procesos del runner o con prefijo propio.
+cero rutas `/ruta/privada/vec-f0-h0-*` y cero procesos del runner o con prefijo propio.
 Los worktrees de productor y revisores permanecieron limpios.
 
 ## Pendientes expresos

@@ -78,7 +78,7 @@ git diff --check
 ```
 
 La búsqueda focal de secretos usa
-`/tmp/vec-gitleaks-20260831`, cuya huella SHA-256 verificada es
+`/ruta/privada/vec-gitleaks-20260831`, cuya huella SHA-256 verificada es
 `c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`,
 y termina sin hallazgos sobre el diff preparado.
 

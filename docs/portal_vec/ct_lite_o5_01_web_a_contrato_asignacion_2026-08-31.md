@@ -44,7 +44,7 @@ desde la validación de una referencia inválida. El mismo ensayo confirmó que
 `R1` antes de modificar ningún fichero.
 
 `gitleaks` no está en `PATH`, pero el ejecutable local exacto autorizado
-`/tmp/vec-gitleaks-20260831` sí estaba disponible. Su SHA-256 comprobada antes
+`/ruta/privada/vec-gitleaks-20260831` sí estaba disponible. Su SHA-256 comprobada antes
 de editar es
 `c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`;
 no se descargó ni instaló nada.
