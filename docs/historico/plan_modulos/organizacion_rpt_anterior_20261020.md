@@ -57,8 +57,8 @@ provisión o informes de vacantes. No modificar originales de RRHH.
 | RPT-002 | Plantilla por ejercicio, dotación presupuestaria, actos de creación/amortización/reserva y vínculo OEP, con historia. |
 | RPT-003 | Inventario individual reconciliado y condiciones completas del puesto: requisitos, funciones, provisión, nivel, complementos y vigencia. |
 | RPT-004 | Montaje de consulta/importación existentes, fuentes y aprobaciones reales; comparación conectada a lecturas autorizadas. |
-| RPT-005 | Circuito completo persona–relación–plaza–puesto, titularidad, fechas, actos y reserva. Propietario de RPT-005: M; Personal aporta la relación de la persona por puerto. |
-| RPT-006 | Proyecciones distintas de dotación vacante, puesto sin ocupante y necesidad cubrible, con cobertura e incertidumbre. Propietario de RPT-006: M; coordinar el contrato de relación con B. |
+| RPT-005 | Circuito completo persona–relación–plaza–puesto, titularidad, fechas, actos y reserva. Propietario de RPT-005: Organización; Personal aporta la relación de la persona por puerto. |
+| RPT-006 | Proyecciones distintas de dotación vacante, puesto sin ocupante y necesidad cubrible, con cobertura e incertidumbre. Propietario de RPT-006: Organización; coordinar el contrato de relación con Personal. |
 
 El informe sintético de diferencias descrito abajo permite revisar dos cortes.
 No cubre por sí solo importación, autorización, ocupación ni vacantes reales.
@@ -67,7 +67,7 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 
 ### 1. Cerrar la búsqueda de estructura ya producida
 
-- Propietario: M; hoja `vista-estructura-organizativa-publica.js` y su prueba.
+- Propietario: Organización; hoja `vista-estructura-organizativa-publica.js` y su prueba.
 - Dependencia: integrar importadores, padres y versiones de caché.
 - SQL/servidor: ninguno. No cambiar fuentes, permisos ni estructura de datos.
 - Cierre: misma búsqueda por nombre/adscripción desde el portal, caché anterior
@@ -75,7 +75,7 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 
 ### 2. Comprobar precondiciones y después montar la consulta histórica
 
-- Propietarios: D, perfiles/contexto/SQL y entorno; M, caso de uso, frontera
+- Propietarios: Autorización, perfiles/contexto/SQL y entorno; Organización, caso de uso, frontera
   y composición en su turno de archivos compartidos; Dirección, revisión e integración.
 - Archivos: `personal/application/consulta_organizacion_historica.go`,
   `personal/ports/organizacion_historica.go`, `personal/adapters/postgres/organizacion_historica.go`,
@@ -96,7 +96,7 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 - El gobierno de categorías y las dependencias nominales conservan su autoridad propia.
 - Archivos: candidata Cat4/AD134, README y pruebas de la rama `a9001c097`.
   No reconstruir lo aportado por #222/#244 ni dar por integradas #249/#256.
-- SQL/servidor: fijar postimagen B→A, CA21/AUT25/IS10 y orden exacto; ensayo final
+- SQL/servidor: fijar postimagen Personal→A, CA21/AUT25/IS10 y orden exacto; ensayo final
   PostgreSQL 18 y dos revisiones del mismo hash antes de instalar.
 - Cierre: separación editor/revisor, confirmación V3, CAS, auditoría, recibo
   recuperable y deshabilitación con historia. Los ensayos antiguos no cierran el circuito final.
@@ -105,8 +105,8 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 
 ### 4. Conectar fuentes y completar plantilla/puestos, sin otro importador
 
-- Propietario: M, importación histórica existente; RRHH, diccionario y actos;
-  Documentos, custodia; D, perfiles y persistencia; B, uso en ocupaciones.
+- Propietario: Organización, importación histórica existente; RRHH, diccionario y actos;
+  Documentos, custodia; Autorización, perfiles y persistencia; Personal, uso en ocupaciones.
 - Archivos: `personal/*/importacion_organizacion_historica.go` y adaptadores actuales.
 - Dependencias: definición de códigos, identidades estables, reconciliación de
   dotaciones con unidades y aprobación de fechas/actos. Activar por fases verificadas.
@@ -120,7 +120,7 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 
 ### 5. Completar ocupación, reserva y vacantes de RPT
 
-- Propietario: M, RPT-005 y RPT-006. Personal aporta persona y relación de servicio por
+- Propietario: Organización, RPT-005 y RPT-006. Personal aporta persona y relación de servicio por
   puerto: referencia, versión, vigencia y procedencia mínima. Sin tablas cruzadas.
 - Archivos previstos de Organización: `rpt_ocupaciones`, `rpt_reservas` y `rpt_vacantes` en
   dominio, puertos, aplicación y adaptadores de Personal; consumidor RPT propio.
@@ -137,8 +137,8 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 
 ### 6. Completar tipos y relaciones de organización
 
-- Propietario: M, tipos y relaciones históricas; B, referencias personales y actos
-  por puertos; D, autorización y persistencia; RRHH, fuente y alcance.
+- Propietario: Organización, tipos y relaciones históricas; Personal, referencias personales y actos
+  por puertos; Autorización, autorización y persistencia; RRHH, fuente y alcance.
 - Archivos previstos: dominio, puertos y aplicación de organización de Personal;
   adaptadores actuales. Reservar contratos y archivos concretos antes de escribir.
 - Dependencias: organismos, áreas, servicios, centros, unidades y jerarquías;
@@ -155,11 +155,11 @@ capacidad fijada por Dirección no autoriza dos escritores del mismo archivo.
 
 | Propietario | Archivos y responsabilidad |
 | --- | --- |
-| M | `domain/organizacion*.go`, `domain/importacion_organizacion_historica.go`, `domain/estructura_organizativa_publica.go`, `domain/rpt_publica.go`, `domain/comparacion_organizacion_historica.go` y sus pruebas; puertos/aplicación/adaptadores específicos de esos recorridos; `adapters/organizacionpublica`, `adapters/rptpublica`; vistas de organización/RPT y CLI del comparador. |
-| M, nuevos | `rpt_ocupaciones`, `rpt_reservas`, `rpt_vacantes` por capas y consumidor propio: RPT-005/006. Antes de crear, localizar y reutilizar el comportamiento B2 existente. |
-| B | Persona, relación de servicio, ficha, servicios y actos personales; `relacion_empleado*`, `ficha_propia*`, registro e incorporación del empleado. Publica su contrato mínimo para M. |
-| Mixtos, escritor acordado | `registro_empleado_b2*`, `interna/personal_b2_montaje.go`, `registro-b2*` y manifiesto Personal. Personal conserva la edición actual; M acuerda con B la extracción/transición de ocupaciones y vacantes antes de tocar estos archivos. |
-| D/común | Identidad, contexto y autorización; consume la fuente histórica de responsables, delegaciones y suplencias de Organización. El Portal del empleado I solo consume esa capacidad. |
+| Organización | `domain/organizacion*.go`, `domain/importacion_organizacion_historica.go`, `domain/estructura_organizativa_publica.go`, `domain/rpt_publica.go`, `domain/comparacion_organizacion_historica.go` y sus pruebas; puertos/aplicación/adaptadores específicos de esos recorridos; `adapters/organizacionpublica`, `adapters/rptpublica`; vistas de organización/RPT y CLI del comparador. |
+| Organización, nuevos | `rpt_ocupaciones`, `rpt_reservas`, `rpt_vacantes` por capas y consumidor propio: RPT-005/006. Antes de crear, localizar y reutilizar el comportamiento B2 existente. |
+| Personal | Persona, relación de servicio, ficha, servicios y actos personales; `relacion_empleado*`, `ficha_propia*`, registro e incorporación del empleado. Publica su contrato mínimo para Organización. |
+| Mixtos, escritor acordado | `registro_empleado_b2*`, `interna/personal_b2_montaje.go`, `registro-b2*` y manifiesto Personal. Personal conserva la edición actual; Organización acuerda con Personal la extracción/transición de ocupaciones y vacantes antes de tocar estos archivos. |
+| Autorización/común | Identidad, contexto y autorización; consume la fuente histórica de responsables, delegaciones y suplencias de Organización. El Portal del empleado Portal del empleado solo consume esa capacidad. |
 
 Propuesta posterior: estudiar un módulo enchufable `organizacion` al estabilizar
 los puertos con Personal. Hoy se conservan ubicación, contratos e historia;
@@ -281,7 +281,7 @@ de altas de desarrollo ofrece todas sus categorías, incluidas las referencias
 que podrían estar en expedientes existentes; no reconoce una marca de baja.
 Una versión posterior necesita conservar v1 para consultas históricas y definir
 cómo excluir opciones erróneas de nuevas altas sin perder referencias. La
-denominación «BASE B SIN CATEGORÍA ESPECÍFICA» está literalmente en el PDF del
+denominación «BASE Personal SIN CATEGORÍA ESPECÍFICA» está literalmente en el PDF del
 puesto 217. Su tratamiento de gobierno sigue pendiente: no se elimina por
 deducción del importador.
 
@@ -289,7 +289,7 @@ deducción del importador.
 
 Se recuperan cinco archivos Go de `a9001c097`: dominio, puertos y aplicación
 de gobierno de categorías. El consumidor inmediato es la fuente nominal
-común que prepara V; no se importa el handler, PostgreSQL ni Cat4/AD134
+común que prepara los servicios comunes; no se importa el handler, PostgreSQL ni Cat4/AD134
 como parte de este corte. Las rutas y acciones de escritura siguen cerradas.
 
 La aplicación exige actor, vínculo y contexto iguales, garantía High y
