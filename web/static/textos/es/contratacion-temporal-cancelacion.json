@@ -37,6 +37,13 @@
     "error_general": "No se ha podido cancelar el expediente. Inténtelo de nuevo más tarde.",
     "fase_solicitud": "Solicitud",
     "fase_asignacion_unidad": "Asignación de unidad",
-    "fase_informe_juridico": "Informe jurídico"
+    "fase_informe_juridico": "Informe jurídico",
+    "confirmar_referencia": "Expediente {numero}, versión {version}.",
+    "motivo_necesidad_desaparecida": "Ha desaparecido la necesidad",
+    "motivo_desistimiento_centro": "El centro retira su petición",
+    "motivo_cobertura_otra_via": "Se cubre por otra vía",
+    "motivo_error_solicitud": "Error en la solicitud",
+    "motivo_solicitud_duplicada": "Solicitud duplicada",
+    "motivo_falta_credito": "Sin crédito disponible"
   }
 }

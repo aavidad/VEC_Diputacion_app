@@ -181,6 +181,10 @@
     "firmas_historicas_error": "Earlier signatures cannot be shown. Reopen the case.",
     "ficha_fase_con_subfase": "{fase} · {subfase}",
     "ficha_siguiente_paso_preparar_informe_titulo": "Next step: prepare the legal report",
-    "ficha_siguiente_paso_preparar_informe_que": "Prepare the legal report in the “Prepare legal report” section further down this case file."
+    "ficha_siguiente_paso_preparar_informe_que": "Prepare the legal report in the “Prepare legal report” section further down this case file.",
+    "ficha_siguiente_paso_cancelado": "Case cancelled",
+    "ficha_siguiente_paso_cancelado_que": "The case is cancelled and no further action is possible.",
+    "hito_propuesta_formalizacion": "Appointment or contract proposal recorded",
+    "hito_resolucion_formalizacion": "Appointment or contract decision recorded"
   }
 }

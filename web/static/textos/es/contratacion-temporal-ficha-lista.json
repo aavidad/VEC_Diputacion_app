@@ -181,6 +181,10 @@
     "firmas_historicas_error": "No se pueden mostrar las firmas anteriores. Vuelva a abrir el expediente.",
     "ficha_fase_con_subfase": "{fase} · {subfase}",
     "ficha_siguiente_paso_preparar_informe_titulo": "Siguiente paso: preparar el informe jurídico",
-    "ficha_siguiente_paso_preparar_informe_que": "Prepare el informe jurídico en el apartado «Preparar informe jurídico», más abajo en esta ficha."
+    "ficha_siguiente_paso_preparar_informe_que": "Prepare el informe jurídico en el apartado «Preparar informe jurídico», más abajo en esta ficha.",
+    "ficha_siguiente_paso_cancelado": "Expediente cancelado",
+    "ficha_siguiente_paso_cancelado_que": "El expediente está cancelado y no admite más actuaciones.",
+    "hito_propuesta_formalizacion": "Propuesta de nombramiento o contrato registrada",
+    "hito_resolucion_formalizacion": "Resolución de nombramiento o contrato registrada"
   }
 }

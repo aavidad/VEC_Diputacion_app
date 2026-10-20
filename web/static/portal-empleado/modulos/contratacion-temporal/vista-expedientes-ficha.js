@@ -83,6 +83,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
   const faseActual = faseRRHH(resumen?.fase_clave);
   const nombreFase = faseRail?.etiqueta ?? (faseActual ? t(`etiqueta_fase_${faseActual.clave}`) : "");
   const terminado = ["completado", "cancelado"].includes(resumen?.estado_clave);
+  const cancelado = resumen?.estado_clave === "cancelado";
   const espera = resumen?.estado_clave === "espera";
   const incidencia = resumen?.estado_clave === "incidencia";
   const guiaCobertura = coberturaPendiente === true && !bloqueado && !terminado && !espera;
@@ -114,7 +115,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
   // formulario se monta más abajo y se llega con «Ir al trámite»).
   const guiaPrepararInforme = informePendiente === true && !guiaInforme
     && !bloqueado && !terminado && !espera && !incidencia;
-  const quien = guiaInforme ? t("ficha_siguiente_paso_informe_quien")
+  const quien = cancelado ? "" : guiaInforme ? t("ficha_siguiente_paso_informe_quien")
     : guiaCobertura || fiscalizacionFavorable || guiaPrepararInforme ? t("unidad_recursos_humanos")
     : esperaIntervencion ? t("ficha_siguiente_paso_intervencion_quien")
     : tarea ? actor || t("siguiente_paso_quien_desconocido") : "";
@@ -123,6 +124,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     : guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
     : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_titulo")
     : esperaIntervencion ? t("ficha_siguiente_paso_espera")
+    : cancelado ? t("ficha_siguiente_paso_cancelado")
     : terminado ? t("ficha_siguiente_paso_terminado")
     : (espera ? t("ficha_siguiente_paso_espera")
       : (nombreFase ? t("ficha_siguiente_paso_fase", { fase: nombreFase }) : t("siguiente_paso_titulo")));
@@ -131,6 +133,7 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     : guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
     : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_que")
     : esperaIntervencion ? t("ficha_siguiente_paso_fiscalizacion_intervencion")
+    : cancelado ? t("ficha_siguiente_paso_cancelado_que")
     : accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
   const conPlazo = resumen?.plazo_estado && resumen.plazo_estado !== "no_calculado";
   const plazo = guiaCobertura ? t("siguiente_paso_plazo_desconocido") : conPlazo ? t("ficha_plazo_fase_estado", {
@@ -264,6 +267,31 @@ export function renderizarHistorialFicha(expediente, t, faseDeCampo = () => "gen
       </div>` : ""}
     </details>
   </section>`;
+}
+
+/**
+ * Pone al día el historial de una ficha ya pintada sin repintarla: cambia las
+ * frases y la tabla y conserva el detalle técnico abierto o cerrado y los
+ * trámites montados debajo (recibos incluidos).
+ */
+export function actualizarHistorialFicha(raiz, expediente, t) {
+  const seccion = raiz?.querySelector?.(".ct-exp-ficha-historial");
+  const documento = seccion?.ownerDocument;
+  if (!seccion || typeof documento?.createElement !== "function") return false;
+  const plantilla = documento.createElement("template");
+  plantilla.innerHTML = renderizarHistorialFicha(expediente, t);
+  const nueva = plantilla.content?.querySelector?.(".ct-exp-ficha-historial");
+  const frases = (nodo) => nodo?.querySelector?.(":scope > .historial-frases, :scope > p.cuerpo-panel");
+  const tabla = (nodo) => nodo?.querySelector?.(".ct-exp-historial > .tabla-contenedor");
+  const fraseNueva = frases(nueva);
+  const fraseAnterior = frases(seccion);
+  if (!fraseNueva || !fraseAnterior) return false;
+  fraseAnterior.replaceWith(fraseNueva);
+  const tablaNueva = tabla(nueva);
+  const tablaAnterior = tabla(seccion);
+  if (tablaAnterior && tablaNueva) tablaAnterior.replaceWith(tablaNueva);
+  else if (tablaNueva) seccion.querySelector(".ct-exp-historial")?.append(tablaNueva);
+  return true;
 }
 
 /**

@@ -37,6 +37,13 @@
     "error_general": "The case could not be cancelled. Please try again later.",
     "fase_solicitud": "Request",
     "fase_asignacion_unidad": "Department assignment",
-    "fase_informe_juridico": "Legal report"
+    "fase_informe_juridico": "Legal report",
+    "confirmar_referencia": "Case {numero}, version {version}.",
+    "motivo_necesidad_desaparecida": "The need no longer exists",
+    "motivo_desistimiento_centro": "The centre withdraws its request",
+    "motivo_cobertura_otra_via": "Covered by other means",
+    "motivo_error_solicitud": "Error in the request",
+    "motivo_solicitud_duplicada": "Duplicate request",
+    "motivo_falta_credito": "No budget available"
   }
 }
