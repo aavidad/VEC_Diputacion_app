@@ -44,6 +44,8 @@
     "motivo_cobertura_otra_via": "Covered by other means",
     "motivo_error_solicitud": "Error in the request",
     "motivo_solicitud_duplicada": "Duplicate request",
-    "motivo_falta_credito": "No budget available"
+    "motivo_falta_credito": "No budget available",
+    "motivo_elegir": "Select a reason",
+    "motivo_obligatorio": "Reason for cancellation (required)"
   }
 }

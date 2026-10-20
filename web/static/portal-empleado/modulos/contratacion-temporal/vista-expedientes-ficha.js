@@ -156,28 +156,40 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
 }
 
 const PASO_LINEA = Object.freeze({
-  completado: "hecho", en_curso: "ahora", espera: "ahora", incidencia: "con-incidencia",
+  completado: "hecho", en_curso: "ahora", espera: "ahora", incidencia: "con-incidencia", cancelado: "cancelado",
 });
+const MARCA_PASO = Object.freeze({ hecho: "✓", cancelado: "✕" });
 
-/** Línea de las ocho fases: símbolo y palabra (Hecho / Ahora / Falta). */
+/**
+ * Línea de las ocho fases: símbolo y palabra (Hecho / Ahora / Falta). En un
+ * expediente cancelado se marca la fase en la que se canceló y las
+ * siguientes ya no faltan: no se harán.
+ */
 export function renderizarLineaFases(expediente, t) {
   if (expediente.fases.length === 0) return "";
-  const pasos = expediente.fases.map((fase) => ({ fase,
-    paso: PASO_LINEA[fase.estado_clave] ?? "falta" }));
+  const cancelada = expediente.fases.find(({ estado_clave: estado }) => estado === "cancelado");
+  const pasos = expediente.fases.map((fase) => {
+    const paso = PASO_LINEA[fase.estado_clave] ?? "falta";
+    return { fase, paso: cancelada && paso === "falta" ? "sin-hacer" : paso };
+  });
   const cuenta = (paso) => pasos.filter((item) => item.paso === paso).length;
-  const texto = { hecho: "linea_fase_hecho", ahora: "linea_fase_ahora", "con-incidencia": "linea_fase_incidencia", falta: "linea_fase_falta" };
+  const texto = { hecho: "linea_fase_hecho", ahora: "linea_fase_ahora", "con-incidencia": "linea_fase_incidencia",
+    falta: "linea_fase_falta", cancelado: "linea_fase_cancelado", "sin-hacer": "linea_fase_sin_hacer" };
+  const resumen = cancelada
+    ? t("ficha_fases_resumen_cancelado", { hechas: cuenta("hecho"), fase: cancelada.etiqueta })
+    : t("ficha_fases_resumen", {
+      hechas: cuenta("hecho"), ahora: cuenta("ahora") + cuenta("con-incidencia"), faltan: cuenta("falta"),
+    });
   return `<nav class="panel ct-exp-fases" aria-labelledby="ct-exp-fases-titulo">
     <div class="cabecera-panel"><h3 id="ct-exp-fases-titulo">${escapar(t("ficha_fases_titulo"))}</h3>
-      <p class="texto-secundario">${escapar(t("ficha_fases_resumen", {
-    hechas: cuenta("hecho"), ahora: cuenta("ahora") + cuenta("con-incidencia"), faltan: cuenta("falta"),
-  }))}</p></div>
+      <p class="texto-secundario">${escapar(resumen)}</p></div>
     <ol class="linea-fases" data-ct-exp-rail>${pasos.map(({ fase, paso }) => {
     const clave = String(fase.fase_ref ?? "").split(":").at(-1) ?? "";
     const actual = paso === "ahora" || paso === "con-incidencia";
     return `<li class="${paso}" data-ct-exp-orden="${fase.orden}"${actual ? ' aria-current="step"' : ""}>
       <button type="button" data-ct-exp-fase-ver="${escapar(clave)}" aria-pressed="false"
         aria-label="${escapar(`${t("fase_ver_pantalla", { fase: fase.etiqueta })}: ${t(texto[paso])}`)}">
-        <span class="marca" aria-hidden="true">${paso === "hecho" ? "✓" : escapar(fase.orden)}</span>
+        <span class="marca" aria-hidden="true">${MARCA_PASO[paso] ?? escapar(fase.orden)}</span>
         <span class="nombre">${escapar(fase.etiqueta)}</span>
         <small>${escapar(t(texto[paso]))}</small>
       </button>
