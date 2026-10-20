@@ -23,7 +23,7 @@ DECLARE seis record; c record; def text;
 BEGIN
  SELECT * INTO seis FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 WHERE version=6;
  SELECT * INTO c FROM pg_class WHERE oid='vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1'::regclass;
- SELECT pg_get_constraintdef(k.oid,false) INTO def FROM pg_constraint k
+ SELECT pg_get_constraintdef(k.oid,true) INTO def FROM pg_constraint k
  WHERE k.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND k.conname='clave_capacidad_version_audiencia_consumo_check' AND k.contype='c' AND k.convalidated;
  IF seis.audiencias IS DISTINCT FROM ARRAY[
@@ -49,8 +49,10 @@ BEGIN
  OR (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal)<>2
  OR (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid=c.oid AND t.tgenabled='O'
      AND t.tgname IN('inmutable','no_truncar'))<>2
- OR def IS NULL OR strpos(def,'vec_autorizacion.gobierno_rol_nuevo.propuesta.v1')=0
- OR strpos(def,'vec_autorizacion.gobierno_rol_nuevo.cierre.v1')=0
+ -- Dos preimágenes exactas: main y la candidata AD301 revisada.
+ OR def IS NULL OR encode(sha256(convert_to(def,'UTF8')),'hex') NOT IN (
+  '411555a7d3a6e423d1c3538236a7c3da20b0b8b7280a1b07151eaf6cffb2efa4',
+  'b8a3f4abaebb452c245e2e33e191f776cea16a3e393ca11ae6ddf8c1901f10c8')
  THEN RAISE EXCEPTION 'AD304: PARO clave=preimagen esperado=conjunto_6_cerrado' USING ERRCODE='55000'; END IF;
  PERFORM set_config('vec.ad304.filas',
   (SELECT encode(sha256(convert_to(jsonb_agg(to_jsonb(s) ORDER BY s.version)::text,'UTF8')),'hex')
@@ -93,7 +95,7 @@ BEGIN
     FROM pg_trigger t WHERE t.tgrelid=x.oid AND NOT t.tgisinternal))
    FROM pg_class x WHERE x.oid=tabla)
  OR current_setting('vec.ad304.check') IS DISTINCT FROM
-  (SELECT pg_get_constraintdef(k.oid,false) FROM pg_constraint k
+  (SELECT pg_get_constraintdef(k.oid,true) FROM pg_constraint k
    WHERE k.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND k.conname='clave_capacidad_version_audiencia_consumo_check')
  THEN RAISE EXCEPTION 'AD304: PARO clave=postimagen esperado=solo_fila_7' USING ERRCODE='55000'; END IF;

@@ -214,4 +214,4 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000147_orden_estricto_llamamien
 deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sql c5092a053a3917b5d9e19ec1a391890e661de0e72c3cf7c2eb2130185893389e
 
 # F1-106 — AD304: conjunto ADMIN 7 de solo adición para publicar roles nuevos con AUT60; tras AD248 y AD291.
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000304_conjunto_admin_gobierno_roles.up.sql 85a35c068dcf2337896ff88aee3a2a4fb7b988b9e04ce9864939c2e85130d7ad
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000304_conjunto_admin_gobierno_roles.up.sql fb8defc9c4ed01b02a2b267df5176418815eaf9283cf993b3a77dc0b92d09a45
