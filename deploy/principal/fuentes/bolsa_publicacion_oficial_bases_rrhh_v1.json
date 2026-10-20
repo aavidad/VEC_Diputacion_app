@@ -1,0 +1,35 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:publicacion_oficial_bases_rrhh",
+  "version": 1,
+  "huella_sha256": "86e4db8765b261085c4970580afa5c9fb03ca93e8ec0c0730bf680bf62364062",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.convocatoria.publicacion_oficial.declarar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:publicacion_oficial_bases_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.convocatoria.publicacion_oficial.declarar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"version_convocatoria\",\"finalidades\":[\"declarar_publicacion_oficial_bases\"],\"garantia_minima\":\"alto\",\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-20T00:00:00Z\",\"vigente_hasta\":\"2027-01-18T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.convocatoria.publicacion_oficial.declarar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:publicacion_oficial_bases_rrhh",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "86e4db8765b261085c4970580afa5c9fb03ca93e8ec0c0730bf680bf62364062",
+      "concesion": {
+        "accion": "bolsa.convocatoria.publicacion_oficial.declarar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "version_convocatoria",
+        "finalidades": [
+          "declarar_publicacion_oficial_bases"
+        ],
+        "garantia_minima": "alto",
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-20T00:00:00Z",
+      "vigente_hasta": "2027-01-18T00:00:00Z"
+    }
+  ]
+}
