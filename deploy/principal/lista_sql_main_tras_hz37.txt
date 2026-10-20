@@ -226,5 +226,8 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000304_conjunto_admin_gob
 # F1-105 — AD303: revalidación puntual de CT sobre la PK existente de la cola de sellado; tras AD207.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000303_revalidacion_lectura_indice_sellado.up.sql 84206e14c44717f41ec9d72d61828e9df90d1c0fe174362187f2c1b229d08907
 
+# F1-124 — CT248: preservar 40001/40P01 para reintentar comunicaciones; tras CT231, sin permisos nuevos.
+deploy/postgresql/contratacion_temporal/migraciones/000248_comunicaciones_carrera_serializable.up.sql 69db0ef6a606738382c3656a5e9aa931454da35fdaa926086bea23b577eb2fc7
+
 # Tarea F1-107: referencias de la consulta de Personal en el recibo del llamamiento
 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql 8c59362e3cb797b73401d420fab7136f8f91a7774301553f68e4a3ca987b2727

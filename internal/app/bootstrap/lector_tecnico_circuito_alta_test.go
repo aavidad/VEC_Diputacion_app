@@ -49,10 +49,17 @@ func (detalleRRHHPrueba) Consultar(context.Context, ctports.SolicitudDetalleRRHH
 	return ctports.DetalleExpedienteRRHH{}, nil
 }
 
-// La técnica figura en el manifiesto pero consulta con el circuito del alta:
-// no se abre otro soporte ni se publica nada sobre su contexto fijo.
+// La técnica figura en el manifiesto y usa el soporte del alta con su perfil
+// fijo de lecturas; no se abre otro soporte de lector.
 func TestLectorTecnicoReutilizaElCircuitoDelAlta(t *testing.T) {
-	alta, _, lector := escenarioLectorTecnicoFijoPrueba(t)
+	alta, perfilAlta, lector := escenarioLectorTecnicoFijoPrueba(t)
+	if err := componerPerfilFijoConsultasTecnicoCTDesarrollo(alta.soporte, alta.soporte.reloj.Ahora()); err != nil {
+		t.Fatal(err)
+	}
+	perfilLecturas := perfilFijoConsultasTecnicoCTDesarrollo(alta.soporte)
+	if perfilLecturas == nil || perfilLecturas.perfilRef() == perfilAlta.perfilRef() {
+		t.Fatal("el perfil de consultas no está separado del de Alta")
+	}
 	cerrado := 0
 	base := dependenciasConsultasRRHHDesarrollo{
 		cuadroHTTP: cuadroRRHHPrueba{}, detalleHTTP: detalleRRHHPrueba{"detalle"},
@@ -134,6 +141,9 @@ func TestArranqueLectoresDeniegaUnaTecnicaAjena(t *testing.T) {
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			alta, _, lector := escenarioLectorTecnicoFijoPrueba(t)
+			if err := componerPerfilFijoConsultasTecnicoCTDesarrollo(alta.soporte, alta.soporte.reloj.Ahora()); err != nil {
+				t.Fatal(err)
+			}
 			alterar(&lector)
 			cerrado := 0
 			base := dependenciasConsultasRRHHDesarrollo{
@@ -154,7 +164,7 @@ func TestArranqueLectoresDeniegaUnaTecnicaAjena(t *testing.T) {
 	}
 }
 
-func TestFronterasDeConsultaNoAdmitenElPerfilFijoDeLaTecnica(t *testing.T) {
+func TestFronterasDeConsultaNoAdmitenElPerfilFijoDeAltaDeLaTecnica(t *testing.T) {
 	_, fijo, tecnica := escenarioLectorTecnicoFijoPrueba(t)
 	ordinario := tecnica
 	ordinario.identidad.principal.Roles = []string{"lector_rrhh"}
