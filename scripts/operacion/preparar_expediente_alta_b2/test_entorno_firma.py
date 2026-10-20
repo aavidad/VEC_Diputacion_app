@@ -44,18 +44,22 @@ class EntornoFirmaTest(unittest.TestCase):
         self.xauth_calls = []
         self.inputs = {}
         for role in firma.ROLES:
-            if role == "tecnico":
-                base = self.root / "material/mtls"
-                p12, password = base / "cliente.p12", base / "cliente.p12.password"
-            else:
-                base = self.root / "recorrido/firmantes/certificados" / ("rrhh_" + role)
-                p12, password = base / "cliente.p12", base / "pkcs12.password"
+            base = self.root / "recorrido/firmantes/certificados" / ("rrhh_" + role)
+            p12, password = base / "cliente.p12", base / "pkcs12.password"
             base.mkdir(parents=True)
             p12.write_bytes(("p12-" + role).encode())
             password.write_text("clave-" + role)
             p12.chmod(0o600)
             password.chmod(0o600)
             self.inputs[role] = (p12, password)
+        gestor = self.root / "material/mtls"
+        gestor.mkdir(parents=True)
+        self.gestor = gestor / "cliente.p12"
+        self.gestor.write_bytes(b"p12-tramitacion")
+        self.gestor.chmod(0o600)
+        password_gestor = gestor / "cliente.p12.password"
+        password_gestor.write_text("clave-tramitacion")
+        password_gestor.chmod(0o600)
 
     def argv(self, sha=None):
         return ["--raiz-instancia", str(self.root), "--salida", str(self.fw),
@@ -129,11 +133,23 @@ class EntornoFirmaTest(unittest.TestCase):
             self.assertIn("salida privada con %%", desktop)
             self.assertIn(" %u", desktop)
         self.assertEqual(len(set(p12s)), 4)
+        self.assertEqual((fw / "tecnico/p12/firmante.p12").read_bytes(), b"p12-tecnico")
+        self.assertEqual((fw / "tecnico/p12.password").read_text(), "clave-tecnico")
+        self.assertEqual(self.gestor.read_bytes(), b"p12-tramitacion")
         launcher = (fw / "lanzar-grxfirma.py").read_text()
         self.assertIn("os.execve", launcher)
         self.assertIn("'XAUTHORITY':str(base / 'Xauthority')", launcher)
         self.assertIn("'XDG_CONFIG_HOME':str(home / 'home/.config')", launcher)
         self.assertNotIn("clave-tecnico", launcher)
+
+    def test_nominal_tecnico_ausente_no_usa_certificado_de_tramitacion(self):
+        self.inputs["tecnico"][0].unlink()
+        self.assertTrue(self.gestor.is_file())
+        with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen") as xvfb:
+            with self.assertRaises(firma.Corte):
+                firma.main(self.argv())
+            xvfb.assert_not_called()
+        self.assertFalse(self.fw.exists())
 
     def test_no_reescribe_y_limpia_xvfb_propiedad_propia(self):
         fw = self.fw
