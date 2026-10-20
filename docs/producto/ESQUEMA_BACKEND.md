@@ -667,9 +667,10 @@ F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
 padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
 padre, plaza y recibo en una operación atómica. La ruta
 `POST /api/vec/contratacion-temporal/nombramientos/derivaciones` admite los ocho
-campos de la guía de activación; la composición actual responde 503 hasta
-conectar el productor de autorización. Faltan la instalación conjunta y el
-ensayo positivo. CT241 cierra después al hijo: no entra en otra selección de
+campos de la guía de activación. El montaje opcional usa un perfil propio,
+publicado por Administración con dos administradores, y responde 503 si falta
+su configuración o dependencia. Faltan la activación y el ensayo positivo
+conjuntos. CT241 cierra después al hijo: no entra en otra selección de
 Bolsa (O6, oferta, vínculo CT201 y los cotejos CT221 y CT233 por los que
 pasan los llamamientos y ofertas de Bolsa con origen CT) y nada suyo se autoriza con la unidad, la
 fiscalización o el circuito copiados del padre. CT247 permite únicamente la publicación inicial v6 acreditada por el material
@@ -677,8 +678,8 @@ inmutable de la derivación, con organización y unidad propias. Las versiones
 nuevas y las firmas CT118 siguen cerradas. Los siete lectores RRHH exigen ese
 ámbito propio; el centro copiado no autoriza acceso. El detalle usa canon V5
 y separa la instrucción conservada del único acto del hijo; los cánones
-ordinarios se conservan. La ruta continúa en 503 hasta el montaje B y la
-activación gobernada del perfil, con AD305. Véase también la
+ordinarios se conservan. La activación del montaje B exige AD305 y el perfil publicado con una única
+concesión para derivar; no toma el permiso de alta ni el de consulta. Véase también la
 [guía de este corte](../../deploy/principal/f1_19_nombramiento_derivado/LEEME.md) y
 [`f1_19_nombramientos_derivados.md`](../../deploy/principal/f1_19_nombramientos_derivados.md).
 
