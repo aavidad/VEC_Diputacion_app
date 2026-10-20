@@ -579,13 +579,67 @@ consulta, y la selección fallaba.
   guardada y está en acumulación de tareas, que no admite puesto ni huella. En
   tu copia puedes usar la variante vacante del caso 4.0 con dos personas
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
-- «Llamar a la siguiente persona» desde la ficha del expediente sigue dando
-  409 en una copia nueva (F1-99, 20/10). Ningún perfil de RRHH de la copia
-  tiene la concesión `personal.organizacion_historica.consultar` y en
-  desarrollo nadie la publica: hace falta un acto de Administración. Además,
-  los expedientes de la semilla (2026/93001 y 2026/94011) no guardan
-  necesidad de la RPT. Hasta resolverlo, el llamamiento del paso 9 se emite
-  desde el asistente de Bolsa.
+- «Llamar a la siguiente persona» desde la ficha del expediente funciona en
+  una copia nueva creada con `--modulos` (sin `--portal-externo`) y con la
+  firma compuesta (F1-103, 20/10). La selección responde 200 con su recibo y
+  llama a la primera persona disponible por el orden vigente; repetirla
+  devuelve el mismo llamamiento. Antes daba 409 por tres cosas: faltaban dos
+  permisos de la técnica de RRHH (la consulta de Organización histórica y la
+  lectura de la bolsa constituida desde Contratación,
+  `bolsa.origen_ct.consultar`) y la lectura auditada del origen fallaba en
+  cuanto alguien de la bolsa tenía una comprobación de ofrecimiento
+  registrada. Esto último lo corrige AD302, que viene en la lista única.
+- `crear --modulos` siembra y monta la consulta de Organización histórica.
+  Con `--portal-externo` no lo hace, igual que los datos del caso 4.0:
+  1. Siembra el rol `consulta_organizacion_historica_rrhh` v1 con la concesión
+     de `fuentes/personal_organizacion_historica_rrhh_v1.json` (sustancial,
+     seis campos, sin obligaciones). Lo asigna a un perfil nuevo de la técnica
+     del certificado `mtls/cliente.crt`, con su vínculo de contexto y su
+     vínculo corporativo `consulta_rrhh`, gemelos de los de su perfil de
+     Bolsa. Los ámbitos son exactos: el organismo del caso 4.0 y
+     `unidad:centro:520`; otra unidad responde 403. Es semilla de copia con
+     procedencia `identidad:desarrollo:no-autoritativa`, como la de F0-37, y
+     dura 89 días. Su huella queda en `estado.json`
+     (`organizacion_historica_semilla_sha256`).
+  2. Crea cuatro LOGIN propios (Personal, fuente y registro de autorización y
+     motivos), la fila de origen del consumo de Personal (AD172), el catálogo
+     de cuatro motivos, el cliente `cliente_m10_ct.json` con el puerto de la
+     copia y `VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`.
+  3. Con la aplicación ya arrancada, deriva la clave con
+     `vec-preparar-material-interno` (con un LOGIN de gobierno que solo vive
+     mientras dura ese paso), escribe `organizacion_historica_combinado.json`,
+     enciende la consulta y reinicia.
+- Los dos permisos se completan con dos etapas privadas del manifiesto de
+  `firma` (§11), con la herramienta de actos de la copia:
+  1. Entre la etapa de Administración y la de firmantes, AUT58 admite en el
+     catálogo de acciones `fuentes/personal_organizacion_historica_rrhh_v1.json`
+     y `fuentes/bolsa_origen_ct_rrhh_v2.json`. La v2 sustituye a la v1, a la
+     que le faltan los dos campos que hoy lee la selección
+     (`criterios_ofrecimiento` y `entradas[].eventos_relacion`).
+  2. Al final, una versión nueva del rol RRHH de Bolsa con
+     `bolsa.origen_ct.consultar`, por la vía de
+     [`habilitacion_rol_bolsa_rrhh_generico_20261013.md`](habilitacion_rol_bolsa_rrhh_generico_20261013.md):
+     el DBA de la copia crea dos LOGIN y sus dos filas de origen AD172,
+     `vec-gobierno-usuarios-admin -fase version-bolsa` escribe el overlay
+     B103, `vec-admin` se reinicia con `VEC_ADMIN_VERSION_BOLSA_B103_CONFIG_FILE`,
+     el primer administrador propone y el segundo cierra. El servidor copia
+     la concesión del catálogo; el cliente solo elige la entrada.
+  Sin la primera etapa la consulta de Organización histórica responde 403;
+  sin la segunda, la selección da 409.
+- El orden importa. La admisión AUT58 tiene que ir antes de que la firma
+  publique los roles de cargo: esos roles se guardan sin `retirada_en` y,
+  una vez publicados, el censo de la admisión no cuadra y la autoridad la
+  rechaza. Es un fallo aparte, anotado en F1-103 del tablero.
+- La consulta guarda el perfil y su versión por cuenta. Si cambia la versión
+  del perfil, recrea la copia: el material preparado ya no sirve.
+- Los expedientes 2026/93001 y 2026/94011 no guardan necesidad de la RPT y su
+  historia no se puede corregir: las versiones son inmutables. Para llamar
+  desde la ficha, recorre el caso 4.0 con la variante vacante (puesto 9,
+  plaza 2026/0033) hasta la fiscalización, después de componer la firma: un
+  expediente preparado antes se queda en el paso 7b.
+- Quedan aparte el acto de Administración que publique la consulta de
+  Organización histórica en producción (AUT60, conjunto 7) y la salida
+  definitiva de F0-37.
 
 ## 7. Arrancar `vec-server`
 
