@@ -193,7 +193,8 @@ Cuando alguien acepta, el técnico registra la propuesta de nombramiento y la re
 Con un perfil de firma, abra Contratación temporal y la ficha del expediente.
 Desde el panel de firma puede consultar y descargar el documento que le
 corresponde. Las acciones de preparación y cancelación quedan en la vista
-de tramitación de RRHH.
+de tramitación de RRHH. El alta en Personal también se prepara desde esa
+vista de tramitación; no se carga en la ficha del perfil firmante.
 
 Cada documento se firma con certificado, en el orden que fija la configuración:
 

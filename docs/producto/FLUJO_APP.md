@@ -158,7 +158,9 @@ Los perfiles de cargo firmante abren el cuadro y la ficha de Contratación
 temporal con su panel de firma. Esa vista no monta el análisis, la cancelación,
 la generación de borradores, la lista común de Documentos ni el contexto de
 Bolsa propios de la tramitación de RRHH. Conserva el resumen de Inicio y las
-descargas del panel de firma.
+descargas del panel de firma. El plan de alta en Personal y su vínculo con
+la categoría de la relación de puestos se consultan desde la vista de
+tramitación de RRHH, sin montarlos en la ficha del perfil firmante.
 
 ### 3.2 Portal interno de RRHH (`/portal-empleado/`)
 
