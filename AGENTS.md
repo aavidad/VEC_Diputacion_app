@@ -22,7 +22,7 @@ con reinicio de aplicación y PostgreSQL. Un arranque correcto o una actuación
 sembrada no acreditan ese recorrido. Lo pendiente de RRHH usa un valor
 provisional configurable, documentado como tal. Los datos son siempre ficticios.
 
-La [instantánea anterior](docs/historia/agentes_hasta_20261020.md) conserva
+La [instantánea anterior](docs/historico/AGENTS_hasta_20261020.md) conserva
 las instrucciones tal como estaban antes de esta revisión. Las reglas que
 siguen vigentes se mantienen a continuación y en los documentos de producto.
 
@@ -237,7 +237,8 @@ Consenso con Fable y Astra; detalle en
 - Carpetas de trabajo y PGDATA desechables en `/dev/shm/vec`; guiones,
   preparadores, fuentes y evidencias privadas en la carpeta de estado propia,
   fuera de Git. El material común de candidata se lee sin modificarlo.
-- Antes de restaurar o compilar se miran `free -g` y `df -h /dev/shm`.
+- Antes de restaurar o compilar se miran `free -g`, `df -h /dev/shm`
+  y `df -h /home`. No se trabaja con menos de 10 GB libres en disco.
   Con menos de 40 GB disponibles se retiran copias y temporales propios que
   sobren y se avisa en el canal. Se conservan 32 GB libres para el sistema.
   PostgreSQL propio: `--rm --restart=no --memory 2g`. No se borra material ajeno.

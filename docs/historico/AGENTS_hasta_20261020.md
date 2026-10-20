@@ -1,6 +1,6 @@
 # Histórico de instrucciones para agentes: corte del 20/10/2026
 
-Instantánea de `AGENTS.md` en `origin/main@3c643ce34`, antes de incorporar las decisiones del 18 al 20 de octubre. Para trabajar se consulta [AGENTS.md](../../AGENTS.md). Los bloques de agosto y septiembre ya se habían archivado en [el histórico hasta el 13/10](../historico/AGENTS_historico_hasta_20261013.md). Esta copia conserva el contexto; no sustituye las órdenes vigentes.
+Instantánea de `AGENTS.md` en `origin/main@3c643ce34`, antes de incorporar las decisiones del 18 al 20 de octubre. Para trabajar se consulta [AGENTS.md](../../AGENTS.md). Los bloques de agosto y septiembre ya se habían archivado en [el histórico hasta el 13/10](AGENTS_historico_hasta_20261013.md). Esta copia conserva el contexto; no sustituye las órdenes vigentes.
 
 # Instrucciones del repositorio para agentes
 
