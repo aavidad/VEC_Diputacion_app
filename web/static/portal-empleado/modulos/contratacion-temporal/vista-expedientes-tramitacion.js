@@ -10,7 +10,7 @@ import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-rep
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
-import { renderizarSiguientePasoFicha } from "./vista-expedientes-ficha.js?v=VEC_WEB_VERSION";
+import { actualizarHistorialFicha, renderizarSiguientePasoFicha } from "./vista-expedientes-ficha.js?v=VEC_WEB_VERSION";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=VEC_WEB_VERSION";
 import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=VEC_WEB_VERSION";
@@ -282,9 +282,23 @@ export function crearGestorTramitacion({
     }
   }
 
+  // El historial en frases de la ficha añade el informe sin esperar a reabrirla:
+  // se lee la versión que confirmó el recibo y solo se cambia el historial.
+  async function actualizarHistorialTrasInforme(recibo) {
+    const anterior = presentador.obtenerEstado();
+    if (!esMontada() || recibo?.expediente_ref !== anterior.expediente?.expediente_ref) return;
+    await presentador.refrescarExpedienteConfirmado(recibo);
+    const estado = presentador.obtenerEstado();
+    if (!esMontada() || estado.expediente?.expediente_ref !== recibo.expediente_ref
+      || estado.expediente.version < recibo.version_resultante) return;
+    actualizarHistorialFicha(raiz, estado.expediente, tExpedientes);
+  }
+
   function alConfirmarInforme(recibo) {
     try { actualizarCabeceraTrasInforme(recibo); } catch { /* la cabecera se actualiza al volver a la ficha */ }
-    return montarFiscalizacionDesdeInforme(recibo);
+    const montado = montarFiscalizacionDesdeInforme(recibo);
+    actualizarHistorialTrasInforme(recibo).catch(() => { /* el historial se pone al día al volver a la ficha */ });
+    return montado;
   }
 
   function montarFiscalizacionDesdeInforme(recibo) {
