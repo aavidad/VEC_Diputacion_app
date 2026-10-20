@@ -1,0 +1,2 @@
+# SHA256 9933d266dda596748a8b166d8342862d6c5ea1dcf0b22a25b36896fc4cd185e9 deploy/postgresql/contratacion_temporal/migraciones/000249_resolucion_respuesta_portal_rrhh.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000249_resolucion_respuesta_portal_rrhh.up.sql
