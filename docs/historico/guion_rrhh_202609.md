@@ -1,3 +1,5 @@
+> Histórico: evidencia y guion de septiembre de 2026. Las rutas privadas se han ocultado. No se ejecutan sus pasos sobre cidonia ni describen el estado vigente; consulte [el recorrido actual](../producto/FLUJO_APP.md) y [el plan](../producto/PLAN_IMPLEMENTACION.md).
+
 # Guion de demostración para RRHH — septiembre de 2026
 
 Guion para la presentación de VEC a RRHH en la principal de cidonia. Cada afirmación

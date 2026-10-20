@@ -1,3 +1,5 @@
+> Histórico: evidencia y guion de septiembre de 2026. Las rutas privadas se han ocultado. No se ejecutan sus pasos sobre cidonia ni describen el estado vigente; consulte [el recorrido actual](../producto/FLUJO_APP.md) y [el plan](../producto/PLAN_IMPLEMENTACION.md).
+
 # Ensayo SQL aislado de Mi bolsa y Dietas — 23 de septiembre de 2026
 
 ## Preimagen y alcance
@@ -31,7 +33,7 @@ de nuevo. Bolsa 21 solo instala una función administrativa: no crea los 390
 vínculos. Su relleno exige un paquete de filas acreditadas por el recuperador
 de importación y una operación separada y autorizada.
 
-## Comando reproducible para Claude en este equipo
+## Comando reproducible para responsable del corte en este equipo
 
 Ejecutar desde este repositorio. Requiere acceso SSH de solo lectura a cidonia
 y Docker local con la imagen `postgres:18.4-alpine`. El contenedor se crea sin
