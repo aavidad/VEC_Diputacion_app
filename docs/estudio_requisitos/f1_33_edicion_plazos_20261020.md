@@ -41,3 +41,25 @@ CONFIG NUEVA: ninguna. SQL a instalar: ninguna.
 
 El barrido completo por perfiles continúa en F1-33. Este corte corrige
 únicamente el aviso de edición de plazos.
+
+## Evidencia del 20 de octubre
+
+Sobre `016fd30ef`, copia nueva creada en 104,53 segundos. La app arrancó con
+la edición desactivada. Chrome comprobó 1440, 1024 y 390 píxeles en castellano,
+y 390 en inglés; también teclado, zoom al 200 % y alto contraste. Cada vista
+hizo una sola lectura de reglas con respuesta 200, sin consultar ajustes.
+Tras reiniciar la app y PostgreSQL, las cuatro respuestas, mensajes y estados
+fueron idénticos; sin errores JavaScript, cookies ni desbordamiento.
+
+La revisión independiente de Codex-X dio su visto bueno a `016fd30ef`.
+El ajuste posterior reutiliza la cabecera del panel para alinear el título y
+asociar el nombre accesible de la sección; no cambia lecturas ni permisos.
+Las capturas de antes y después se conservan en
+[evidencias_f1_33](evidencias_f1_33/).
+
+Las pruebas focales Go pasaron. Las 28 comprobaciones web quedaron verdes
+entre la ejecución general y la recuperación focal de los dos fallos señalados
+en revisión. Semgrep local: cuatro reglas JavaScript y 42 Go, sin hallazgos.
+GoSec analizó los paquetes: 82 avisos existentes, ninguno en los tres archivos
+Go modificados. No se ha ejecutado la puerta completa en local: corresponde
+al trabajo de calidad de la integración continua.

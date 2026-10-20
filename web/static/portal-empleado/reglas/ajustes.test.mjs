@@ -282,6 +282,7 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
     escenario = "sin_edicion";
     const sinEdicion = await cargarPagina(puerto, /La edición de plazos no está activada/u);
     assert.equal(lecturasCT, 0, "sin edición montada no se consulta la ruta ausente");
+    assert.match(sinEdicion, /aria-labelledby="rg-ajustes-titulo"/u);
     assert.doesNotMatch(sinEdicion, /data-ajustes-editar|data-ajustes-reintentar/u);
     for (const caso of ["textos_inactivos_reintento", "reglas_reintento"]) {
       escenario = caso;

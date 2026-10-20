@@ -246,7 +246,7 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), dispo
     return () => { desmontado = true; };
   }
   if (disponible !== true) {
-    contenedor.innerHTML = `<section class="rg-panel rg-ajustes"><h2>${esc(t("ajustesTitulo"))}</h2><p class="rg-aviso" role="status">${esc(t("ajustesEdicionInactiva"))}</p></section>`;
+    contenedor.innerHTML = `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><h2 id="rg-ajustes-titulo">${esc(t("ajustesTitulo"))}</h2></div><p class="rg-aviso" role="status">${esc(t("ajustesEdicionInactiva"))}</p></section>`;
     return () => {};
   }
   let modelo = null;
