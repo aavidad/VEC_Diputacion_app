@@ -16,10 +16,10 @@ módulo, en qué orden se construye y cómo se sabe que una parte está terminad
 Reúne en un solo sitio los requisitos de producto que antes estaban repartidos
 entre el análisis integral, el catálogo funcional, el índice del estudio de
 requisitos, las especificaciones para agentes y los planes de módulo (ver el
-apartado 20). Si algo de aquí choca con una orden más reciente de Alberto o con
+apartado 20). Si algo de aquí choca con una regla vigente más reciente o con
 el código, mandan la orden o el código, y se corrige este documento.
 
-Lo leen todos los agentes (Claude y Codex) antes de programar, revisar o encargar
+Es lectura obligatoria antes de programar, revisar o encargar
 trabajo, y cualquier persona de RRHH que quiera saber qué se está construyendo.
 
 ## 1. Los seis documentos de producto
@@ -133,7 +133,7 @@ GINPIX, nómina, WCRONOS o Active Directory.
 
 | Hoy | Con VEC |
 | --- | --- |
-| Las bolsas y la inscripción se gestionan en CONVOCA, que ya no se mantiene ni se usa al día | VEC sustituye a CONVOCA entero: convocatorias, inscripción, baremación, bolsas y, más adelante, procesos selectivos y provisión. Las bolsas existentes se cargan desde los Excel que exporta RRHH |
+| Las bolsas y la inscripción se gestionan en CONVOCA, que ya no se mantiene ni se usa al día | VEC gestiona convocatorias, inscripción, baremación, bolsas y, más adelante, procesos selectivos y provisión. Las bolsas existentes se cargan desde los Excel que exporta RRHH |
 | La contratación temporal circula por papel, correo y varias aplicaciones, sin un expediente común | Un expediente único desde la petición del centro hasta el cese, con firma, fiscalización, historia y recibos |
 | Control horario en WCRONOS, una aplicación PHP 5 obsoleta | Cronos se reescribe |
 | Dietas sin una aplicación que una a empleado, jefatura y RRHH | Dietas se crea de nuevo, con esas tres miradas |
@@ -217,7 +217,7 @@ en la red interna); cómo se configura está en `docs/producto/TRD.md`.
 
 ## 6. Principios de producto
 
-Son decisiones de Alberto y del estudio de requisitos que valen para todo VEC.
+Son reglas de producto y del estudio de requisitos aplicables a todo VEC.
 Cómo se consiguen técnicamente está en `docs/producto/TRD.md`.
 
 1. **Una sola aplicación y una sola persona.** Los módulos se añaden registrándolos
@@ -417,7 +417,7 @@ las PR abiertas no se cuentan como integradas en este corte.
 
 ### Después, uno a uno y cada uno tras sus bases
 
-Aparcados hasta cerrar Bolsa y CT (orden de Alberto del 07/10). El orden previsto
+Aparcados hasta cerrar Bolsa y CT (según la prioridad del plan). El orden previsto
 es: Selectivos y Provisión (adelantando méritos, baremación y certificados);
 Formación y Carrera; Certificados; Acción social; Nóminas (primero consulta,
 luego cálculo); y Prevención, Igualdad, Incompatibilidades, Régimen disciplinario,
@@ -1129,7 +1129,7 @@ catálogo de órganos, delegaciones, suplencias y firmas.
 | SICAL | Retención de crédito | La hace cada Delegación; integración en duda 125 |
 | MOAD | Número de expediente | VEC lo guarda, no lo genera |
 | SAE | Oferta genérica cuando no hay bolsa | Pendiente de reunión; dudas 72, 73, 126 |
-| CONVOCA | Origen de las bolsas existentes | Importación de sus Excel; después se retira |
+| CONVOCA | Origen de las bolsas existentes | Importación de sus Excel con validación y recibo |
 | Correo corporativo | Ofertas y avisos | Buzón de pruebas hasta tener los datos de Informática; duda 88 |
 | WCRONOS | Control horario actual | Se sustituye por Cronos; inventario pedido en duda 19 |
 | Active Directory/Kerberos | Identidad corporativa | Futuro acceso del personal interno |
@@ -1170,7 +1170,7 @@ cuenta externa y cese; no sustituyen el acta conjunta del caso 4.0. El
 [acta de rendimiento](acta_rendimiento_lecturas_f1_34_20261016.md) conserva
 fallos y tiempos por encima del objetivo con peticiones simultáneas.
 
-Dirección confirma el 20/10 a las 12:27 el hito: recorrido completo de un
+El hito es el recorrido completo de un
 expediente del caso 4.0 con reinicio antes del 6 de noviembre. Si no se llega,
 se recalcula el fin de fase 1, estimado para la segunda quincena de noviembre.
 Las decisiones pendientes de RRHH siguen con valores provisionales
@@ -1196,7 +1196,7 @@ distintos y se dicen por separado.
 
 ## 17. Recorrido de la presentación
 
-Alberto presentará VEC a RRHH haciendo el proceso entero y cambiando de perfil en
+La presentación a RRHH recorre el proceso entero y cambia de perfil en
 cada paso. Ningún paso puede estar roto ni mostrar un «no disponible». Usa los
 personas ficticias de una copia local (aspirante, centro, ratificador, RRHH e
 Intervención), cada uno con su certificado. Todo encargo se prioriza por este
@@ -1222,8 +1222,7 @@ recorrido. El detalle de pantallas y llamadas está en `docs/producto/FLUJO_APP.
 
 El recorrido principal empieza en el paso 3, la petición del centro. Los pasos 1
 y 2 (inscripción del aspirante y constitución de la bolsa) se enseñan aparte y
-no forman parte de la condición 1 de la fase 1: el 14/10 Alberto aclaró que el
-recorrido puede empezar donde convenga. Se recorre en la copia local, con cada
+no forman parte de la condición 1 de la fase 1: el tramo inicial puede elegirse sin alterar la aceptación del caso principal. Se recorre en la copia local, con cada
 paso obtenido desde su pantalla. Los datos ficticios de partida pueden
 prepararse en la copia; el alta, la ocupación y el cese no se precargan.
 
@@ -1284,7 +1283,7 @@ Este documento absorbe lo vigente de:
 ## 21. Cómo mantener este documento
 
 - **Quién:** quien cambie el alcance, los perfiles, una regla de producto o la
-  prioridad, en la misma PR (skill `documentos-producto-vec`). Dirección (Claude)
+  prioridad, en la misma PR (skill `documentos-producto-vec`). La revisión de integración
   revisa que siga cuadrando con `PLAN_IMPLEMENTACION.md` y con los planes de módulo al
   integrar.
 - **Cuándo:**
