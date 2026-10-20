@@ -20,7 +20,7 @@ en [docs/plan_modulos](../../plan_modulos/contratacion_temporal.md).
 
 **Estado a 8 de octubre de 2026:** en cidonia RRHH tramita un expediente desde la petición del centro hasta la resolución, con el alta según la circular de mayo (CT193, instalada con HZ8); faltan el recorrido completo con reinicio hasta el cese, el paso a Personal, la incorporación acreditada y la firma de dos personas.
 
-Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a #904). Los criterios para dar CT por cerrada están en [plan de implementación](../../producto/PLAN_IMPLEMENTACION.md). La firma tiene su plan en [firmas.md](../firmas.md). El circuito que describió RRHH está en [decisiones_rrhh_2026-10-02.md](../../estudio_requisitos/decisiones_rrhh_2026-10-02.md).
+Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a #904). Los criterios para dar CT por cerrada están en [plan de implementación](../../producto/PLAN_IMPLEMENTACION.md). La firma tiene su plan en [firmas.md](../../plan_modulos/firmas.md). El circuito que describió RRHH está en [decisiones_rrhh_2026-10-02.md](../../estudio_requisitos/decisiones_rrhh_2026-10-02.md).
 
 ## Lo que falta
 
@@ -36,7 +36,7 @@ Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a
 | 8 | **Documentos de la ficha en un solo sitio (F1-42).** | `046a2f2fa` integrado por #914. El 18/10 se comprobaron 16 descargas de documentos generados desde la ficha. Queda por comprobar la lista de documentos incorporados con su módulo activado. | Ocho tipos en PDF y Word; informe recuperado tras reiniciar. Evidencia y límites debajo. |
 | 9 | **Retirada de dos rutas inoperativas de cierre.** #915 elimina `RutaCerrarAdministrativamente` y `RutaReabrirExcepcionalmente`, sus dependencias vacías y entradas de inventario. La pantalla conserva `/seguimiento/cerrar-sin-cese` y su preparación; `/cierres-expediente` mantiene su autoridad. | Codex-V: candidato revisado y puerta local verde; pendiente CI de integración y fusión de Claude. | Las dos URL dejan de despacharse. No se implementa reapertura ni se equipara al cierre sin cese; el rechazo genérico depende del perfil y la identidad. |
 | 10 | **Bandeja de Intervención.** No consta una bandeja propia; el formulario de fiscalización se abre desde la ficha. | Comprobar con RRHH si hace falta. | — |
-| 11 | **Firma de dos personas.** Ver [firmas.md](../firmas.md). | Codex-V. | — |
+| 11 | **Firma de dos personas.** Ver [firmas.md](../../plan_modulos/firmas.md). | Codex-V. | — |
 
 ## Documentos desde la ficha — 18 de octubre de 2026
 
