@@ -48,3 +48,34 @@ test("la vista completa prepara Bolsa una vez al seleccionar detalle; cuadro y r
     assert.deepEqual(lecturas, [REF, REF], "el reintento de Bolsa no repite la consulta CT");
   } finally { modulo.desmontar(); }
 });
+
+test("la ficha de firmante conserva el detalle y oculta los paneles auxiliares", async () => {
+  const fuente={capacidades:["contratacion_temporal.cuadro.consultar","contratacion_temporal.expediente.consultar"],
+    async listar(){return cuadro},async obtener(){return expediente},async ejecutar(){assert.fail("sin efectos")}};
+  const presentador=crearPresentadorExpedientesContratacionTemporal({fuente,capacidades:fuente.capacidades});
+  await presentador.cargar(); await presentador.seleccionarExpediente(REF);
+  const conCapacidades=new Proxy(presentador,{get(objeto,clave){return clave==="resolverDisponibilidadOpcional"
+    ?()=>({estado:"montado"}):Reflect.get(objeto,clave)}});
+  const tarjetaDocumentos={hidden:false,dataset:{}};
+  const zonas={".ct-exp-ficha-documentos":tarjetaDocumentos,"[data-ct-exp-documentos-comun]":{hidden:false},"[data-ct-exp-borradores-publicados]":{hidden:false},
+    "[data-ct-exp-borradores-legados]":{hidden:false},"[data-ct-exp-vista=\"alta\"]":{hidden:false},"[data-ct-exp-vista=\"documentos\"]":{hidden:false}};
+  const raiz={innerHTML:"",addEventListener(){},removeEventListener(){},querySelector:selector=>zonas[selector]??null,
+    contains:()=>true};
+  const modulo=await montarModuloContratacionTemporal({raiz,presentador:conCapacidades,soloFirmante:true,
+    prepararFichaBolsa:()=>assert.fail("Bolsa auxiliar"),documentosComun:{montar:()=>assert.fail("Documentos auxiliares")},
+    clienteBorradoresPublicados:{consultarDisponibles:()=>assert.fail("Borradores auxiliares")},
+    continuidad:{cliente:{cancelacion:{consultarCancelacion:()=>assert.fail("Cancelación auxiliar"),cancelarExpediente:()=>assert.fail("Cancelación auxiliar")}}}});
+  try{
+    assert.equal(presentador.obtenerEstado().vista,"expediente");
+    assert.match(raiz.innerHTML,/data-ct-exp-vista="expediente"/u);
+    assert.match(raiz.innerHTML,/data-ct-exp-ancla-firma/u);
+    assert.match(raiz.innerHTML,/class="panel ct-exp-ficha-documentos"[^]*<\/section>\s*<div data-ct-exp-ancla-firma hidden>/u);
+    assert.equal(tarjetaDocumentos.hidden,true);
+    assert.equal(Object.hasOwn(tarjetaDocumentos.dataset,"ctSoloFirmante"),true);
+    assert.equal(zonas["[data-ct-exp-documentos-comun]"].hidden,true);
+    assert.equal(zonas["[data-ct-exp-borradores-publicados]"].hidden,true);
+    assert.equal(zonas["[data-ct-exp-borradores-legados]"].hidden,true);
+    assert.equal(zonas['[data-ct-exp-vista="alta"]'].hidden,true);
+    assert.equal(zonas['[data-ct-exp-vista="documentos"]'].hidden,true);
+  }finally{modulo.desmontar()}
+});
