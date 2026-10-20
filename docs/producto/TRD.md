@@ -668,6 +668,12 @@ los límites del ensayo se describen en
 - **Minimización.** Listados, auditoría y eventos usan referencias opacas y los
   datos justos. Los datos especialmente protegidos (por ejemplo, discapacidad)
   solo si la convocatoria lo exige y con medidas reforzadas.
+- **Actores de los catálogos (F1-126).** En `catalogo.creado_por` y
+  `catalogo.publicado_por`, el lector reconoce únicamente la referencia
+  canónica `per_` seguida de 32 caracteres hexadecimales en minúsculas.
+  Sus cifras no se interpretan como un teléfono. La excepción no se aplica
+  al texto libre, a otras rutas ni a referencias de otro tipo o malformadas;
+  siguen vigentes los detectores de datos personales y secretos.
 - **Contacto de candidatos**: enmascarado en listados y completo en la ficha, con
   constancia de quién lo consultó.
 - **Internos y externos separados.** Datos de trabajadores y de aspirantes no se
