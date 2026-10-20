@@ -20,8 +20,9 @@ export function filasIncorporacionAcreditada(estado, opciones, t, fecha) {
   return [
     [t("centro_confirmacion"), centro
       ? t("centro_confirmada", { fecha: fecha(centro.fecha_incorporacion), documento: etiquetaDocumento(centro.documento_tipo, t) })
-      : t("pendiente")],
-    [t("ginpix"), ginpix ? t("ginpix_confirmado", { numero: ginpix.ginpix_numero, fecha: fecha(ginpix.ginpix_confirmada_en) }) : t("pendiente")],
+      : t("centro_pendiente")],
+    [t("ginpix"), ginpix ? t("ginpix_confirmado", { numero: ginpix.ginpix_numero, fecha: fecha(ginpix.ginpix_confirmada_en) })
+      : t(estado.incorporacion ? "ginpix_pendiente" : "ginpix_pendiente_sin_incorporacion")],
   ];
 }
 

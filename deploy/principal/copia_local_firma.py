@@ -279,6 +279,11 @@ def entorno_firma(copia, recursos, puerto):
     carpeta = copia.raiz / 'verificador'
     return {
         'VEC_CT_FIRMA_VEC_R5_ENABLED': 'true',
+        'VEC_CT_FIRMA_REGISTRO_ENABLED': 'true',
+        'VEC_CT_ORIGINAL_FIRMABLE_ENABLED': 'true',
+        'VEC_CT_FIRMAS_R5_V2_ENABLED': 'true',
+        'VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH': str(Path(__file__).resolve().parents[2] /
+            'data/catalogos/contratacion-temporal/circuito_firma.v2.json'),
         'VEC_CT_CIRCUITO_RRHH_SOURCE_PATH': str(recursos / 'circuito_rrhh_v2.json'),
         'VEC_CT_PLANTILLAS_SOURCE_PATH': str(recursos / 'ct_plantillas_documentos.v4.json'),
         # F1-26: subsanación del reparo y ruta de Plantillas de documentos.
