@@ -188,6 +188,39 @@ class CatalogoAccionesTest(unittest.TestCase):
         for nombre in ('plan.json', 'conexion.json', 'configurar.sql', 'configurado.json'):
             self.assertFalse((self.base / nombre).exists(), nombre)
 
+    def test_aprobacion_con_dos_huellas_rechazada_antes_del_sid(self):
+        meta = {'catalogo_sha256': 'a' * 64, 'paquete_sha256': 'b' * 64,
+                'backup_ref': 'copia:ficticia:uno', 'backup_sha256': 'c' * 64,
+                'encargo_ref': 'F1-131', 'sid_copia': '123456789012345',
+                'prev_version': 1, 'prev_huella': 'd' * 64,
+                'censo_preparado_sha256': 'e' * 64}
+        aprobacion = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
+                      'catalogo_sha256': meta['catalogo_sha256'],
+                      'paquete_sha256': meta['paquete_sha256'],
+                      'backup_ref': meta['backup_ref'], 'backup_sha256': meta['backup_sha256'],
+                      'encargo_ref': meta['encargo_ref'], 'sid_copia': meta['sid_copia'],
+                      'esperado_version': meta['prev_version'],
+                      'esperado_sha256': meta['prev_huella'],
+                      'censo_preparado_sha256': meta['censo_preparado_sha256'],
+                      'aprobacion_ref': 'aprobacion:ficticia',
+                      'aprobador_ref': cat.APROBADOR_REF}
+        preparado = self.base / 'preparado.json'
+        preparado.write_text(json.dumps(meta))
+        os.chmod(preparado, 0o600)
+        aprobada = self.base / 'aprobacion.json'
+        raw = json.dumps(aprobacion)
+        raw = raw.replace('"catalogo_sha256":', '"catalogo_sha256": "' + 'f' * 64 + '", "catalogo_sha256":', 1)
+        aprobada.write_text(raw)
+        os.chmod(aprobada, 0o600)
+        o = type('O', (), {'dir': str(self.base), 'fuentes': str(self.base),
+                            'aprobacion': str(aprobada)})()
+        with patch.object(cat, 'revisar'), patch.object(cat, 'psql') as consulta:
+            with self.assertRaises(SystemExit):
+                cat.cmd_configurar(o)
+            consulta.assert_not_called()
+        for nombre in ('plan.json', 'conexion.json', 'configurar.sql', 'configurado.json'):
+            self.assertFalse((self.base / nombre).exists(), nombre)
+
 
 class DestinoCopiaTest(unittest.TestCase):
     def setUp(self):

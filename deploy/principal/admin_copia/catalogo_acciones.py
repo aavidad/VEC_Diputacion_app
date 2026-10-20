@@ -22,6 +22,7 @@ from pathlib import Path
 # Al invocarlo como CLI, Python solo añade admin_copia/ a sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import copia_local
+from admin_copia import arranque as admin_arranque
 
 CATALOGO_REF = 'catalogo:bolsa:carga_convoca:b1'
 GRUPO_ACTO = 'vec_admin_catalogo_acciones_ejecutor'
@@ -104,7 +105,10 @@ def leer_privado(ruta):
 
 
 def leer_json(ruta):
-    return json.loads(leer_privado(ruta), object_pairs_hook=OrderedDict)
+    try:
+        return json.loads(leer_privado(ruta), object_pairs_hook=admin_arranque.objeto_sin_duplicados)
+    except (admin_arranque.Paro, ValueError, UnicodeDecodeError):
+        paro('json-privado-invalido')
 
 
 def carpeta(d):
@@ -416,8 +420,8 @@ def cmd_configurar(o):
     revisar(o, meta)
     raw_aprobacion = leer_privado(o.aprobacion)
     try:
-        aprobacion = json.loads(raw_aprobacion)
-    except ValueError:
+        aprobacion = json.loads(raw_aprobacion, object_pairs_hook=admin_arranque.objeto_sin_duplicados)
+    except (admin_arranque.Paro, ValueError, UnicodeDecodeError):
         paro('aprobacion-externa-invalida')
     esperado = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
                 'catalogo_sha256': meta['catalogo_sha256'], 'paquete_sha256': meta['paquete_sha256'],
