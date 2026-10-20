@@ -1,0 +1,129 @@
+"""Preparación aislada de firma, sin Xvfb ni certificados reales."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import entorno_firma as firma
+
+
+class XvfbFicticio:
+    pid = 4242
+
+    def __init__(self):
+        self.terminated = False
+
+    def poll(self):
+        return None
+
+    def terminate(self):
+        self.terminated = True
+
+    def wait(self, timeout=None):
+        return 0
+
+
+class EntornoFirmaTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / "instancia con %"
+        self.root.mkdir(mode=0o755)
+        self.root.chmod(0o755)
+        self.binary = self.root / "binario-ficticio"
+        self.binary.write_bytes(b"grxfirma-afirmauri-ficticio")
+        self.binary.chmod(0o700)
+        self.sha = hashlib.sha256(self.binary.read_bytes()).hexdigest()
+        self.inputs = {}
+        for role in firma.ROLES:
+            if role == "tecnico":
+                base = self.root / "material/mtls"
+                p12, password = base / "cliente.p12", base / "cliente.p12.password"
+            else:
+                base = self.root / "recorrido/firmantes/certificados" / ("rrhh_" + role)
+                p12, password = base / "cliente.p12", base / "pkcs12.password"
+            base.mkdir(parents=True)
+            p12.write_bytes(("p12-" + role).encode())
+            password.write_text("clave-" + role)
+            p12.chmod(0o600)
+            password.chmod(0o600)
+            self.inputs[role] = (p12, password)
+
+    def argv(self, sha=None):
+        return ["--raiz-instancia", str(self.root), "--origen", "https://127.0.0.1:18428",
+                "--binario-afirmauri", str(self.binary), "--sha-afirmauri", sha or self.sha]
+
+    def version(self, *args, **kwargs):
+        class Result:
+            returncode = 0
+            stdout = b"GrxFirma AfirmaURI 0.0.107"
+            stderr = b""
+        return Result()
+
+    def xvfb(self, command, **kwargs):
+        os.write(kwargs["pass_fds"][0], b"42\n")
+        return XvfbFicticio()
+
+    def test_sha_o_permisos_invalidos_no_crean_entorno(self):
+        with patch.object(firma.subprocess, "run", side_effect=self.version) as probe:
+            with self.assertRaises(firma.Corte):
+                firma.main(self.argv("0" * 64))
+            probe.assert_not_called()
+        self.assertFalse((self.root / "firma-web").exists())
+        self.inputs["secretaria"][1].chmod(0o644)
+        with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen") as xvfb:
+            with self.assertRaises(firma.Corte):
+                firma.main(self.argv())
+            xvfb.assert_not_called()
+        self.assertFalse((self.root / "firma-web").exists())
+
+    def test_cuatro_entornos_distintos_y_confianza_solo_origen(self):
+        with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen", side_effect=self.xvfb):
+            self.assertEqual(firma.main(self.argv()), 0)
+        fw = self.root / "firma-web"
+        self.assertEqual(self.root.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(fw.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((fw / "display").read_text().strip(), "42")
+        self.assertEqual((fw / "xvfb.pid").stat().st_mode & 0o777, 0o600)
+        p12s = []
+        for role in firma.ROLES:
+            base = fw / role
+            p12s.append((base / "p12/firmante.p12").read_bytes())
+            self.assertEqual((base / "p12.password").stat().st_mode & 0o777, 0o600)
+            cfg = base / "home/.config/grxfirma"
+            self.assertEqual(json.loads((cfg / "trusted-domains.json").read_text()), {"https://127.0.0.1:18428": "allowed"})
+            self.assertFalse(json.loads((cfg / "config.json").read_text())["rest_habilitado"])
+            self.assertTrue(json.loads((cfg / "settings.json").read_text())["confirmToSign"])
+            desktop = (base / "xdg-data/applications/grxfirma-copia.desktop").read_text()
+            self.assertIn('Exec="', desktop)
+            self.assertIn("instancia con %%", desktop)
+            self.assertIn(" %u", desktop)
+        self.assertEqual(len(set(p12s)), 4)
+        launcher = (fw / "lanzar-grxfirma.py").read_text()
+        self.assertIn("os.execve", launcher)
+        self.assertNotIn("clave-tecnico", launcher)
+
+    def test_no_reescribe_y_limpia_xvfb_propiedad_propia(self):
+        fw = self.root / "firma-web"
+        fw.mkdir()
+        (fw / "conservar").write_text("original")
+        with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen") as xvfb:
+            with self.assertRaises(firma.Corte):
+                firma.main(self.argv())
+            xvfb.assert_not_called()
+        self.assertEqual((fw / "conservar").read_text(), "original")
+        (fw / "conservar").unlink()
+        fw.rmdir()
+        process = XvfbFicticio()
+        with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen", return_value=process), patch.object(firma.select, "select", return_value=([], [], [])):
+            with self.assertRaises(firma.Corte):
+                firma.main(self.argv())
+        self.assertTrue(process.terminated)
+        self.assertFalse(fw.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()
