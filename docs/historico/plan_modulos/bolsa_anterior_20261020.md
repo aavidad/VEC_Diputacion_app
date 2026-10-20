@@ -138,12 +138,11 @@ recuperan por lote; las bolsas sin etiqueta histórica se distinguen por la fech
 de su constitución. Se reutiliza el nombre de B7 cuando esté disponible; en los
 demás casos la pantalla indica «Nombre no disponible».
 
-Siguiente corte acordado por Dirección el 13/10 a las 11:45: pedir a O, dueño de
-Inscripción, que B96 proyecte el resumen de persona de cada solicitud con su
-autoridad existente. No resolver nombres mediante CN del certificado ni
+La proyección B96 del resumen de persona debe proceder de la autoridad
+existente de Inscripción. No resolver nombres mediante CN del certificado ni
 referencias opacas, ni abrir una segunda autoridad de identidad.
 
 La instalación causal y las comprobaciones focales no acreditan todavía el
-recorrido con aspirante y RRHH. Dirección publicará las concesiones, realizará
-la prueba en navegador y medirá los tiempos. El registro no es un asiento de
+recorrido con aspirante y RRHH. La aceptación requiere concesiones
+publicadas, prueba en navegador y medición de tiempos. El registro no es un asiento de
 entrada oficial ni resuelve la alegación.
