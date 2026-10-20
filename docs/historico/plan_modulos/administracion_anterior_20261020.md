@@ -33,7 +33,7 @@ cidonia ni un recorrido real.
 | Permiso del administrador para el lote | AUT45: rol de Aplicación v6 con `administracion.perfiles.aplicar_lote_ordinario` | Se publica con la CLI existente `vec-mantener-admin-fijo` (paso 4 del runbook, plan v2). Requiere AUT48 para que la lista de usuarios siga funcionando con v6. |
 | Alta y baja del vínculo persona-perfil | CA20 (`crear_perfil_vinculo_admin_v1`, `revocar_perfil_vinculo_admin_v1`) y el borrador CA35 de K | CA35 añade la fecha única del lote. |
 | Actos singulares AUT24 (`aplicar_acto_ordinario_admin_v1`) | AUT24 | **No sirven tal cual**: exigen las acciones `administracion.perfiles.otorgar/revocar`, que ninguna versión del rol concede, y escriben auditoría propia en lugar de la común. Se reutilizan sus tablas de catálogo, sellos y preimagen. |
-| Borrador del lote de K | `origin/trabajo/codexk-admin-lote-ordinario-20261004@25cc6f444` | Adaptador Go, contrato v3 con fechas y fuentes, DTO HTTP y CA35. Faltan AUT44 y AD190 en SQL. Se rescata por piezas, no se fusiona la rama. |
+| Borrador del lote de K | `25cc6f444` | Adaptador Go, contrato v3 con fechas y fuentes, DTO HTTP y CA35. Faltan AUT44 y AD190 en SQL. Se rescata por piezas, no se fusiona la rama. |
 
 **Hueco de base detectado.** El catálogo `rol_administrable_exacto_v1` sólo
 contiene los roles de administración y Sistemas. No hay ningún perfil
@@ -114,7 +114,7 @@ y el procedimiento `deploy/postgresql/autorizacion/PERFILES_ASIGNABLES_AUT49.md`
 Por qué un acto técnico y no la pantalla: el rol del administrador no concede
 hoy registrar perfiles, y crear esa concesión exige otra versión del rol. El
 registro es una decisión de gobierno (qué perfiles se pueden repartir), no un
-reparto. Lo aprueba Alberto sobre la huella exacta del plan.
+reparto. Su aprobación queda ligada a la huella exacta del plan.
 
 Ensayo del 5 de octubre de 2026 en un clon desechable (PostgreSQL 18.4,
 `--memory 2g`) restaurado del frío `frio-runtime-IS16-CA36-20261005` de K más
@@ -143,7 +143,6 @@ los planes hasta que se responda la pregunta 141 de `dudas.md`. Las exclusiones 
 una lista de nombres; la clasificación positiva es la aprobación del plan. El
 registro no da permisos a nadie: sólo hace que esos roles puedan asignarse
 cuando existan A2-A7. `vec-admin` no cambia en este corte.
-
 
 ## Gobierno de roles: correctivo de #886 — 8 de octubre de 2026
 
@@ -174,7 +173,7 @@ exige LOGIN mínimo, dos ADMIN distintos, acción firmada y efecto exacto,
 recibo, control, auditoría y outbox. La función interna de alta de vínculo sólo
 forma parte del bootstrap; añadir una renovación de certificados sería otra
 tarea de identidad. La PR permanece en borrador hasta completar el ensayo y
-la CI; Claude revisa y fusiona.
+la CI; La integración requiere revisión previa.
 
 ## Preferencias sin espera inicial con idioma elegido — 8 de octubre de 2026
 

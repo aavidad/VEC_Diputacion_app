@@ -22,10 +22,10 @@ ni recorridos que no estén escritos en sus PR.
 | Cadena común, consumos v1 a v4, intentos AD169 y verificador | En main. AD193 está pendiente de instalar en la principal con su lista. |
 | Versión vigente del rol de Aplicación (AUT48) | En main. Pendiente de instalar en la principal con su lista, después de AUT45. |
 | Paquete firmado de exportación de desarrollo (#602) | En main, sin fuente de captura: no hay nadie autorizado a capturar. |
-| Consulta nominal de Aplicación (WIP `f56f9f3a9`) | Rama `origin/trabajo/codexl-auditoria-nominal-20261003`. Compila y pasa sus pruebas sobre main del 05/10; le falta la misma fuente con permiso propio. |
+| Consulta nominal de Aplicación (WIP `f56f9f3a9`) | Rama una rama histórica. Compila y pasa sus pruebas sobre main del 05/10; le falta la misma fuente con permiso propio. |
 | Lecturas fallidas CT/Bolsa (#540, #581, #582, #591) | Borradores. Esperan el ensayo nominal con la identidad RRHH CA26/IS13 y el registrador AD169. |
 
-## Aparcado por prioridad (orden de Alberto del 05/10)
+## Aparcado por prioridad (según la prioridad del plan)
 
 Primero van las bases de Bolsa y Contratación temporal. La exportación judicial
 queda así, para retomarla en este orden:
@@ -83,7 +83,7 @@ claro (`GET …/candidatos/{p}/datos-contacto?ver=completo`) sin decisión V3 pr
 la frontera común sólo exigía sesión mTLS y el perfil activo de Bolsa RRHH, y en el
 catálogo esa frontera colgaba de la acción de *registrar* datos de contacto.
 
-Estado: rama `trabajo/claude-bolsa-contacto-consulta-20261005`, apilada sobre #719
+Estado: rama una rama histórica, apilada sobre #719
 y #712. La consulta completa tiene acción, finalidad y motivo propios; AD197 (núcleo
 y fachada) y B78 (lectura con consumo) la consumen en la misma transacción que la
 lectura, y sus fallos van al registrador AD169. AD197 está medida sobre main + AD190
@@ -112,7 +112,7 @@ consumo no deja rastro. Hay dos partes:
    formato al recurso de la consulta antes de consumir. Se coordina con E
    (Documentos/firma) y se escribe aquí antes de programar.
 
-Decisión y estado (05/10, rama `trabajo/claude-ct-descargas-auditadas-20261005`,
+Decisión y estado (05/10, rama una rama histórica,
 apilada sobre #713): acción propia `contratacion_temporal.borrador_rrhh.descargar`,
 con la finalidad y el motivo de la consulta del expediente. La consulta del
 detalle no cambia; después de generar y validar el archivo, la descarga pide
@@ -135,7 +135,7 @@ entre denegación e inexistencia, queda como intento «denegado».
 
 ### Provisión de identidad interna sintética — AD215
 
-La rama `trabajo/codexv-provision-identidad-20261007` añade dos tipos a la cadena
+La rama una rama histórica añade dos tipos a la cadena
 común: provisión confirmada e intento de provisión o recuperación. El SQL AD215,
 su vector y el verificador CLI aceptan ambos tipos; la operación se confirmó en
 una base local sintética y devolvió el mismo recibo tras reiniciar PostgreSQL.
