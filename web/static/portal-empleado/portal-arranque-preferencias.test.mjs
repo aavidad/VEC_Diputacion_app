@@ -57,7 +57,9 @@ for (const [nombre, url, estado, idioma, espera, redirige] of [
     const eventos = [];
     let resolver;
     let llamadas = 0;
-    globalThis.fetch = () => {
+    globalThis.fetch = (url) => {
+      // La imagen de la cabecera se pide tras cargar las preferencias (F1-113).
+      if (String(url).endsWith("/mi-imagen")) return Promise.reject(new TypeError("sin_red"));
       llamadas += 1;
       eventos.push(["consultar_preferencias"]);
       if (estado === 503 && llamadas > 1) return Promise.resolve(respuesta(503));
@@ -80,5 +82,28 @@ for (const [nombre, url, estado, idioma, espera, redirige] of [
       if (espera && !redirige) assert.ok(eventos.findIndex(([evento]) => evento === "cargar_modulos")
         > eventos.findIndex(([evento]) => evento === "respuesta_preferencias"));
     } finally { globalThis.fetch = anterior; }
+  });
+}
+
+// F1-113: la cabecera pinta la imagen elegida desde el arranque, sin abrir
+// Mis preferencias; si las preferencias no cargan, no se pide la imagen.
+for (const [estado, pideImagen] of [[200, true], [401, false]]) {
+  test(`con preferencias ${estado} la imagen ${pideImagen ? "se pide" : "no se pide"} al arrancar`, async () => {
+    const anterior = globalThis.fetch;
+    const rutas = [];
+    let integracion;
+    globalThis.fetch = (url) => {
+      const ruta = new URL(String(url), "http://localhost").pathname;
+      rutas.push(ruta);
+      if (ruta.endsWith("/mi-imagen")) return Promise.reject(new TypeError("sin_red"));
+      return Promise.resolve(respuesta(estado));
+    };
+    try {
+      ({ integracion } = entorno("http://localhost/portal-empleado/", []));
+      await integracion.superficie.cargar();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(rutas.includes("/api/vec/usuarios/mi-imagen"), pideImagen);
+      assert.equal(rutas.includes("/api/vec/usuarios/mis-correos"), false);
+    } finally { integracion?.detenerRegistroErrores(); globalThis.fetch = anterior; }
   });
 }

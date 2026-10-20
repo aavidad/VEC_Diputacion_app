@@ -2,7 +2,7 @@ import { escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261020-f1113-v1";
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=VEC_WEB_VERSION";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=VEC_WEB_VERSION";
 import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=VEC_WEB_VERSION";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=VEC_WEB_VERSION";
