@@ -386,8 +386,9 @@ export async function registrarContactoCandidato(bolsaRef, participacionRef, pay
     const comando={canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,llamamiento_ref:payload.llamamiento_ref||""};
     if (!servidor) comando.instante=payload.instante;
     const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials: "same-origin",mode:"same-origin",cache:"no-store",redirect:"error",referrerPolicy:"no-referrer",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify(comando)});
-    const cuerpo=await respuesta.json().catch(()=>({}));
-    if(respuesta.ok&&cuerpo?.data?.recibo_ref){
+    const cuerpo=await respuesta.json().catch(()=>null);
+    if(respuesta.status>=200&&respuesta.status<300){
+      if(![200,201].includes(respuesta.status)||typeof cuerpo?.data?.recibo_ref!=="string"||!cuerpo.data.recibo_ref.trim())return{ok:false,status:0,codigo:"respuesta_invalida",mensaje:traducirBolsaInterna("contacto_registro_error")};
       const datos=cuerpo.data;
       if(servidor&&(datos.participacion_ref!==participacionRef||datos.llamamiento_ref!==comando.llamamiento_ref||datos.canal!=="telefono"||datos.resultado!==comando.resultado||datos.anotacion!==comando.anotacion||!Number.isFinite(Date.parse(datos.instante))))return{ok:false,status:0,codigo:"respuesta_invalida",mensaje:traducirBolsaInterna("contacto_registro_error")};
       return{ok:true,datos};

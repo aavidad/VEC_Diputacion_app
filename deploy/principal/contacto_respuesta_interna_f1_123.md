@@ -87,3 +87,9 @@ errores diferenciados, recuperación del mismo envío y bloqueo cuando falta la
 consulta telefónica. Pasaron 38 pruebas focales de la interfaz y una comprobación
 focal adicional del estilo común. La copia y sus procesos se retiraron después
 de conservar los resultados, sin repetir actuaciones para recuperar recibos.
+
+La revisión posterior detectó también el éxito HTTP cuyo cuerpo llega truncado
+o sin justificante válido. Se trata como resultado incierto y conserva el mismo
+comando y clave. Dos pruebas focales seleccionadas comprobaron JSON rechazado,
+justificante ausente o vacío y el reintento con la ficha repintada; las otras 33
+quedaron fuera del filtro. No se repitió el recorrido real de pérdida del 503.

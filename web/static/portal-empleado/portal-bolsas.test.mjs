@@ -243,6 +243,14 @@ test("teléfono anunciado omite fecha local; conflictos conservan el código y u
   assert.equal(legado.ok,true); assert.equal(JSON.parse(opciones.body).instante,"2026-10-20T09:00:00Z");
   const ajeno=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:ajeno",participacion_ref:"participacion:02"}})})});
   assert.equal(ajeno.ok,false); assert.equal(ajeno.codigo,"respuesta_invalida");
+  for(const status of [200,201]){
+    for(const json of [async()=>{throw new SyntaxError("JSON truncado")},async()=>({data:{}}),async()=>({data:{recibo_ref:""}})]){
+      const incierto=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:true,status,json})});
+      assert.equal(incierto.ok,false); assert.equal(incierto.status,0); assert.equal(incierto.codigo,"respuesta_invalida");
+    }
+  }
+  const pendiente=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async(...args)=>({...await fetchImpl(...args),status:202})});
+  assert.equal(pendiente.ok,false); assert.equal(pendiente.status,0);
   for(const [codigo,fragmento] of [["contacto_en_conflicto","historial"],["contacto_no_valido","resultado"],["intento_fuera_de_franja","horario"],["anotacion_con_dato_personal","datos personales"]]){
     const fallo=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:false,status:codigo==="anotacion_con_dato_personal"?400:409,json:async()=>({error:{codigo}})})});
     assert.equal(fallo.codigo,codigo); assert.match(fallo.mensaje,new RegExp(fragmento,"iu"));
@@ -284,7 +292,7 @@ test("el formulario usa hora del servidor solo para el llamamiento anunciado y f
   }finally{globalThis.FormData=originalFormData;globalThis.fetch=originalFetch}
 });
 
-test("la ficha repintada conserva borrador e incertidumbre y reenvía el mismo contacto", async () => {
+test("JSON truncado y recibo vacío repintan el borrador y reenvían exactamente el mismo contacto", async () => {
   const { envelopeCandidatos }=construirFixturesDesdeDemo();
   const datos=validarRespuestaCandidatosBolsa(envelopeCandidatos), bolsa=datos.bolsa;
   const candidato={...datos.candidatos[0],ultimo_llamamiento:{llamamiento_ref:"llamamiento:01",comunicado_en:"2026-10-20T09:00:00Z",canal:"correo",resultado:"sin_respuesta"}};
@@ -300,7 +308,9 @@ test("la ficha repintada conserva borrador e incertidumbre y reenvía el mismo c
   const evento={preventDefault(){},target:{closest(selector){return selector==='[data-bolsa-form="contacto"]'?formulario:null}}};
   const anteriorFormData=globalThis.FormData, anteriorFetch=globalThis.fetch, peticiones=[];
   globalThis.FormData=class{constructor(form){this.valores=form.valores}get(clave){return this.valores.get(clave)}};
-  globalThis.fetch=async(_ruta,opciones)=>{peticiones.push(opciones);return{ok:false,status:503,json:async()=>({error:{codigo:"servicio_no_disponible"}})}};
+  globalThis.fetch=async(_ruta,opciones)=>{peticiones.push(opciones);return peticiones.length===1
+    ?{ok:true,status:201,json:async()=>{throw new SyntaxError("JSON truncado")}}
+    :{ok:true,status:200,json:async()=>({data:{recibo_ref:""}})}};
   try{
     crearControladorBolsas({estado,renderizar,navegar:()=>{},documento}).instalar();
     formulario.valores=new Map([["canal","telefono"],["resultado","no_contesta"],["anotacion","Se habló con Ana"],["llamamiento_ref","llamamiento:01"]]);
