@@ -194,3 +194,5 @@ deploy/postgresql/bolsa_convocatorias/migraciones/000014_publicacion_oficial_bas
 # F1-41 — BC13 (comprobación de publicación para solicitud conjunta) y B146 (solicitud conjunta con recibo único y separada por categoría, contenido de B105); BC13 exige BC14 y B146 exige BC13; tras B142 y BC14.
 deploy/postgresql/bolsa_convocatorias/migraciones/000013_comprobacion_inscripcion_conjunta_v1.up.sql 39391385215c8252e1849b8c9cadd4eee3cd19c893bafb9ef654b29572955ec3
 deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sql cbc0b4b671098154bc89b1f98e6a87ecbabc2736541fc85597cc9737ab763afe
+# F1-13 parte 4 — B139: los avisos de ofertas respetan la elección de modalidades al congelar destinatarios; tras B138 y B136.
+deploy/postgresql/bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879

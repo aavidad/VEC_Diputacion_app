@@ -739,12 +739,8 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 			return nil, errMiBolsaNoDisponible
 		}
 	}
-	var consultaHTTP http.Handler
-	if d.campos == nil {
-		consultaHTTP, err = bolsahttp.Nuevo(preparador, servicio)
-	} else {
-		consultaHTTP, err = bolsahttp.NuevoConCampos(preparador, servicio, d.campos)
-	}
+	lecturaModalidades := lecturaModalidadesPortalExterno(d)
+	consultaHTTP, err := consultaHTTPMiBolsaPortalExterno(d, servicio, lecturaModalidades)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
@@ -786,7 +782,7 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 			return nil, errMiBolsaNoDisponible
 		}
 	}
-	preferenciasHTTP, err = bolsahttp.NuevoSelectorPreferenciasModalidades(preferenciasHTTP, handlerPreferenciasModalidadesPortalExterno(d))
+	preferenciasHTTP, err = bolsahttp.NuevoSelectorPreferenciasModalidades(preferenciasHTTP, handlerPreferenciasModalidadesPortalExterno(d, lecturaModalidades))
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
