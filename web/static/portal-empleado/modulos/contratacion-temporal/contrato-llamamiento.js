@@ -49,6 +49,11 @@ export const CAMPOS_RESOLUCION = Object.freeze([
   "comunicacion_ref", "version_esperada", "respuesta", "prueba_respuesta_ref",
   ...CAMPOS_REVISION_RESOLUCION, "criterio_validacion_ref",
 ]);
+export const CAMPOS_RESOLUCION_PORTAL = Object.freeze([
+  "fuente_respuesta", "clave_idempotencia", "expediente_ref", "bolsa_ref", "llamamiento_ref",
+  "recibo_emision_ref", "participacion_ref", "recibo_respuesta_ref", "respuesta",
+  ...CAMPOS_REVISION_RESOLUCION, "criterio_validacion_ref",
+]);
 export const CAMPOS_SIGUIENTE = Object.freeze([
   "clave_idempotencia", "organizacion_ref", "expediente_ref", "resolucion_ref", "intencion_ref",
 ]);
@@ -268,6 +273,27 @@ export function validarSolicitudResolucionLlamamiento(entrada) {
     && (expiracion ? entrada.prueba_respuesta_ref === "" : RESPUESTAS_RESOLUCION.includes(valor.respuesta))
     && CAMPOS_REVISION_RESOLUCION.every((campo) => valor[campo] === true));
   return expiracion ? registro({ ...valor, prueba_respuesta_ref: "" }, CAMPOS_RESOLUCION) : valor;
+}
+export function validarSolicitudResolucionPortal(entrada) {
+  const valor = solicitud(entrada, CAMPOS_RESOLUCION_PORTAL, null);
+  exigir(valor.fuente_respuesta === "portal" && valor.respuesta === "aceptacion"
+    && CAMPOS_REVISION_RESOLUCION.every((campo) => valor[campo] === true)
+    && valor.criterio_validacion_ref === CRITERIO_VALIDACION_RESOLUCION_DESARROLLO);
+  return valor;
+}
+export function validarReciboResolucionPortal(entrada, solicitudEntrada) {
+  validarSolicitudResolucionPortal(solicitudEntrada);
+  const valor = registro(entrada, ["esquema", "fuente_respuesta", "respuesta", "estado_plazo",
+    "estado_local", "resolucion_ref", "recibo_local_ref", "auditoria_ref", "version_resultante", "resuelta_en"]);
+  exigir(valor.esquema === "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1"
+    && valor.fuente_respuesta === "portal" && valor.respuesta === "aceptacion"
+    && valor.estado_plazo === "revision_manual_portal"
+    && ["confirmado", "replay_confirmado"].includes(valor.estado_local)
+    && valor.version_resultante === 1
+    && ["resolucion_ref", "recibo_local_ref", "auditoria_ref"].every(
+      (campo) => referenciaLlamamientoValida(valor[campo])));
+  instanteRespuesta(valor.resuelta_en);
+  return valor;
 }
 export function validarReciboResolucionLlamamiento(entrada, solicitudEntrada) {
   const esperada = validarSolicitudResolucionLlamamiento(solicitudEntrada);
