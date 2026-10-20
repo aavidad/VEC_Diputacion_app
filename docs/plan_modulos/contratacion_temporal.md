@@ -41,7 +41,7 @@ presentarse una oferta como un nombramiento.
 
 ## Cierre, activación y límites
 
-Dirección confirma el 20/10 a las 12:27 el hito de un expediente completo del
+El hito es un expediente completo del
 caso 4.0 con reinicio antes del 6 de noviembre. Si no se llega, se recalcula
 el final de fase 1, estimado para la segunda quincena de noviembre. Se mantienen
 las condiciones del [plan general](../producto/PLAN_IMPLEMENTACION.md#5-fases-y-criterios-de-cierre):
@@ -49,7 +49,7 @@ funciones necesarias y auditoría activadas, botones útiles sin rutas ausentes
 ni fallos de disponibilidad y tiempos de lectura medidos bajo el objetivo.
 
 La [receta local](../../deploy/principal/LEEME_copia_local.md) fija la preparación;
-la [guía para Alberto](../../GUIA_RECORRIDO_ALBERTO.md), el uso desde pantalla.
+la [guía del recorrido](../../GUIA_RECORRIDO_ALBERTO.md), el uso desde pantalla.
 GINPIX es una confirmación de grabación manual y el correo es local. Las
 firmas de desarrollo no dan eficacia administrativa. Lo pendiente de RRHH
 continúa como valor provisional configurable y pregunta abierta en

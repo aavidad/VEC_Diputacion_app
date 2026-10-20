@@ -37,7 +37,7 @@ el orden anterior y una resolución B45 posterior no borra el intervalo
 pendiente. La misma migración actualiza el orden, el resumen y «Mi Bolsa» sin
 cambiar el consumo V3 existente, y ofrece una lectura por lote. B81 pagina
 sus pendientes por posición y referencia para que un fallo no tape los demás.
-Claude revisa las SQL exactas y el ensayo final antes de integrar. Ninguna
+Las SQL exactas y el ensayo final se revisan antes de integrar. Ninguna
 está instalada en una base compartida. CONFIG NUEVA: ninguna.
 
 En un clon PostgreSQL 18.4 postHX + 14 HZ + B85 + B86 + CT193 + B87, las
@@ -51,20 +51,20 @@ anterior, con el mismo SQL B90. CT129 verifica el origen; la fixture prepara
 CT/B13 directamente, sin acreditar una actuación RRHH ni «Mi Bolsa» con V3
 nominal. La línea base HTTP de la fuente anterior dio p95 de 285,223 ms con
 2.000 candidaturas y 2.009 consultas por petición, pero B90 estaba apagada:
-no mide este cambio. Faltan la revisión SQL final de Claude y la CI del nuevo
+no mide este cambio. Faltan la revisión SQL final y la CI del nuevo
 hash. La mejora de consultas RRHH va aparte en #917.
 
 ## Lo que falta
 
 | # | Qué | Quién o qué lo frena | Cómo se comprueba |
 | --- | --- | --- | --- |
-| 1 | **Vuelta a la bolsa tras el cese de CT.** En cidonia falta `VEC_BOLSA_CESE_CT_ENABLED` y el LOGIN del relevo. El LOGIN y el entorno están preparados en #771. | Claude, en el despliegue de cidonia. | Cese en CT y la persona vuelve a «Disponible» (o «disponible desde») en su bolsa, también tras reiniciar. |
+| 1 | **Vuelta a la bolsa tras el cese de CT.** En cidonia falta `VEC_BOLSA_CESE_CT_ENABLED` y el LOGIN del relevo. El LOGIN y el entorno están preparados en #771. | la revisión de integración, en el despliegue de cidonia. | Cese en CT y la persona vuelve a «Disponible» (o «disponible desde») en su bolsa, también tras reiniciar. |
 | 2 | **Cese sin candidato vinculado sin bloquear el relevo** (CT197, B81, B90), también en bolsa constituida si la participación consta en su acta. | PR #774 integrada en `main`; falta instalar y recorrer el relevo en cidonia. | Comprobar alta, cursor, vínculo posterior, restricción B45 y estado pendiente en «Mi Bolsa». |
-| 3 | **Carga de bolsas desde el Excel de CONVOCA en pantalla (B1).** #751 conserva el núcleo y CLI segregado; #752 añade vista previa paginada con consumo V3 y confirmación; #759 presenta el recorrido ES/EN. Las tres PR siguen candidatas en ese orden. | Codex-U corrige y verifica; Claude revisa SQL y fusiona. Faltan la concesión B1 gobernada y su asignación nominal; no se crean al arrancar. Duda 144 pendiente. | Verificaciones locales y Chrome con API de prueba; falta RRHH → API nominal → PostgreSQL → recibo y recuperación tras reinicio. |
-| 4 | **Recorrido de la oferta con varias plazas y del llamamiento directo**, de punta a punta. El código está; falta el acta. Va dentro del recorrido completo de [plan de implementación](../../producto/PLAN_IMPLEMENTACION.md). | Claude, con el recorrido de CT. | Acta con varias aceptaciones, adjudicación por posición, «sin respuesta» sin consecuencia y llamamiento directo. |
+| 3 | **Carga de bolsas desde el Excel de CONVOCA en pantalla (B1).** #751 conserva el núcleo y CLI segregado; #752 añade vista previa paginada con consumo V3 y confirmación; #759 presenta el recorrido ES/EN. Las tres PR siguen candidatas en ese orden. | el componente responsable corrige y verifica; la revisión de integración revisa SQL y fusiona. Faltan la concesión B1 gobernada y su asignación nominal; no se crean al arrancar. Duda 144 pendiente. | Verificaciones locales y Chrome con API de prueba; falta RRHH → API nominal → PostgreSQL → recibo y recuperación tras reinicio. |
+| 4 | **Recorrido de la oferta con varias plazas y del llamamiento directo**, de punta a punta. El código está; falta el acta. Va dentro del recorrido completo de [plan de implementación](../../producto/PLAN_IMPLEMENTACION.md). | la revisión de integración, con el recorrido de CT. | Acta con varias aceptaciones, adjudicación por posición, «sin respuesta» sin consecuencia y llamamiento directo. |
 | 5 | **Reglas que ya no encajan con el Reglamento (duda 147).** El Reglamento (BOP 16/01/2026, arts. 8 y 11) no recoge el plazo de 24 horas por plaza ni «no responder equivale a no aceptar» en la oferta. Basta con cambiar el catálogo. | Dirección decide; luego, cambio de catálogo. | Catálogo nuevo cargado y la pregunta 147 retirada de `dudas.md`. |
 | 6 | **Renuncia justificada con el fichero.** Hoy «Mi Bolsa» envía la huella y la referencia del justificante, no el fichero. Con documentos ya encendidos, hay que comprobar si la custodia lo recoge. | Sin dueño. Comprobar antes de encargar. | El justificante se descarga desde la ficha de RRHH. |
-| 7 | **Cifras globales de Bolsa pulsables.** Las cifras por bolsa ya llevan a su lista (#883). Los tres totales globales y «llamamientos en curso» necesitan una lectura global paginada con auditoría en la misma transacción. Hoy cuentan participaciones, no personas. | Equipo V. No hay rama. | Cada total abre su lista filtrada con el mismo número. |
+| 7 | **Cifras globales de Bolsa pulsables.** Las cifras por bolsa ya llevan a su lista (#883). Los tres totales globales y «llamamientos en curso» necesitan una lectura global paginada con auditoría en la misma transacción. Hoy cuentan participaciones, no personas. | el componente responsable. No hay rama. | Cada total abre su lista filtrada con el mismo número. |
 | 8 | **Correo de la Diputación configurable desde Administración (B5).** No existe: el servidor de correo solo se configura con variables de entorno. Para la presentación vale el buzón de pruebas actual. | Decidir antes qué se rescata de #179, #204, #206 y #209. Datos del servidor: Informática (duda 88). | Prueba de envío desde Administración, con auditoría. |
 
 **DEPENDENCIA para encender la carga CONVOCA (09/10).** #931 prepara la versión del rol RRHH existente y conserva sus asignaciones; #932 prepara la ratificación de siete descriptores ADMIN que faltan en la copia de ensayo. Ambas PR siguen en borrador. El ensayo ya publicó ADMIN v8/v9 y admitió el catálogo B1 con las CLI reales, pero aún no hizo la propuesta y el cierre con dos personas ADMIN distintas.
@@ -97,9 +97,9 @@ Publicación de convocatorias (B7) y baremación con firma (B8) van con Selectiv
 
 Ficheros que conviene no engordar: `internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go`, `web/static/portal-empleado/portal-bolsas-api.js` y `internal/modules/bolsa/domain/llamamientos.go`. Lo nuevo va en ficheros nuevos.
 
-## Candidata: cifras globales y sus listas (Codex-W, 08/10)
+## Candidata: cifras globales y sus listas (el componente responsable, 08/10)
 
-Rama `trabajo/codexw-bolsa-global-20261008`: los totales de aspirantes,
+Rama una rama histórica: los totales de aspirantes,
 disponibles y renuncia abren su relación paginada. Las filas muestran categoría,
 posición de acta y situación; «Ver bolsa» abre la relación con nombres ya existente.
 Los llamamientos completos tienen su lista por bolsa o general (SQL nueva B94).
@@ -127,7 +127,6 @@ el contexto nominal mediante huella y CAS. Las filas ambiguas quedan pendientes;
 no se enlazan por coincidencia de máscara o nombre. No hace falta otro portal ni
 otra ruta de Mi Bolsa. Falta la correspondencia verificada de la autoridad de
 personas; este cambio no aprovisiona cuentas ni permisos.
-
 
 ## Alegaciones de inscripción y participación — 13 de octubre
 
