@@ -32,7 +32,11 @@ propia fila del acta vigente, la del puesto 5, que el acta da a «Antonio Reyes
 Álvarez». La misma persona de Antonio se vincula a ese candidato mediante una
 nueva versión de su proyección común; las anteriores permanecen en la historia.
 Las cuatro personas de los puestos 1 a 4 pasan a **No disponible** con una
-clave fija, así que el primer turno es el de Antonio. Se conservan la bolsa
+clave fija, así que el primer turno es el de Antonio. El guion solo las marca
+si siguen disponibles; si alguna ya cambió de situación (por ejemplo, porque el
+recorrido la llamó o la contrató), se para sin tocar nada. No comprueba
+llamamientos u ofertas abiertos a esas personas: se ejecuta antes de llamar a
+nadie. Se conservan la bolsa
 sustituida y el orden del acta. La fuente de Bolsa que usa el llamamiento CT
 debe devolverlo como primer candidato disponible, con orden de acta 5; si no
 lo hace, la transacción se revierte.

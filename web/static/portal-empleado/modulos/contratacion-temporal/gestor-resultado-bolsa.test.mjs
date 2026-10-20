@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js";
 
-function escenario(cliente, confirmarOperacion = async () => true, consultarPersonas = async () => new Map()) {
+function escenario(cliente, confirmarOperacion = async () => true, consultarPersonas = async () => new Map(),
+  { zona = { innerHTML: "", querySelector: () => ({ after() {} }) }, documento = {} } = {}) {
   const eventos = new Map();
   const resultado = { vinculos: [], emisiones_vinculables: [{ bolsa_ref: "bolsa:prueba",
     llamamiento_ref: "llamamiento:prueba", recibo_emision_ref: "recibo:emision:prueba",
@@ -11,9 +12,8 @@ function escenario(cliente, confirmarOperacion = async () => true, consultarPers
   total_vinculos: 21, personas_solicitadas: 1, aceptaciones_firmes: 0 };
   const expediente = { expediente_ref: "expediente:prueba", version: 4, resultado_bolsa: resultado };
   const estado = { vista: "expediente", carga: "listo", expediente_ref: expediente.expediente_ref, expediente };
-  const zona = { innerHTML: "", querySelector: () => ({ after() {} }) };
   const raiz = { contains: () => true, querySelector: (selector) => selector === "[data-ct-resultado-bolsa-zona]" ? zona : null,
-    ownerDocument: { createElement: () => ({ setAttribute() {}, textContent: "" }) },
+    ownerDocument: Object.assign(documento, { createElement: () => ({ setAttribute() {}, textContent: "" }) }),
     addEventListener: (nombre, funcion) => eventos.set(nombre, [...(eventos.get(nombre) ?? []), funcion]),
     removeEventListener: (nombre, funcion) => eventos.set(nombre, (eventos.get(nombre) ?? []).filter((f) => f !== funcion)) };
   const presentador = { obtenerEstado: () => estado, seleccionarExpediente: async () => {} };
@@ -96,7 +96,7 @@ test("el selector y la confirmación dicen a quién se llamó cuando Bolsa lo de
     advertencias.push(opciones.advertencia); return false;
   }, consultar);
   await new Promise((resolver) => setTimeout(resolver, 0));
-  assert.match(e.zona.innerHTML, /2026\/001 · Antonio Reyes Álvarez · /u);
+  assert.match(e.zona.innerHTML, /Antonio Reyes Álvarez · .* · 2026\/001/u);
   e.gestor.actualizar();
   assert.equal(pedidas, 1);
   await e.enviar();
@@ -109,5 +109,48 @@ test("si Bolsa no responde, el selector sigue con referencia y fecha", async () 
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.match(e.zona.innerHTML, /2026\/001 · /u);
   assert.doesNotMatch(e.zona.innerHTML, /Antonio/u);
+  e.gestor.desmontar();
+});
+
+test("al llegar los nombres se conserva la opción elegida y el foco del desplegable", async () => {
+  // Zona mínima que, como el navegador, crea un desplegable nuevo en cada pintado.
+  const documento = { activeElement: null };
+  let html = "";
+  const crearSelect = () => ({ value: "", matches: (s) => s === "#ct-bolsa-emision", focus() { documento.activeElement = this; } });
+  let select = crearSelect();
+  const zona = { get innerHTML() { return html; }, set innerHTML(valor) { html = valor; select = crearSelect(); },
+    contains: (nodo) => nodo === select,
+    querySelector: (s) => (s === "#ct-bolsa-emision" ? select : { after() {} }) };
+  let completar;
+  const e = escenario({ vincularLlamamientoBolsa() {} }, async () => false,
+    () => new Promise((resolver) => { completar = resolver; }), { zona, documento });
+  select.value = "0";
+  select.focus();
+  completar(new Map([["llamamiento:prueba", ["Antonio Reyes Álvarez"]]]));
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.match(html, /Antonio Reyes Álvarez/u);
+  assert.equal(select.value, "0");
+  assert.equal(documento.activeElement, select);
+  e.gestor.desmontar();
+});
+
+test("los nombres ya leídos no se vuelven a pedir y uno que falló se pide en el siguiente pintado", async () => {
+  const pedidas = [];
+  let fallar = true;
+  const consultar = async (llamamientos) => {
+    pedidas.push(llamamientos.map((l) => l.llamamiento_ref));
+    if (fallar) throw new Error("503");
+    return new Map([["llamamiento:prueba", ["Antonio Reyes Álvarez"]]]);
+  };
+  const e = escenario({ vincularLlamamientoBolsa() {} }, async () => false, consultar);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.doesNotMatch(e.zona.innerHTML, /Antonio/u);
+  fallar = false;
+  e.gestor.actualizar();
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.match(e.zona.innerHTML, /Antonio Reyes Álvarez/u);
+  e.gestor.actualizar();
+  e.gestor.actualizar();
+  assert.deepEqual(pedidas, [["llamamiento:prueba"], ["llamamiento:prueba"]]);
   e.gestor.desmontar();
 });

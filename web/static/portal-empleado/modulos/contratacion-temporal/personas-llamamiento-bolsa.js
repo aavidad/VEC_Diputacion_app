@@ -1,13 +1,15 @@
 /**
  * Nombres de las personas a las que se dirigió cada llamamiento de Bolsa que
- * se puede vincular a un expediente. Usa la misma lectura autorizada de
- * candidatos que la pantalla de Bolsas: sus contactos dicen qué participación
- * recibió cada llamamiento y sus filas, el nombre visible del acta. No guarda
- * nada fuera de memoria. Si la lectura falla, el selector sigue sin nombres.
+ * se puede vincular a un expediente. Usa la lectura autorizada de candidatos
+ * de la pantalla de Bolsas filtrada por llamamiento, de modo que solo llegan
+ * las personas de ese llamamiento y no la bolsa entera. No guarda nada fuera
+ * de memoria. Si la lectura falla, el selector sigue sin nombres.
  */
 const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 const REFERENCIA = /^[A-Za-z][A-Za-z0-9:_-]{0,255}$/u;
-const MAXIMO_PAGINAS = 10;
+const LLAMAMIENTO = /^llamamiento:[A-Za-z0-9:_-]{8,200}$/u;
+// Un expediente vincula pocos llamamientos; por encima no se piden nombres.
+const MAXIMO_LLAMAMIENTOS = 20;
 
 const segmento = (referencia) => encodeURIComponent(referencia).replace(/%3A/giu, ":");
 
@@ -15,65 +17,45 @@ function texto(valor, maximo) {
   return typeof valor === "string" && valor.trim() !== "" && valor.length <= maximo;
 }
 
-/** Valida lo justo de una página de candidatos para cruzar nombres y llamamientos. */
-export function validarPaginaPersonasBolsa(sobre, bolsaRef) {
+/**
+ * Valida la respuesta filtrada por un llamamiento y devuelve sus nombres en el
+ * orden de la Bolsa. Cada persona debe constar contactada en ese llamamiento.
+ */
+export function validarPaginaPersonasBolsa(sobre, bolsaRef, llamamientoRef) {
   const datos = sobre?.data;
   if (!datos || datos.bolsa?.bolsa_ref !== bolsaRef || !Array.isArray(datos.candidatos) || datos.candidatos.length > 100
-    || !Array.isArray(datos.contactos) || typeof datos.hay_mas !== "boolean"
-    || (datos.hay_mas && !texto(datos.cursor_siguiente, 256))) throw new TypeError("personas_bolsa_contrato");
-  const candidatos = datos.candidatos.map((c) => {
+    || !Array.isArray(datos.contactos) || datos.hay_mas !== false) throw new TypeError("personas_bolsa_contrato");
+  const contactadas = new Set(datos.contactos.filter((c) => c?.llamamiento_ref === llamamientoRef).map((c) => c.participacion_ref));
+  return datos.candidatos.map((c) => {
     if (!REFERENCIA.test(c?.participacion_ref ?? "") || !texto(c.nombre_visible, 200)) throw new TypeError("personas_bolsa_candidato");
-    return { participacion_ref: c.participacion_ref, nombre_visible: c.nombre_visible.trim() };
+    if (!contactadas.has(c.participacion_ref)) throw new TypeError("personas_bolsa_sin_contacto");
+    return c.nombre_visible.trim();
   });
-  const contactos = datos.contactos.filter((c) => c?.llamamiento_ref !== null && c?.llamamiento_ref !== undefined).map((c) => {
-    if (!REFERENCIA.test(c.participacion_ref ?? "") || !REFERENCIA.test(c.llamamiento_ref ?? "")) throw new TypeError("personas_bolsa_contacto");
-    return { participacion_ref: c.participacion_ref, llamamiento_ref: c.llamamiento_ref };
-  });
-  return { candidatos, contactos, cursor: datos.hay_mas ? datos.cursor_siguiente : null };
 }
 
 /**
- * Devuelve un Map llamamiento_ref → nombres visibles, en el orden en que la
- * Bolsa registró a cada persona. Solo pide más páginas mientras falte algún
- * nombre de los llamamientos buscados.
+ * Devuelve un Map llamamiento_ref → nombres visibles. Pide cada llamamiento
+ * por separado; el que falla o no trae a nadie se queda sin nombre.
  */
 export async function consultarPersonasLlamamientos(emisiones, { fetchImpl = globalThis.fetch, signal } = {}) {
-  const resultado = new Map();
-  const porBolsa = new Map();
+  const pares = new Map();
   for (const emision of emisiones ?? []) {
-    if (!REFERENCIA.test(emision?.bolsa_ref ?? "") || !REFERENCIA.test(emision?.llamamiento_ref ?? "")) continue;
-    if (!porBolsa.has(emision.bolsa_ref)) porBolsa.set(emision.bolsa_ref, new Set());
-    porBolsa.get(emision.bolsa_ref).add(emision.llamamiento_ref);
-  }
-  for (const [bolsaRef, llamamientos] of porBolsa) {
-    const nombres = new Map();
-    let participaciones = null;
-    let cursor = "";
-    for (let pagina = 0; pagina < MAXIMO_PAGINAS; pagina += 1) {
-      const consulta = new URLSearchParams({ limite: "100" });
-      if (cursor) consulta.set("cursor", cursor);
-      const respuesta = await fetchImpl(`${RUTA_BOLSAS}/${segmento(bolsaRef)}/candidatos?${consulta}`, {
-        method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
-        referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" } });
-      if (!respuesta.ok) throw Object.assign(new Error("personas_bolsa_no_disponibles"), { estado: respuesta.status });
-      const datos = validarPaginaPersonasBolsa(await respuesta.json(), bolsaRef);
-      if (participaciones === null) {
-        participaciones = new Map([...llamamientos].map((ref) => [ref, []]));
-        for (const contacto of datos.contactos) {
-          const lista = participaciones.get(contacto.llamamiento_ref);
-          if (lista && !lista.includes(contacto.participacion_ref)) lista.push(contacto.participacion_ref);
-        }
-      }
-      for (const candidato of datos.candidatos) nombres.set(candidato.participacion_ref, candidato.nombre_visible);
-      const faltan = [...participaciones.values()].some((lista) => lista.some((ref) => !nombres.has(ref)));
-      if (!faltan || !datos.cursor) break;
-      cursor = datos.cursor;
-    }
-    for (const [llamamiento, lista] of participaciones ?? []) {
-      const visibles = lista.map((ref) => nombres.get(ref)).filter(Boolean);
-      if (visibles.length && visibles.length === lista.length) resultado.set(llamamiento, visibles);
+    if (REFERENCIA.test(emision?.bolsa_ref ?? "") && LLAMAMIENTO.test(emision?.llamamiento_ref ?? "")) {
+      pares.set(emision.llamamiento_ref, emision.bolsa_ref);
     }
   }
+  if (pares.size > MAXIMO_LLAMAMIENTOS) return new Map();
+  const resultado = new Map();
+  await Promise.allSettled([...pares].map(async ([llamamientoRef, bolsaRef]) => {
+    const consulta = new URLSearchParams({ limite: "100", llamamiento: llamamientoRef });
+    const respuesta = await fetchImpl(`${RUTA_BOLSAS}/${segmento(bolsaRef)}/candidatos?${consulta}`, {
+      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
+      referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" } });
+    if (!respuesta.ok) throw Object.assign(new Error("personas_bolsa_no_disponibles"), { estado: respuesta.status });
+    const nombres = validarPaginaPersonasBolsa(await respuesta.json(), bolsaRef, llamamientoRef);
+    if (nombres.length) resultado.set(llamamientoRef, nombres);
+  }));
+  if (signal?.aborted) throw new DOMException("cancelada", "AbortError");
   return resultado;
 }
 

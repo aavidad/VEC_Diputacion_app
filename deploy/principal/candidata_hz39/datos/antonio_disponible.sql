@@ -48,8 +48,18 @@ BEGIN
  IF NOT previo.referencia=ANY(anteriores) THEN
   RAISE EXCEPTION 'datos Antonio: PARO clave=candidato_anterior actual=% esperado=%',previo.referencia,anteriores USING ERRCODE='55000';
  END IF;
- INSERT INTO vec_contexto_actor_v1.procedencias
- VALUES(origen,1,huella,'autoridad_maestra_acreditada');
+ -- Si el vínculo volvió atrás y se repite, la procedencia ya existe: se acepta
+ -- solo si es exactamente la misma.
+ IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencias p WHERE p.procedencia_ref=origen) THEN
+  IF NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.procedencias p
+                WHERE p.procedencia_ref=origen AND p.procedencia_version=1
+                  AND p.procedencia_huella_sha256=huella AND p.procedencia_autoridad='autoridad_maestra_acreditada') THEN
+   RAISE EXCEPTION 'datos Antonio: PARO clave=procedencia actual=distinta esperado=%',origen USING ERRCODE='55000';
+  END IF;
+ ELSE
+  INSERT INTO vec_contexto_actor_v1.procedencias
+  VALUES(origen,1,huella,'autoridad_maestra_acreditada');
+ END IF;
  INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones
   (vinculo_ref,version,persona_ref,tipo,referencia,procedencia_ref,procedencia_version,
    procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
@@ -73,6 +83,7 @@ DECLARE
  motivo_carga constant text:='Ha comunicado que no está disponible';
  ahora timestamptz(6):=clock_timestamp();
  actual bigint;
+ ultima text;
  nuevos integer:=0;
  i integer;
 BEGIN
@@ -95,6 +106,8 @@ BEGIN
   IF actual<>1 THEN
    RAISE EXCEPTION 'datos Antonio: PARO clave=participacion_acta_orden_% actual=% esperado=1',i,actual USING ERRCODE='55000';
   END IF;
+  -- Mismo bloqueo por participación que las operaciones de Bolsa.
+  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:situacion:'||previas[i],0));
   -- Repetir la preparación no revierte lo que el recorrido haya registrado después.
   IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion s
             WHERE s.participacion_ref=previas[i] AND s.clave_idempotencia=clave) THEN
@@ -106,6 +119,13 @@ BEGIN
     RAISE EXCEPTION 'datos Antonio: PARO clave=carga_previa_orden_% actual=distinta esperado=no_disponible_hz39_v2',i USING ERRCODE='55000';
    END IF;
    CONTINUE;
+  END IF;
+  -- Solo se marca a quien sigue disponible: si el recorrido ya la llamó, la
+  -- contrató o cambió su situación, se para en vez de taparlo.
+  SELECT s.situacion INTO ultima FROM vec_bolsa_llamamientos.situacion_participacion s
+  WHERE s.participacion_ref=previas[i] ORDER BY s.desde DESC LIMIT 1 FOR UPDATE;
+  IF FOUND AND ultima IS DISTINCT FROM 'disponible' THEN
+   RAISE EXCEPTION 'datos Antonio: PARO clave=situacion_orden_% actual=% esperado=disponible',i,ultima USING ERRCODE='55000';
   END IF;
   INSERT INTO vec_bolsa_llamamientos.situacion_participacion
    (participacion_ref,situacion,desde,hasta,fecha_disponible,motivo,actor,registrada_en,clave_idempotencia,recibo_ref)

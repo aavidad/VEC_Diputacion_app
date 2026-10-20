@@ -69,9 +69,15 @@ export function renderizarResultadoBolsa(expediente, t, locale, zonaHoraria, est
     <div class="cuerpo-panel">${(vinculo.participaciones ?? []).map(
       (persona) => resultadoPersona(persona, t, locale, zonaHoraria),
     ).join("")}</div></article>`).join("");
-  const opciones = candidatas.map((emision, indice) => `<option value="${indice}">${escapar(emision.referencia_visible)}${personas(emision.llamamiento_ref) ? ` · ${escapar(personas(emision.llamamiento_ref))}` : ""} · ${escapar(new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria,
-  }).format(new Date(emision.emitido_en)))}</option>`).join("");
+  // Con la persona conocida va primero, con la fecha, para que a 390 px se lea
+  // a quién y cuándo aunque el control cerrado corte el final.
+  const opciones = candidatas.map((emision, indice) => {
+    const cuando = escapar(new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria })
+      .format(new Date(emision.emitido_en)));
+    const quien = personas(emision.llamamiento_ref);
+    return `<option value="${indice}">${quien ? `${escapar(quien)} · ${cuando} · ${escapar(emision.referencia_visible)}`
+      : `${escapar(emision.referencia_visible)} · ${cuando}`}</option>`;
+  }).join("");
   const seleccion = candidatas.length ? `<form data-ct-bolsa-vincular>
     <label class="ct-exp-campo" for="ct-bolsa-emision"><span>${escapar(t("resultado_bolsa_elegir"))}</span>
       <select id="ct-bolsa-emision" name="emision" required${ocupado ? " disabled" : ""}>
