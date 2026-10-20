@@ -73,7 +73,14 @@ puesto 9 y otra persona la ratifica; ambas operaciones devuelven su recibo.
 
 Quedan pendientes la actualización gobernada de la fuente de origen de
 Bolsa, su ampliación de perfil y la publicación del perfil de Organización
-histórica. La entrada de peticiones a Recursos Humanos responde 403 con
-el técnico de la copia estándar. Hasta completar esa activación, la
-selección desde la ficha y su recuperación después del reinicio no están
-acreditadas.
+histórica. La copia estándar necesitaba además la provisión existente de los perfiles
+fijos de lectura de peticiones y firma del informe. Se aplicó contra sus
+preimágenes exactas y se retiraron las variables temporales después de
+reiniciar. La entrada de peticiones de Recursos Humanos volvió a responder
+200 y el alta del expediente respondió 201.
+
+El expediente nuevo `2026/95107` alcanza la versión 5 por pantalla: análisis,
+vía de bolsa, asignación e informe jurídico preparado, con recibos propios.
+La firma del informe, la fiscalización y la selección dependen de completar
+las etapas de activación. Hasta entonces, la selección desde la ficha y su
+recuperación después del reinicio no están acreditadas.
