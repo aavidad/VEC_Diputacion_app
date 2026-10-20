@@ -54,7 +54,7 @@ func TestSeleccionConstituidaConfigRotaDevuelve503SinAbortarMontajeOpcional(t *t
 		{nombre: "rpt_ausente", etapa: "rpt_ruta", causa: "fuente_ausente"},
 		{nombre: "rpt_rota", rpt: rutaRPTRota, etapa: "rpt_publicacion", causa: "publicacion_no_verificada"},
 		{nombre: "personal_ausente", rpt: filepath.Join("..", "..", "..", "data", "catalogos", "rpt", "v1.rpt-2026.json"),
-			etapa: "personal_consulta", causa: "material_privado_no_admitido"},
+			etapa: "personal_consulta", causa: "consulta_no_compuesta"},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			if caso.rpt != "" {
@@ -85,13 +85,13 @@ func TestSeleccionConstituidaConfigRotaDevuelve503SinAbortarMontajeOpcional(t *t
 			if puente.origenNativo != nil {
 				t.Fatal("canal ajeno compuso el lector B110")
 			}
-			// Aisla la degradación M10 en el consumidor: aun con fuente B110
+			// Aisla la ausencia de Personal en el consumidor: aun con fuente B110
 			// presente, los datos no publicados impiden abrir un llamamiento.
 			puente.origenNativo = &postgresbolsa.LectorOrigenLlamamientoCTAuditadoPostgreSQL{}
 			configurarDatosEmisionConstituidaOpcionalCT(config.Config{RPTCatalogoPath: caso.rpt}, puente, nil,
 				func() time.Time { return time.Now().UTC() }, nil)
 			if puente.configuracionNativa != nil {
-				t.Fatal("se configuraron datos de una fuente privada inválida")
+				t.Fatal("se configuraron datos de una consulta Personal ausente")
 			}
 			traza := salidaLog.String()
 			if !strings.Contains(traza, "etapa="+caso.etapa) || !strings.Contains(traza, "causa="+caso.causa) ||

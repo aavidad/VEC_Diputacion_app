@@ -382,10 +382,6 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	}
 	propiedadSesion := &propiedadClaveSesionOrganizacionHistorica{sesion: sesion}
 	defer propiedadSesion.abandonar()
-	seguridad, err := nuevaSeguridadComunDesarrollo(sesion, sesion.reloj)
-	if err != nil {
-		return nil, errMontajeOrganizacionHistoricaCombinada
-	}
 	porHoja, cerrarSesiones, err := sesionesActoresOrganizacionHistorica(ctx, a, sesion, m.Contextos)
 	if err != nil {
 		cerrarSesiones()
@@ -397,7 +393,7 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 			cerrarSesiones()
 		}
 	}()
-	f := &fuenteOrganizacionHistoricaCombinada{sesionesPorHoja: porHoja, sesion: seguridad, corporativo: sesion.vinculoCorporativo, reloj: sesion.reloj, contextos: m.Contextos, fronteras: fronteras}
+	f := &fuenteOrganizacionHistoricaCombinada{sesion: sesionesOrganizacionHistoricaPorHoja(porHoja), corporativo: sesion.vinculoCorporativo, reloj: sesion.reloj, contextos: m.Contextos, fronteras: fronteras}
 	fuenteAutorizacion, err := vecpg.NuevoAlmacenAutorizacion(pools[1])
 	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada

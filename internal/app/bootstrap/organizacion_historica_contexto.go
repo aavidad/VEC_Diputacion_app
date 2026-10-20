@@ -22,12 +22,11 @@ type contextoOrganizacionHistoricaCombinada struct {
 // fuenteOrganizacionHistoricaCombinada conserva una sola resolución registrada
 // por petición. Los ámbitos privados restringen el perfil; no son permisos.
 type fuenteOrganizacionHistoricaCombinada struct {
-	sesion          *seguridadComunDesarrollo
-	sesionesPorHoja map[string]*seguridadComunDesarrollo
-	corporativo     vecports.RevalidadorVinculoCorporativoRRHHV1
-	reloj           ct.Reloj
-	contextos       map[string]internagobierno.AmbitoOrganizacionHistorica
-	fronteras       catalogoFronterasComunDesarrollo
+	sesion      resolutorContextoSeguridadComunDesarrollo
+	corporativo vecports.RevalidadorVinculoCorporativoRRHHV1
+	reloj       ct.Reloj
+	contextos   map[string]internagobierno.AmbitoOrganizacionHistorica
+	fronteras   catalogoFronterasComunDesarrollo
 }
 
 func (f *fuenteOrganizacionHistoricaCombinada) vincular(ctx context.Context) (context.Context, error) {
@@ -41,18 +40,7 @@ func (f *fuenteOrganizacionHistoricaCombinada) vincular(ctx context.Context) (co
 	if !ok || !fronteraConsultaPersonal(frontera) || frontera.superficie != superficieInternaSeguridadComunDesarrollo || !f.fronteras.mismaInstancia(frontera.catalogo) {
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
 	}
-	sesion := f.sesion
-	if f.sesionesPorHoja != nil {
-		capacidad, existe := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-		if !existe {
-			return nil, httpapi.ErrAccesoRutaExactaDenegado
-		}
-		sesion = f.sesionesPorHoja[capacidad.principal.Attributes["certificate_sha256"]]
-		if sesion == nil {
-			return nil, httpapi.ErrAccesoRutaExactaDenegado
-		}
-	}
-	c, err := sesion.ResolverContexto(ctx)
+	c, err := f.sesion.ResolverContexto(ctx)
 	if err != nil {
 		if ctx.Err() != nil || errors.Is(err, ct.ErrConsultaRRHHNoDisponible) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return nil, ct.ErrConsultaRRHHNoDisponible

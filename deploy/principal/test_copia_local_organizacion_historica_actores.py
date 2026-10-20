@@ -69,6 +69,28 @@ class TestSegundaOH(unittest.TestCase):
         self.assertNotIn('INSERT INTO vec_autorizacion.version_rol', sql)
         self.assertNotIn('publicar_motivos_autorizacion_v2', sql)
 
+    def test_organizacion_original_no_presta_identidad_a_segundo(self):
+        with tempfile.TemporaryDirectory() as t:
+            copia = Copia(Path(t))
+            original = {'cuenta_ref': 'cta_' + '0' * 32, 'persona_ref': 'per_' + '0' * 32,
+                        'perfil_ref': 'prf_' + '0' * 32, 'organismo_ref': ORG,
+                        'gobierno_real_acreditado': False}
+            privado(copia.raiz / actores.oh.SEMILLA, original)
+            plantilla = {**CORPORATIVO, 'cuenta_ref': original['cuenta_ref'],
+                         'persona_ref': original['persona_ref'], 'cuenta_version': 7,
+                         'persona_version': 8, 'procedencia_autoridad': 'autoridad_maestra_acreditada'}
+            fila = json.dumps({'contexto': CONTEXTO, 'corporativo': plantilla,
+                               'cuenta_version': 1, 'persona_version': 1})
+            with patch.object(actores.oh, '_consulta', return_value=[fila]):
+                contexto, propio = actores._contexto_f1(copia,
+                    {'cuenta_ref': CUENTA, 'persona_ref': PERSONA, 'perfil_ref': PERFIL_CT}, ORG)
+            self.assertEqual(contexto['cuenta_ref'], CUENTA)
+            self.assertEqual((propio['cuenta_ref'], propio['persona_ref']), (CUENTA, PERSONA))
+            self.assertEqual((propio['cuenta_version'], propio['persona_version']), (1, 1))
+            self.assertEqual(propio['organizacion_ref'], ORG)
+            self.assertEqual(propio['organizacion_procedencia_ref'], plantilla['organizacion_procedencia_ref'])
+            self.assertEqual(propio['procedencia_autoridad'], CONTEXTO['procedencia_autoridad'])
+
     def test_otra_cuenta_se_rechaza_antes_de_sql(self):
         with self.assertRaisesRegex(ValueError, 'segunda cuenta'):
             actores.sql_segunda(CONTEXTO, {**CORPORATIVO, 'cuenta_ref': 'cta_' + '9' * 32}, REFS, ORG)
@@ -94,13 +116,17 @@ class TestSegundaOH(unittest.TestCase):
                      'gobierno_real_acreditado': False,
                      'rol_ref': 'rol:seguimiento_cese_ct_desarrollo:v2',
                      'organizacion_ref': 'organizacion:desarrollo:dipgra'})
+            privado(copia.raiz / actores.oh.SEMILLA,
+                    {'cuenta_ref': 'cta_' + '0' * 32, 'persona_ref': 'per_' + '0' * 32,
+                     'perfil_ref': 'prf_' + '0' * 32, 'organismo_ref': ORG,
+                     'gobierno_real_acreditado': False})
             entrada = copia.raiz / 'organizacion-historica/entrada/organizacion_historica_v3.json'
             privado(entrada, {'contextos': {'cta_' + '0' * 32: {}}})
             with patch.object(actores.oh, 'organismo', return_value=ORG), \
                     patch.object(actores.oh, '_consulta', return_value=[]), \
                     patch.object(actores.subprocess, 'run') as openssl:
                 openssl.return_value.stdout = b'der-sintetico'
-                with self.assertRaisesRegex(ValueError, 'vínculo F1'):
+                with self.assertRaisesRegex(ValueError, 'proyección F1'):
                     actores.extender_contextos(copia, Path(t))
             self.assertEqual(len(json.loads(entrada.read_text())['contextos']), 1)
             self.assertEqual(copia.sql, [])

@@ -35,34 +35,57 @@ def _segundo(copia, organismo):
                          check=True, timeout=30).stdout
     if identidad.get('certificate_sha256') != hashlib.sha256(der).hexdigest():
         raise ValueError('La huella de la segunda identidad no corresponde a su certificado')
-    if semilla.get('organizacion_ref') == organismo:
-        raise ValueError('La asignación CT no debe sustituir el organismo gobernado de OH')
     return manifiesto
 
 
 def _contexto_f1(copia, segundo, organismo):
-    """Solo acepta vínculos activos ya proyectados para esa cuenta y persona."""
-    sql = f"""SELECT jsonb_build_object('contexto',to_jsonb(v),'corporativo',to_jsonb(c))::text
+    """Toma la proyección propia y solo la organización del lector OH original."""
+    original = oh._json_privado(copia.raiz / oh.SEMILLA)
+    if (original.get('gobierno_real_acreditado') is not False
+            or original.get('cuenta_ref') == segundo['cuenta_ref']
+            or original.get('persona_ref') == segundo['persona_ref']
+            or original.get('organismo_ref') != organismo):
+        raise ValueError('La semilla OH original no identifica otra cuenta del mismo organismo')
+    sql = f"""SELECT jsonb_build_object('contexto',to_jsonb(v),'corporativo',to_jsonb(c),
+               'cuenta_version',pc.version,'persona_version',pe.version)::text
       FROM vec_contexto_actor_v1.vinculo_contexto_actual a
       JOIN vec_contexto_actor_v1.vinculo_contexto_versiones v USING(vinculo_ref,version)
+      JOIN vec_contexto_actor_v1.proyeccion_cuenta_actual pca ON pca.cuenta_ref=v.cuenta_ref
+      JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones pc
+        ON pc.cuenta_ref=pca.cuenta_ref AND pc.version=pca.version
+      JOIN vec_contexto_actor_v1.persona_actual pea ON pea.persona_ref=v.persona_ref
+      JOIN vec_contexto_actor_v1.persona_versiones pe
+        ON pe.persona_ref=pea.persona_ref AND pe.version=pea.version
       JOIN vec_contexto_actor_v1.vinculo_corporativo_actual ca
-        ON ca.cuenta_ref=v.cuenta_ref AND ca.perfil_ref=v.perfil_ref
+        ON ca.cuenta_ref={oh._literal(original['cuenta_ref'])}
+       AND ca.perfil_ref={oh._literal(original['perfil_ref'])}
        AND ca.superficie='interna_corporativa' AND ca.uso='consulta_rrhh'
       JOIN vec_contexto_actor_v1.vinculo_corporativo_versiones c
         ON c.vinculo_corporativo_ref=ca.vinculo_corporativo_ref AND c.version=ca.version
       WHERE v.cuenta_ref={oh._literal(segundo['cuenta_ref'])}
         AND v.persona_ref={oh._literal(segundo['persona_ref'])}
         AND v.perfil_ref={oh._literal(segundo['perfil_ref'])}
-        AND v.estado='activo' AND c.estado='activo'
+        AND v.estado='activo' AND pc.estado='activo' AND pe.estado='activo' AND c.estado='activo'
+        AND c.cuenta_ref={oh._literal(original['cuenta_ref'])}
+        AND c.persona_ref={oh._literal(original['persona_ref'])}
         AND c.organizacion_ref={oh._literal(organismo)}
-        AND c.vinculo_contexto_ref=v.vinculo_ref AND c.vinculo_contexto_version=v.version
         AND clock_timestamp()>=v.vigente_desde AND clock_timestamp()<v.vigente_hasta
+        AND clock_timestamp()>=pc.vigente_desde AND clock_timestamp()<pc.vigente_hasta
+        AND clock_timestamp()>=pe.vigente_desde AND clock_timestamp()<pe.vigente_hasta
         AND clock_timestamp()>=c.vigente_desde AND clock_timestamp()<c.vigente_hasta;"""
     filas = oh._consulta(copia, sql)
     if len(filas) != 1:
-        raise ValueError('La segunda cuenta carece de vínculo F1 corporativo vigente e inequívoco')
+        raise ValueError('La segunda cuenta carece de proyección F1 vigente o la organización original es ambigua')
     datos = json.loads(filas[0])
-    return datos['contexto'], datos['corporativo']
+    contexto, corporativo = datos['contexto'], datos['corporativo']
+    corporativo.update(cuenta_ref=segundo['cuenta_ref'], persona_ref=segundo['persona_ref'],
+                       cuenta_version=datos['cuenta_version'], persona_version=datos['persona_version'],
+                       procedencia_ref=contexto['procedencia_ref'],
+                       procedencia_version=contexto['procedencia_version'],
+                       procedencia_huella_sha256=contexto['procedencia_huella_sha256'],
+                       procedencia_autoridad=contexto['procedencia_autoridad'],
+                       vigente_desde=contexto['vigente_desde'], vigente_hasta=contexto['vigente_hasta'])
+    return contexto, corporativo
 
 
 def sql_segunda(contexto, corporativo, refs, organismo):
@@ -99,8 +122,20 @@ DO $contexto$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual a
    JOIN vec_contexto_actor_v1.vinculo_contexto_versiones v USING(vinculo_ref,version)
+   JOIN vec_contexto_actor_v1.proyeccion_cuenta_actual ca ON ca.cuenta_ref=v.cuenta_ref
+   JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones pc
+     ON pc.cuenta_ref=ca.cuenta_ref AND pc.version=ca.version
+   JOIN vec_contexto_actor_v1.persona_actual pa ON pa.persona_ref=v.persona_ref
+   JOIN vec_contexto_actor_v1.persona_versiones pe
+     ON pe.persona_ref=pa.persona_ref AND pe.version=pa.version
    WHERE v.cuenta_ref={oh._literal(cuenta)} AND v.persona_ref={oh._literal(persona)}
-     AND v.perfil_ref={oh._literal(contexto['perfil_ref'])} AND v.estado='activo')
+     AND v.perfil_ref={oh._literal(contexto['perfil_ref'])}
+     AND pc.version={oh._literal(corporativo['cuenta_version'])}
+     AND pe.version={oh._literal(corporativo['persona_version'])}
+     AND v.estado='activo' AND pc.estado='activo' AND pe.estado='activo'
+     AND clock_timestamp()>=v.vigente_desde AND clock_timestamp()<v.vigente_hasta
+     AND clock_timestamp()>=pc.vigente_desde AND clock_timestamp()<pc.vigente_hasta
+     AND clock_timestamp()>=pe.vigente_desde AND clock_timestamp()<pe.vigente_hasta)
  OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.perfil_actual WHERE perfil_ref={oh._literal(perfil)})
  THEN RAISE EXCEPTION 'segunda OH: proyección F1 ausente o perfil existente' USING ERRCODE='55000'; END IF;
  INSERT INTO vec_contexto_actor_v1.perfil_versiones

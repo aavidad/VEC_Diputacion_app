@@ -1679,7 +1679,7 @@ func advertirSeleccionConstituidaCT(etapa string, err error) {
 	case etapa == "rpt_publicacion" && errors.Is(err, personal.ErrRPTPublicaNoDisponible):
 		causa = "publicacion_no_verificada"
 	case etapa == "personal_consulta" && errors.Is(err, puertosbolsa.ErrEmisionLlamamientoNoDisponible):
-		causa = "material_privado_no_admitido"
+		causa = "consulta_no_compuesta"
 	case etapa == "datos_emision" && errors.Is(err, ports.ErrIntegracionBolsaNoDisponible):
 		causa = "proveedor_no_compuesto"
 	case (etapa == "lector_origen" || etapa == "preflight_origen") && errors.Is(err, puertosbolsa.ErrOrigenLlamamientoCTNoDisponible):

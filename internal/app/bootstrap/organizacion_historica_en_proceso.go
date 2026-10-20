@@ -41,18 +41,22 @@ func (c consultaPersonalLigadaCT) Consultar(ctx context.Context, selector person
 }
 
 func (m *montajeOrganizacionHistoricaCombinada) consultaParaCT(ctx context.Context, puente *puenteBolsaLlamamientoDesarrollo, d preparacionLlamamientoDesarrollo) (consultaOrganizacionHistoricaPuestoCT, string, error) {
-	if m == nil || m.fuente == nil || m.consulta == nil || puente == nil || puente.operacionNativa == nil {
+	if m == nil || m.fuente == nil || m.consulta == nil || puente == nil || puente.operacionNativa == nil || m.barrera == nil || !m.barrera.entrar() {
 		return nil, "", ct.ErrIntegracionBolsaNoDisponible
 	}
-	captura, err := puente.capturaOperacionNativaDesdeHijo(ctx, d)
+	defer m.barrera.activas.Done()
+	captura, err := puente.capturaOperacionNativa(ctx)
+	if err == nil {
+		captura, err = puente.capturaOperacionNativaDesdeHijo(captura.ctx, d)
+	}
 	if err != nil {
 		return nil, "", err
 	}
-	// El hijo Bolsa conserva la misma hoja y ruta CT. Sólo su frontera privada
-	// puede iniciar esta consulta; la captura CT se coteja de nuevo al entrar.
+	// La ruta CT conserva su hoja y su captura operativa. La suboperación
+	// Personal sólo nace después de cotejar también el hijo Bolsa.
 	frontera, ok := fronteraSeguridadComunDesdeContexto(ctx)
 	capacidad, valida := puente.alta.soporte.capacidadValida(ctx)
-	if !ok || !valida || !puente.operacionNativa.privado.mismaInstancia(frontera.catalogo) ||
+	if !ok || !valida || !puente.operacionNativa.publico.mismaInstancia(frontera.catalogo) ||
 		frontera.ruta != httpinterno.RutaSeleccionLlamamiento || frontera.metodo != http.MethodPost || capacidad.ruta != frontera.ruta || capacidad.metodo != frontera.metodo {
 		return nil, "", ct.ErrAutorizacionDenegada
 	}
