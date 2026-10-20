@@ -6,10 +6,10 @@ aceptación sigue siendo [FLUJO_APP, apartado 4.0](../producto/FLUJO_APP.md#40-c
 
 El recorrido sigue abierto. En la primera copia, 2026/93001 llegó a
 Fiscalización, versión 6, con dos firmas del informe y aceptación firme de
-Antonio, conservada tras reiniciar. Dirección indicó abrir después un caso
-de vacante con selección desde la ficha: su petición está presentada y
-ratificada, pendiente de completar la preparación de firma antes de crear
-el expediente. Los pasos 12 a 15 aún no están acreditados.
+Antonio, conservada tras reiniciar. Se abrió después un caso
+de vacante con selección desde la ficha. El nuevo expediente 2026/95027
+ya tiene dos firmas del informe, fiscalización favorable y selección de
+Antonio desde la ficha. Los pasos 12 a 15 aún no están acreditados.
 
 ## Preparación reproducida
 
@@ -63,7 +63,7 @@ La operación genérica «Registrar contacto» había respondido 409,
 inválido». El mensaje visible «La clave corresponde a otro contacto» no
 explicaba esa causa. Su botón queda tapado por el resumen lateral a 1440
 píxeles; se envió mediante Tab y Enter. No se guardó ese contacto.
-Dirección asignó su corrección a F1-123; la operación específica de teléfono
+Su corrección corresponde a F1-123; la operación específica de teléfono
 sí devolvió 201 y permitió continuar sin cambiar permisos ni reglas.
 
 La ficha del expediente muestra ahora «Aceptación confirmada», el contacto
@@ -73,9 +73,8 @@ propuesta. «Llamamientos de este expediente» permanece vacío. La consulta
 de comunicaciones tuvo un 503 transitorio y terminó con 200 y lista vacía.
 
 El vínculo de la emisión externa no crea los antecedentes de selección,
-comunicación y respuesta que exige la resolución de CT. Dirección indicó
-continuar por «Llamar a la siguiente persona», cuyo montaje depende de
-F1-103. Se ha pedido componer la siguiente candidata con esa entrega y la
+comunicación y respuesta que exige la resolución de CT. La continuación por «Llamar a la siguiente persona» depende del montaje
+de F1-103. Se ha pedido componer la siguiente candidata con esa entrega y la
 activación de Personal de F1-119. No se han fabricado antecedentes ni recibos.
 
 La resolución manual exige dos comprobaciones expresas de la técnica de
@@ -204,9 +203,22 @@ copia y la clave pública de su certificado, sin desactivar la verificación
 HTTPS. La petición de vacante para el puesto 9, del 19 de octubre al 31 de
 diciembre, se presentó con 200 a las 12:53:49 y se ratificó con 200 a las
 12:54:41. Son actos nuevos; no reutilizan los recibos de la copia anterior.
-El expediente todavía no está registrado.
+El alta del expediente 2026/95027 devolvió 201 a las 12:56:24.
 
 Los pasos posteriores necesitan las correcciones que permiten usar la
 aceptación firme de Mi Bolsa: F1-125 para resolver la respuesta y F1-127
 para preparar la propuesta. No se ha creado un correo ficticio como
 antecedente ni se han acreditado los pasos 12 a 21.
+
+En ese mismo expediente se registraron el análisis, la cobertura por bolsa,
+la asignación y el informe, todos con 201. La firma técnica se registró a
+las 13:04:40 y la de Jefatura a las 13:06:27: ambos registros devolvieron
+201 y verificación válida. La entrada del segundo PDF coincide con la
+huella de la primera firma, que permanece en el documento. Intervención
+registró resultado favorable con 201 a las 13:07:02, versión 6.
+
+«Llamar a la siguiente persona» devolvió 200 con recibo de selección a
+las 13:07:42; «Anotar el aviso» devolvió 201 a las 13:08:06 y creó una
+intención de envío local. Mi Bolsa de Antonio muestra ese correo como
+enviado. Esto no acredita entrega externa. La respuesta de Antonio sigue
+pendiente del contacto efectivo.
