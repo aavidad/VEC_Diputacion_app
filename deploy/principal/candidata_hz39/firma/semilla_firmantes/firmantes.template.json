@@ -1,0 +1,129 @@
+{
+ "organizacion_ca_ref": null,
+ "unidad_ref": null,
+ "nodo_ref": null,
+ "politica_ref": "pga_58a59d3ecd155c41919f99804c485e98",
+ "politica_sha256": "9dd2a6b262a449501d62b6326553b347bde4b7b62810deaa838bcdfd0ad72c11",
+ "retirada_en": "2027-01-14T21:00:00Z",
+ "firmantes": [
+  {
+   "certificado_sha256": null,
+   "persona_ref": "per_048937639fa751edb1b9acf9452a3ff7",
+   "cuenta_ref": "cta_8741a67af9f65b04b2450f7409d98a4e",
+   "cuenta_id": "desarrollo:cta_8741a67af9f65b04b2450f7409d98a4e",
+   "perfil_firma_ref": "prf_cac6b89816ba5863b46f6a64db082afe",
+   "perfil_consulta_ct_ref": "prf_01849b21de885f798bdd49f3ac518f89",
+   "perfil_documentos_ref": "prf_d69fa2a9d03854c89734c334ec893d9c",
+   "perfil_consulta_circuito_ref": "prf_f16a2718cfdb53b6a6ae59789812c690"
+  },
+  {
+   "certificado_sha256": null,
+   "persona_ref": "per_3f23f2561153533d8f916d75f644c01c",
+   "cuenta_ref": "cta_fe235954b4da52f9904530310ecfa178",
+   "cuenta_id": "desarrollo:cta_fe235954b4da52f9904530310ecfa178",
+   "perfil_firma_ref": "prf_51626cc498065d92a4fff25753fc8af7",
+   "perfil_consulta_ct_ref": "prf_7ab7af6cedc25901850475695128db64",
+   "perfil_documentos_ref": "prf_ad47b5f191875bfbb7a28a27d4b03f86",
+   "perfil_consulta_circuito_ref": "prf_334a7e2c537c57fc8af755f4123f07cb"
+  },
+  {
+   "certificado_sha256": null,
+   "persona_ref": "per_d7a0738726225e20ad22b19536514f98",
+   "cuenta_ref": "cta_1aca5d27c25756c1acc3f9a9174f7f46",
+   "cuenta_id": "desarrollo:cta_1aca5d27c25756c1acc3f9a9174f7f46",
+   "perfil_firma_ref": "prf_70f7e9ac95f25296b9bccdde80352821",
+   "perfil_consulta_ct_ref": "prf_605cea842eb95e25a1e401b216993810",
+   "perfil_documentos_ref": "prf_3489e046293359319b327402f82fe10c",
+   "perfil_consulta_circuito_ref": "prf_53513e7a87bc535eae3f47fc31cc8000"
+  },
+  {
+   "certificado_sha256": null,
+   "persona_ref": "per_83e1df473098568b8a14419c6cb9abfc",
+   "cuenta_ref": "cta_c9ce2e18d28a5db9b6d9ba7f00348015",
+   "cuenta_id": "desarrollo:cta_c9ce2e18d28a5db9b6d9ba7f00348015",
+   "perfil_firma_ref": "prf_6e45a2ccc0ba58eaad6ed75c5867fe98",
+   "perfil_consulta_ct_ref": "prf_1b3750020a39599493b3267f7215abde",
+   "perfil_documentos_ref": "prf_51c7c6f8ede2534fac0da6f50a2c6e35",
+   "perfil_consulta_circuito_ref": "prf_f585d0f38dae518fb92234ea70e97882"
+  }
+ ],
+ "admisiones": [],
+ "referencias": {
+  "tecnico": {
+   "persona_ref": "per_048937639fa751edb1b9acf9452a3ff7",
+   "cuenta_ref": "cta_8741a67af9f65b04b2450f7409d98a4e",
+   "perfil": {
+    "firma": "prf_cac6b89816ba5863b46f6a64db082afe",
+    "consulta": "prf_01849b21de885f798bdd49f3ac518f89",
+    "documentos": "prf_d69fa2a9d03854c89734c334ec893d9c",
+    "circuito": "prf_f16a2718cfdb53b6a6ae59789812c690"
+   },
+   "vinculo": {
+    "firma": "vca_cac6b89816ba5863b46f6a64db082afe",
+    "consulta": "vca_01849b21de885f798bdd49f3ac518f89",
+    "documentos": "vca_d69fa2a9d03854c89734c334ec893d9c",
+    "circuito": "vca_f16a2718cfdb53b6a6ae59789812c690"
+   },
+   "cargo_ref": null,
+   "certificado_sha256": null,
+   "certificado": null
+  },
+  "jefatura": {
+   "persona_ref": "per_3f23f2561153533d8f916d75f644c01c",
+   "cuenta_ref": "cta_fe235954b4da52f9904530310ecfa178",
+   "perfil": {
+    "firma": "prf_51626cc498065d92a4fff25753fc8af7",
+    "consulta": "prf_7ab7af6cedc25901850475695128db64",
+    "documentos": "prf_ad47b5f191875bfbb7a28a27d4b03f86",
+    "circuito": "prf_334a7e2c537c57fc8af755f4123f07cb"
+   },
+   "vinculo": {
+    "firma": "vca_51626cc498065d92a4fff25753fc8af7",
+    "consulta": "vca_7ab7af6cedc25901850475695128db64",
+    "documentos": "vca_ad47b5f191875bfbb7a28a27d4b03f86",
+    "circuito": "vca_334a7e2c537c57fc8af755f4123f07cb"
+   },
+   "cargo_ref": null,
+   "certificado_sha256": null,
+   "certificado": null
+  },
+  "diputacion": {
+   "persona_ref": "per_d7a0738726225e20ad22b19536514f98",
+   "cuenta_ref": "cta_1aca5d27c25756c1acc3f9a9174f7f46",
+   "perfil": {
+    "firma": "prf_70f7e9ac95f25296b9bccdde80352821",
+    "consulta": "prf_605cea842eb95e25a1e401b216993810",
+    "documentos": "prf_3489e046293359319b327402f82fe10c",
+    "circuito": "prf_53513e7a87bc535eae3f47fc31cc8000"
+   },
+   "vinculo": {
+    "firma": "vca_70f7e9ac95f25296b9bccdde80352821",
+    "consulta": "vca_605cea842eb95e25a1e401b216993810",
+    "documentos": "vca_3489e046293359319b327402f82fe10c",
+    "circuito": "vca_53513e7a87bc535eae3f47fc31cc8000"
+   },
+   "cargo_ref": null,
+   "certificado_sha256": null,
+   "certificado": null
+  },
+  "secretaria": {
+   "persona_ref": "per_83e1df473098568b8a14419c6cb9abfc",
+   "cuenta_ref": "cta_c9ce2e18d28a5db9b6d9ba7f00348015",
+   "perfil": {
+    "firma": "prf_6e45a2ccc0ba58eaad6ed75c5867fe98",
+    "consulta": "prf_1b3750020a39599493b3267f7215abde",
+    "documentos": "prf_51c7c6f8ede2534fac0da6f50a2c6e35",
+    "circuito": "prf_f585d0f38dae518fb92234ea70e97882"
+   },
+   "vinculo": {
+    "firma": "vca_6e45a2ccc0ba58eaad6ed75c5867fe98",
+    "consulta": "vca_1b3750020a39599493b3267f7215abde",
+    "documentos": "vca_51c7c6f8ede2534fac0da6f50a2c6e35",
+    "circuito": "vca_f585d0f38dae518fb92234ea70e97882"
+   },
+   "cargo_ref": null,
+   "certificado_sha256": null,
+   "certificado": null
+  }
+ }
+}
