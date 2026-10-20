@@ -43,7 +43,7 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
       ${estado === "lista" && catalogo?.tipos?.length === 0 ? `<p role="status">${t("vacio")}</p>` : ""}
       ${estado === "lista" && filas ? `<ul class="ct-exp-documentos-lista" aria-label="${t("tipo")}">${filas}</ul>` : ""}
       ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo">${t("publicacion_recibo")} ${justificanteTraducido(catalogo.procedencia_ref, esc, traducir)}</p>` : ""}
-      ${huellaDescarga ? `<details><summary>${t("detalle_tecnico")}</summary><p>${t("huella", { huella: huellaDescarga })}</p></details>` : ""}
+      ${huellaDescarga ? `<details><summary>${t("detalle_tecnico")}</summary><p class="ct-bp-catalogo">${t("huella", { huella: huellaDescarga })}</p></details>` : ""}
       ${ocupado ? `<p role="status">${t("descargando")}</p><button type="button" class="boton-secundario" data-bp-cancelar>${t("cancelar")}</button>` : ""}
       ${mensaje && (mensajeError || !tipoAvisado) ? `<p class="ct-bp-mensaje${mensajeError ? " ct-bp-mensaje--error" : ""}" role="${mensajeError ? "alert" : "status"}">${esc(mensaje)}</p>` : ""}
       ${["error", "conflicto"].includes(estado) ? `<button type="button" class="boton-secundario" data-bp-reintentar>${t("reintentar")}</button>` : ""}
