@@ -424,8 +424,9 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
     && !bloqueaFlujo && !bloqueaLista && !estado.comunicaciones?.intentoNoConfirmado;
   const seleccionRestauradaPendiente = consultaOferta === "pendiente"
     && estado.seleccion.solicitud !== null && estado.seleccion.recibo === null;
-  const mostrarSeleccionRestaurada = seleccionRestauradaPendiente && !restaurada && !bloqueaLista && !bloqueaFlujo
-    && !estado.comunicaciones?.intentoNoConfirmado;
+  const mostrarSeleccionRestaurada = seleccionRestauradaPendiente
+    && (estado.estadoOferta?.tipoSeleccion !== "llamamiento"
+      || (!restaurada && !bloqueaLista && !bloqueaFlujo && !estado.comunicaciones?.intentoNoConfirmado));
   if (descarte && !estado.seleccion.recibo) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div><h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2></div></header>
     ${listaComunicaciones()}${consultaRespuesta()}
