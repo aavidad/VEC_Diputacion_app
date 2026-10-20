@@ -395,6 +395,8 @@ class Copia:
         estado['preparada'] = True
         guardar(self.estado, estado)
         self.arrancar()
+        if args.modulos and not args.portal_externo:
+            caso40.registrar_contacto(self, REPO)
         if admin or completo:
             from copia_local_administracion import ejecutar as ejecutar_admin, huella_ejecutor
             estado = self.leer()
@@ -432,8 +434,6 @@ class Copia:
         if completo:
             from recorrido_copia.conductor import preparar as preparar_recorrido
             preparar_recorrido(self, args)
-        if args.modulos and not args.portal_externo:
-            caso40.registrar_contacto(self, REPO)
         if args.modulos:
             estado = self.leer()
             estado['comprobar_modulos'] = True
