@@ -11,7 +11,8 @@ El lector del plan usaba la aceptación vigente del circuito de correo, que
 exige un justificante. La resolución de Mi Bolsa conserva su respuesta y su
 recibo originales, y exige que ese justificante esté vacío. CT255 añade a la
 fuente existente de antecedentes B2 una selección específica para esa pareja
-de resolución y recibo. Conserva primero el camino de correo.
+de resolución y recibo. Las dos fuentes conservan el criterio vigente de fecha
+de confirmación y referencia para elegir el antecedente.
 
 La propuesta debe pertenecer al expediente y a la organización consultados,
 conservar el mismo llamamiento y el contenido nativo de aceptación. Las
