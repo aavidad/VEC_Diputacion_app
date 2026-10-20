@@ -566,11 +566,13 @@ consulta, y la selección fallaba.
   Los pasos (perfil con sus seis campos, motivos, material y cuatro conexiones)
   están en el guion `deploy/principal/organizacion_historica_combinado_20261015.md`
   de esa PR. Las fechas de los motivos llevan seis decimales.
-- La lectura de Personal para Contratación (M10) sigue
-  `candidata_hz39/personal/LEEME.md`. Copia del material privado el cliente
-  `cliente_m10_ct.json` y cambia su origen al puerto de tu propio servicio; el
-  que trae apunta al de otro equipo. `VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`
-  apunta a esa fuente.
+- F1-104 conecta Contratación con el servicio de Personal dentro del proceso.
+  Cada técnica usa su cuenta y su perfil de consulta, con las unidades de su
+  asignación. No se prepara un cliente HTTP ni un certificado fijo para esta
+  lectura. `--segundo-rrhh` añade un segundo perfil de consulta en la copia,
+  después de proyectar sus vínculos propios y antes de preparar el material.
+  Ambos perfiles pueden consultar el centro 520; otro centro debe dar 403.
+  Son semillas ficticias no autoritativas, sin valor de publicación administrativa.
 - Unidad gestora y unidad del puesto: el puesto 9/01 de la semilla es de
   `unidad:centro:520` y la unidad gestora de Contratación es la de RRHH. Hasta
   que entre F1-21 (#1153), la selección rechaza ese puesto. No cambies el dato
@@ -579,13 +581,67 @@ consulta, y la selección fallaba.
   guardada y está en acumulación de tareas, que no admite puesto ni huella. En
   tu copia puedes usar la variante vacante del caso 4.0 con dos personas
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
-- «Llamar a la siguiente persona» desde la ficha del expediente sigue dando
-  409 en una copia nueva (F1-99, 20/10). Ningún perfil de RRHH de la copia
-  tiene la concesión `personal.organizacion_historica.consultar` y en
-  desarrollo nadie la publica: hace falta un acto de Administración. Además,
-  los expedientes de la semilla (2026/93001 y 2026/94011) no guardan
-  necesidad de la RPT. Hasta resolverlo, el llamamiento del paso 9 se emite
-  desde el asistente de Bolsa.
+- «Llamar a la siguiente persona» desde la ficha del expediente funciona en
+  una copia nueva creada con `--modulos` (sin `--portal-externo`) y con la
+  firma compuesta (F1-103, 20/10). La selección responde 200 con su recibo y
+  llama a la primera persona disponible por el orden vigente; repetirla
+  devuelve el mismo llamamiento. Antes daba 409 por tres cosas: faltaban dos
+  permisos de la técnica de RRHH (la consulta de Organización histórica y la
+  lectura de la bolsa constituida desde Contratación,
+  `bolsa.origen_ct.consultar`) y la lectura auditada del origen fallaba en
+  cuanto alguien de la bolsa tenía una comprobación de ofrecimiento
+  registrada. Esto último lo corrige AD302, que viene en la lista única.
+- `crear --modulos` siembra y monta la consulta de Organización histórica.
+  Con `--portal-externo` no lo hace, igual que los datos del caso 4.0:
+  1. Siembra el rol `consulta_organizacion_historica_rrhh` v1 con la concesión
+     de `fuentes/personal_organizacion_historica_rrhh_v1.json` (sustancial,
+     seis campos, sin obligaciones). Lo asigna a un perfil nuevo de la técnica
+     del certificado `mtls/cliente.crt`, con su vínculo de contexto y su
+     vínculo corporativo `consulta_rrhh`, gemelos de los de su perfil de
+     Bolsa. Los ámbitos son exactos: el organismo del caso 4.0 y
+     `unidad:centro:520`; otra unidad responde 403. Es semilla de copia con
+     procedencia `identidad:desarrollo:no-autoritativa`, como la de F0-37, y
+     dura 89 días. Su huella queda en `estado.json`
+     (`organizacion_historica_semilla_sha256`).
+  2. Crea cuatro LOGIN propios (Personal, fuente y registro de autorización y
+     motivos), la fila de origen del consumo de Personal (AD172), el catálogo
+     de cuatro motivos y los selectores de Organización histórica. La consulta
+     de Contratación usa el perfil de Personal de la misma cuenta en proceso.
+  3. Con la aplicación ya arrancada, deriva la clave con
+     `vec-preparar-material-interno` (con un LOGIN de gobierno que solo vive
+     mientras dura ese paso), escribe `organizacion_historica_combinado.json`,
+     enciende la consulta y reinicia.
+- Los dos permisos se completan con dos etapas privadas del manifiesto de
+  `firma` (§11), con la herramienta de actos de la copia:
+  1. Entre la etapa de Administración y la de firmantes, AUT58 admite en el
+     catálogo de acciones `fuentes/personal_organizacion_historica_rrhh_v1.json`
+     y `fuentes/bolsa_origen_ct_rrhh_v2.json`. La v2 sustituye a la v1, a la
+     que le faltan los dos campos que hoy lee la selección
+     (`criterios_ofrecimiento` y `entradas[].eventos_relacion`).
+  2. Al final, una versión nueva del rol RRHH de Bolsa con
+     `bolsa.origen_ct.consultar`, por la vía de
+     [`habilitacion_rol_bolsa_rrhh_generico_20261013.md`](habilitacion_rol_bolsa_rrhh_generico_20261013.md):
+     el DBA de la copia crea dos LOGIN y sus dos filas de origen AD172,
+     `vec-gobierno-usuarios-admin -fase version-bolsa` escribe el overlay
+     B103, `vec-admin` se reinicia con `VEC_ADMIN_VERSION_BOLSA_B103_CONFIG_FILE`,
+     el primer administrador propone y el segundo cierra. El servidor copia
+     la concesión del catálogo; el cliente solo elige la entrada.
+  Sin la primera etapa la consulta de Organización histórica responde 403;
+  sin la segunda, la selección da 409.
+- El orden importa. La admisión AUT58 tiene que ir antes de que la firma
+  publique los roles de cargo: esos roles se guardan sin `retirada_en` y,
+  una vez publicados, el censo de la admisión no cuadra y la autoridad la
+  rechaza. Es un fallo aparte, anotado en F1-103 del tablero.
+- La consulta guarda el perfil y su versión por cuenta. Si cambia la versión
+  del perfil, recrea la copia: el material preparado ya no sirve.
+- Los expedientes 2026/93001 y 2026/94011 no guardan necesidad de la RPT y su
+  historia no se puede corregir: las versiones son inmutables. Para llamar
+  desde la ficha, recorre el caso 4.0 con la variante vacante (puesto 9,
+  plaza 2026/0033) hasta la fiscalización, después de componer la firma: un
+  expediente preparado antes se queda en el paso 7b.
+- Quedan aparte el acto de Administración que publique la consulta de
+  Organización histórica en producción (AUT60, conjunto 7) y la salida
+  definitiva de F0-37.
 
 ## 7. Arrancar `vec-server`
 
@@ -740,7 +796,7 @@ mismo volcado y las listas necesarias.
 | Mi Bolsa responde 403 a Antonio | Su permiso estaba ligado a la candidatura de la bolsa sustituida | Arreglado en F1-99: la copia crea su identidad ligada a la candidatura vigente (apartado 2) |
 | Registrar una llamada o ver los contactos de una participación da 503 | Faltaba la conexión del calendario oficial | Arreglado en F1-99: `VEC_CALENDARIOS_DATABASE_URL` (apartado 2) |
 | El aviso del llamamiento no llega al buzón | La participación no tenía datos de contacto | Arreglado en F1-99: la copia registra un correo `@example.test` (apartado 2) |
-| El cliente de Personal (M10) llama a un puerto ajeno | `cliente_m10_ct.json` copiado sin cambiar | Apuntarlo a tu servicio |
+| La selección no puede consultar Personal | Falta el montaje o el perfil de consulta de la cuenta | Revisar la configuración de Organización histórica y su asignación; no usar otro certificado |
 | La consulta de firmas da 503 con «autenticación histórica inválida» | Falta IS20 | Aplicar la lista 1b |
 | El contenedor de la app no arranca al montar `/app` en solo lectura y `/app/var` en escritura | Falta la carpeta `var/` en tu carpeta de trabajo | Crea `var/` en tu carpeta de trabajo antes de montar (lo vio T el 16/10) |
 | Rechazo de una fecha que es el mismo instante | Representación distinta: AUT32 compara texto con el canon nominal; CA25 y los motivos de Organización histórica exigen seis decimales | Generar las fechas en el formato canónico de cada guarda; corregir el dato de la copia |
@@ -833,3 +889,76 @@ técnico firmó con ella ya no admite la firma de Jefatura. Cada
 persona usa su propia carpeta personal, con `afirma://` permitido en Chrome
 para el origen de la copia y la configuración de GrxFirma en `0600`, la
 confianza por decisión activada y el origen admitido.
+
+## 12. Personal: incorporación, alta, GINPIX manual y cese (F1-119)
+
+Después de crear la copia con la orden completa de los apartados 2 y 4,
+prepara Personal desde la misma rama limpia:
+
+```sh
+python3 deploy/principal/copia_local.py personal --equipo y --instancia recorrido \
+  --config-personal /ruta/privada/configuracion-b2-aprobada/servidor.json
+```
+
+`--config-personal` es una referencia privada, regular y con permisos `0600`.
+La configuración B2 aprobada procede del material común de candidata,
+`incorporacion/personal-b2/servidor.json`; dirección debe haber autorizado
+su lectura. Debe incluir las operaciones de categoría RPT, gobierno de los
+catálogos de Personal y `cese_fecha_efecto`. La orden conserva sus referencias,
+los motivos de las operaciones y la regla de fecha del cese. Descarta el
+circuito antiguo de ejercicio, sus conexiones y las capacidades antiguas.
+No ejecuta guiones de otros equipos.
+
+La orden:
+
+1. Crea nueve LOGIN propios, uno por conexión de las tres bases, las cinco de
+   B2 y el relevo del cese, con TLS verificado y vigencia de 90 días. Seis
+   conservan los nombres que ya declaran las 27 filas de origen restauradas
+   (`origen_consumos_ad172/ternas.tsv`, bloque `incorporacionb`), con
+   contraseñas nuevas. Como en Usuarios, no se modifican esas filas.
+2. Aplica `candidata_hz39/personal/datos_plantilla.sql`, la semilla ficticia
+   existente de la Plantilla, plaza 2026/0033 y cobertura. Es repetible y
+   conserva sus comprobaciones de preimagen.
+3. Reinicia en una fase de publicación con incorporación B2 y el gobierno de
+   Personal seleccionados. En esa fase solo comprueba el arranque del portal;
+   Personal aún no tiene capacidades y no ofrece sus operaciones.
+4. Ejecuta `vec-preparar-material-interno` con la idempotencia de esta copia,
+   el resolutor nominal de motivos de RRHH y un LOGIN temporal de gobierno.
+   Reutiliza el preparador de gobierno de F1-103 y lo retira al terminar.
+   No necesita el inventario antiguo `ct_v3.json`. El productor comprueba la
+   raíz, las claves publicadas, su vigencia, las 27 referencias de motivos y
+   el motivo de detalle antes de escribir el material activable.
+5. Activa `personal/material/servidor.json` y los selectores de incorporación
+   acreditada, alta B2, seguimiento y cese; conserva el resto del entorno.
+   Reinicia y exige las comprobaciones completas de Contratación y Bolsa,
+   la lista de categorías RPT y el catálogo de regímenes de Personal.
+
+Los datos de activación quedan en `<copia>/personal`, con permisos privados.
+Los registros de la fase de publicación no acreditan por sí solos la
+activación final. Si falla, se recupera el entorno anterior y se arranca con
+él; el error se devuelve y el material queda para diagnosticar. Una repetición
+tras el éxito coteja las huellas y comprueba la copia sin republicar.
+Una interrupción tras crear los LOGIN y antes de guardar sus conexiones
+exige descartar esa instancia y crear otra; no se cambian contraseñas para
+simular la recuperación.
+
+La preparación monta las capacidades existentes. Los perfiles que falten se
+publican por el circuito de aprobación ya existente, con sus preimágenes;
+un rechazo de ese circuito detiene la preparación. Los ocho catálogos de
+régimen y modalidad se publican desde la ruta gobernada de Personal cuando
+no estén en el respaldo, con las mismas claves de operación al recuperar.
+No se crean incorporaciones, firmas, altas ni ceses por SQL.
+
+Con un expediente en nombramiento, comprueba como RRHH los GET de
+`incorporacion-personal-b2/plan/v1` y `vinculo-categoria-rpt/v1`, con su
+`expediente_ref`. Desde las pantallas sigue el orden del caso 4.0:
+17 → 18 → 16a → 16b → 19 → 20 → 21. GINPIX sigue siendo una grabación
+manual con recibo local. Reinicia con `copia_local.py reiniciar` y repite las
+lecturas con las mismas referencias. El recorrido de aceptación y sus actos
+los registra el equipo responsable del caso 4.0.
+
+### Lo que la copia siembra y no es autoritativo
+
+- F1-119 reutiliza la semilla de Plantilla de HZ39: fecha 07/05/2026,
+  plaza 2026/0033 y cobertura enlazada a la revisión de Plantilla. No acredita
+  una aprobación oficial ni una vacante real fuera de la copia.
