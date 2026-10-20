@@ -162,7 +162,7 @@ class EnsayoFase1Test(unittest.TestCase):
                 ensayar.verificar_tablas_vacias('contenedor')
 
     def test_pruebas_usan_bytes_versionados_y_lista_cerrada(self):
-        self.assertEqual(len(ensayar.PRUEBAS_SQL), 22)
+        self.assertEqual(len(ensayar.PRUEBAS_SQL), 23)
         self.assertIn(ensayar.CA48_PRUEBA, ensayar.PRUEBAS_SQL)
         with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'SQL') as git:
             with mock.patch.object(Path, 'read_bytes', return_value=b'SQL'):
