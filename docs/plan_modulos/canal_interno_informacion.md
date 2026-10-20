@@ -17,12 +17,12 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 ## Estado del primer corte — 7 de octubre de 2026
 
 **CAN01 es candidato local, pendiente de integración y publicación.** La rama
-`trabajo/codexv-canal-publico-20261007` contiene la entrada pública
+una rama histórica contiene la entrada pública
 `/canal-interno/`, catálogos de texto castellano e inglés y
 `web/static/canal-interno/destinos.json`, versión 1. El paquete enlaza el canal
 que figura en la [página institucional](https://www.dipgra.es/e-administracion/administracion-electronica/sistema-interno-de-informacion/),
@@ -94,7 +94,7 @@ a preguntar por la existencia del canal o del reglamento ni se modifica la duda.
 ## Inventario en la base inspeccionada
 
 Se consultó primero `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
+una instantánea histórica.
 El índice representa otra instantánea; las rutas y límites siguientes se cotejaron
 por `git ls-tree` y lectura en el SHA indicado.
 
