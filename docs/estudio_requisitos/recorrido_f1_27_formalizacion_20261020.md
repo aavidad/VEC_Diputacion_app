@@ -4,11 +4,12 @@ Tarea F1-27. Ensayo en una copia local nueva de `main@fb5200b68`, con
 datos ficticios y Chrome del sistema. No se ha tocado cidonia. El caso de
 aceptación sigue siendo [FLUJO_APP, apartado 4.0](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
 
-El recorrido sigue abierto: el expediente 2026/93001 ha llegado a
-Fiscalización, versión 6, con las dos firmas del informe y un llamamiento
-de Antonio emitido y vinculado. Antonio ha aceptado desde Mi Bolsa, con
-respuesta firme y recibo conservados tras reiniciar. Falta resolver esa
-aceptación antes de comprobar los pasos 12 a 15 en el mismo expediente.
+El recorrido sigue abierto. En la primera copia, 2026/93001 llegó a
+Fiscalización, versión 6, con dos firmas del informe y aceptación firme de
+Antonio, conservada tras reiniciar. Dirección indicó abrir después un caso
+de vacante con selección desde la ficha: su petición está presentada y
+ratificada, pendiente de completar la preparación de firma antes de crear
+el expediente. Los pasos 12 a 15 aún no están acreditados.
 
 ## Preparación reproducida
 
@@ -136,11 +137,48 @@ Este reinicio parcial no sustituye la comprobación final después del cierre.
 
 ## Pendiente
 
-Resolver la aceptación de Antonio; propuesta, resolución,
-descargas PDF/Word y tres firmas de la resolución en 2026/93001. Después,
-incorporación del centro, alta en Personal, GINPIX manual, cese, vuelta a
-Bolsa y cierre. Falta el reinicio final de aplicación y PostgreSQL y el
-cotejo de los mismos recibos, fechas y recuentos.
+Completar el caso de vacante por selección desde la ficha y resolver la
+aceptación de Antonio. Propuesta, resolución, descargas PDF/Word y tres
+firmas deben pertenecer al mismo expediente nuevo. Después, incorporación
+del centro, alta en Personal, GINPIX manual, cese, vuelta a Bolsa y cierre.
+Falta el reinicio final de aplicación y PostgreSQL y el cotejo de los mismos
+recibos, fechas y recuentos.
+
+## Preparación posterior con selección desde la ficha
+
+Dirección autorizó componer F1-103 y F1-119 y abrir un caso nuevo por la
+selección nativa de CT. La copia de código `236f3221b` arrancó en 104,69
+segundos. Completó Administración, admisión de las dos fuentes de selección,
+los dieciséis roles iniciales de firmantes y los catorce actos nominales.
+La orden de Personal terminó correctamente. No se registraron firmas,
+incorporaciones, altas ni ceses en esa copia.
+
+Desde Chrome, Lucía presentó una petición de vacante de Administrativo,
+puesto 9 y plaza 2026/0033, del 19/10 al 31/12/2026: respuesta 200 a las
+11:36:38. Manuel ratificó la misma petición desde su bandeja: respuesta 200,
+versión 2, a las 11:38:30. Los dos recibos permanecen en el material privado.
+Estos pasos previos no acreditan los pasos 12 a 15; todavía no se abrió un
+expediente CT para esa petición.
+
+La preparación del plan se detuvo por depender de un ejecutable auxiliar
+cuya fuente no estaba en Git. Dirección encargó publicarla en F1-121. La
+copia completa quedó parada y guardada en disco con comprobaciones de
+integridad antes de retirarla de memoria. No se cambiaron su revisión ni
+sus guardas para hacerla pasar por otra candidata.
+
+La rama incorpora ahora `main@3c643ce34`, que añade la lectura de Personal
+con el perfil de cada cuenta. La siguiente candidata partirá del código
+actualizado y del preparador publicado. La copia anterior se conserva como
+evidencia de su propia revisión.
+
+Dirección fijó además el antecedente del paso 11: cuando la aceptación llega
+de Mi Bolsa, RRHH debe resolver con su recibo web, sin pedir un correo
+inexistente. F1-125 prepara esa continuación; requiere persistencia nativa
+además del formulario. No se ha fabricado un archivo de correo para suplirla.
+
+Los certificados del kit se conservan por la decisión del 20/10, a las
+11:32 y 11:41. El límite de unos 90 días se aplica a autoridad, admisiones y
+asignaciones; los certificados heredados duran 397 o 400 días.
 
 ## Capturas
 
@@ -149,3 +187,5 @@ cotejo de los mismos recibos, fechas y recuentos.
 - [Aceptación firme de Antonio y su recibo](recorrido_f1_27_formalizacion_20261020/10_aceptacion_firme.png).
 - [Llamamiento tras reiniciar, a 390 píxeles](recorrido_f1_27_formalizacion_20261020/reinicio_390.png).
 - [Resolución registrada en la semilla histórica distinta](recorrido_f1_27_formalizacion_20261020/13_semilla_distinta.png).
+- [Petición nueva presentada por el centro](recorrido_f1_27_formalizacion_20261020/01_peticion_nueva.png).
+- [La misma petición, ratificada](recorrido_f1_27_formalizacion_20261020/02_ratificacion_nueva.png).
