@@ -35,7 +35,9 @@ function normalizarContexto(contexto) {
   if (contexto === null || typeof contexto !== "object" || Array.isArray(contexto)
     || Object.getPrototypeOf(contexto) !== Object.prototype
     || Object.getOwnPropertySymbols(contexto).length !== 0
-    || Object.keys(contexto).length !== 2
+    || Object.keys(contexto).length !== (Object.hasOwn(contexto, "numero_visible") ? 3 : 2)
+    || (Object.hasOwn(contexto, "numero_visible") && (typeof contexto.numero_visible !== "string"
+      || contexto.numero_visible.trim() === "" || contexto.numero_visible.length > 80))
     || !Object.hasOwn(contexto, "expediente_ref")
     || !Object.hasOwn(contexto, "version_esperada")
     || !PATRON_REFERENCIA.test(contexto.expediente_ref)
@@ -47,6 +49,7 @@ function normalizarContexto(contexto) {
   return Object.freeze({
     expediente_ref: contexto.expediente_ref,
     version_esperada: contexto.version_esperada,
+    ...(Object.hasOwn(contexto, "numero_visible") ? { numero_visible: contexto.numero_visible.trim() } : {}),
   });
 }
 
@@ -288,7 +291,7 @@ export function montarFormularioAsignacion(configuracion = {}) {
       confirmada = confirmarActual({
         titulo: t("asignacion_confirmar"),
         advertencia: t("asignacion_confirmacion_advertencia"),
-        referencia: contexto.expediente_ref,
+        referencia: contexto.numero_visible ?? t("informe_resumen"),
       }) === true;
     } catch { confirmada = false; }
     return confirmada ? enviar(false) : Promise.resolve(null);

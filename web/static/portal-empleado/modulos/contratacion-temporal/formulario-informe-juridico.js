@@ -55,12 +55,11 @@ function normalizarContexto(contexto) {
   });
 }
 
-// Con el número del expediente la confirmación lo nombra como RRHH lo conoce;
-// sin él se conserva el texto anterior.
+// La referencia interna nunca se usa en el resumen visible.
 function resumenExpediente(contexto, t) {
   return contexto.numero_visible
-    ? t("informe_resumen_numero", { numero: contexto.numero_visible, version: contexto.version_esperada })
-    : t("informe_resumen", { expediente: contexto.expediente_ref, version: contexto.version_esperada });
+    ? t("informe_resumen_numero", { numero: contexto.numero_visible })
+    : t("informe_resumen");
 }
 
 function resultadoIndeterminado(error) {
@@ -497,7 +496,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
       confirmada = confirmarActual({
         titulo: t("informe_confirmar"),
         advertencia: t("informe_confirmacion_advertencia"),
-        referencia: contexto.numero_visible ? resumenExpediente(contexto, t) : contexto.expediente_ref,
+        referencia: contexto.numero_visible ?? t("informe_resumen"),
       }) === true;
     } catch { confirmada = false; }
     return confirmada ? enviar(false) : Promise.resolve(null);

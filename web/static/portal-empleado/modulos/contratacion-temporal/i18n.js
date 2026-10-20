@@ -333,7 +333,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   informe_estado_historial_no_disponible:
     "El informe está confirmado, pero el historial no está disponible temporalmente.",
   informe_confirmacion_leyenda: "Confirmación del informe jurídico",
-  informe_resumen: "Expediente {expediente}, versión asignada {version}.",
   informe_confirmacion:
     "He comprobado el expediente y entiendo que se generará un borrador sin firma.",
   informe_confirmar: "Confirmar y preparar informe",
@@ -742,7 +741,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   informe_estado_error: "A valid legal report request could not be prepared.",
   informe_estado_historial_no_disponible: "The report is confirmed, but the case history is temporarily unavailable.",
   informe_confirmacion_leyenda: "Legal report confirmation",
-  informe_resumen: "Case {expediente}, assigned version {version}.",
   informe_confirmacion: "I have checked the case and understand that an unsigned draft will be generated.",
   informe_confirmar: "Confirm and prepare report",
   informe_confirmacion_advertencia: "This action will generate and record a new version of the draft legal report.",

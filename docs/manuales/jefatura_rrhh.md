@@ -148,6 +148,8 @@ El técnico ve la petición ratificada en su bandeja, escribe el número de expe
 
 El técnico registra el análisis: modalidad, categoría, causa, fechas, jornada y comprobación del crédito. Después elige cómo se cubre el puesto (bolsa vigente, Servicio Andaluz de Empleo o nueva convocatoria) y asigna la unidad que lo gestiona.
 
+Las confirmaciones de cobertura, asignación e informe muestran el número del expediente. En Documentos, «Copiar referencia» conserva el justificante de publicación; «Ver detalle técnico» muestra el código de comprobación de la descarga.
+
 ### Paso 5. Informe para Intervención
 
 El técnico prepara el informe. Lo firman el técnico y la Jefatura del Servicio de RRHH, y entonces pasa a Intervención.
