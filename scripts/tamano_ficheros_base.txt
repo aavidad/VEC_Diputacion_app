@@ -92,7 +92,7 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13067 web/static/app.js
-962 web/static/area-personal/aplicacion.js
+974 web/static/area-personal/aplicacion.js
 602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 805 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js
 1111 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs

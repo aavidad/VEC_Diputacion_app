@@ -160,6 +160,7 @@
   },
   "ofertas": {
     "sinOfertas": "No hay ofertas abiertas en sus bolsas.",
+    "sinOfertasNinguna": "Ha elegido no ver ofertas. Pulse «Ver todas las ofertas» si quiere consultarlas.",
     "verTodas": "Ver todas las ofertas",
     "verElegidas": "Ver solo las que me interesan",
     "sinOfertasElegidas": "No hay ofertas abiertas de los tipos de contrato que eligió.",

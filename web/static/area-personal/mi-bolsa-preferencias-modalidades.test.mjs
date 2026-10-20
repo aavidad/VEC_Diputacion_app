@@ -25,7 +25,13 @@ function host() {
   const h = {
     innerHTML: "", hidden: false, enfocado: "",
     addEventListener(tipo, fn) { eventos.set(tipo, fn); }, removeEventListener(tipo) { eventos.delete(tipo); },
-    querySelector(selector) { return { focus() { h.enfocado = selector; } }; },
+    // Devuelve un elemento solo si el HTML pintado lo contiene, como el DOM.
+    querySelector(selector) {
+      const marca = selector.startsWith("#") ? `id="${selector.slice(1)}"` : selector.startsWith(".") ? selector.slice(1)
+        : selector.split(", ").map((p) => p.slice(1, -1)).find((p) => h.innerHTML.includes(p));
+      if (!marca || !h.innerHTML.includes(marca)) return null;
+      return { focus() { h.enfocado = selector.startsWith("[") ? marca : selector; } };
+    },
     pulsar(accion) { eventos.get("click")({ target: { closest: () => ({ dataset: { modalidades: accion }, disabled: false }) } }); },
     modo(valor) { eventos.get("change")({ target: { value: valor, hasAttribute: (n) => n === "data-modalidades-modo" } }); },
     opcion(clave, checked) { eventos.get("change")({ target: { dataset: { modalidadesOpcion: clave }, checked, hasAttribute: (n) => n === "data-modalidades-opcion" } }); },
@@ -233,4 +239,45 @@ test("desmontar conserva el borrador y no corta el guardado", async () => {
   completar(respuesta({ recibo_ref: "recibo:x", version: 2, modalidades: [], registrado_en: FECHA, reutilizado: false }, 201));
   await tick(); await tick();
   assert.match(segundo.innerHTML, /Elección guardada el/u);
+});
+
+test("el foco nunca cae en la página: mensaje tras sin cambios, sin marcar, error y conflicto", async () => {
+  const vista = host();
+  let put = 500, gets = 0;
+  crearControladorPreferenciasModalidades({ host: vista, api: async (r, c) => {
+    if (c.method === "GET") { gets += 1; return respuesta(estado(gets >= 2 ? ["vacante"] : null, { version: gets })); }
+    return { status: put };
+  } }).montar();
+  await tick();
+  vista.pulsar("guardar");
+  assert.equal(vista.enfocado, "#preferencias-modalidades-mensaje");
+  assert.match(vista.innerHTML, /id="preferencias-modalidades-mensaje" tabindex="-1">No ha cambiado/u);
+  vista.enfocado = "";
+  vista.modo("algunas"); vista.pulsar("guardar");
+  assert.equal(vista.enfocado, "#preferencias-modalidades-mensaje");
+  assert.match(vista.innerHTML, /<fieldset class="preferencias-modalidades__grupo" aria-describedby="preferencias-modalidades-mensaje"><legend>Tipos de contrato/u);
+  vista.enfocado = "";
+  vista.modo("ninguna"); vista.pulsar("guardar"); await tick(); await tick();
+  assert.match(vista.innerHTML, /No se pudo guardar su elección/u);
+  assert.equal(vista.enfocado, "#preferencias-modalidades-mensaje");
+  vista.enfocado = "";
+  put = 409;
+  vista.modo("ninguna"); vista.pulsar("guardar"); await tick(); await tick(); await tick();
+  assert.match(vista.innerHTML, /cambió desde otra ventana/u);
+  assert.equal(vista.enfocado, "#preferencias-modalidades-mensaje");
+});
+
+test("sin mensaje, el foco va al botón principal tras volver a consultar", async () => {
+  const vista = host();
+  crearControladorPreferenciasModalidades({ host: vista, api: async () => respuesta(estado(null)) }).montar();
+  await tick();
+  vista.pulsar("recargar"); await tick(); await tick();
+  assert.equal(vista.enfocado, 'data-modalidades="guardar"');
+});
+
+test("la nota de elección sin guardar desaparece al cambiar y «ninguno» guardado lo dice en la lista", () => {
+  assert.match(renderizarPreferenciasModalidades(inicial(), { estado: "correcto", borrador: null }), /Ahora ve ofertas de todos los tipos/u);
+  assert.doesNotMatch(renderizarPreferenciasModalidades(inicial(), { estado: "correcto", borrador: null, modo: "ninguna" }), /Ahora ve ofertas/u);
+  const lista = renderizarSeccionOfertasMiBolsa([], { segunModalidades: true, ninguna: true });
+  assert.match(lista, /Ha elegido no ver ofertas\. Pulse «Ver todas las ofertas» si quiere consultarlas\./u);
 });

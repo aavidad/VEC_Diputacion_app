@@ -159,6 +159,16 @@ function aplicarCapacidadesVisibles(estado) {
   });
 }
 
+function pintarOfertasMiBolsa(estado, carga = "") {
+  const region = porId("ofertas-mi-bolsa");
+  if (!region) return false;
+  region.innerHTML = renderizarSeccionOfertasMiBolsa(estado.ofertasMiBolsa, {
+    segunModalidades: estado.ofertasSegunModalidades === true, todas: estado.ofertasTodas === true, carga,
+    ninguna: Array.isArray(estado.eleccionModalidades) && !estado.eleccionModalidades.length,
+  });
+  return true;
+}
+
 // refrescarOfertasMiBolsa vuelve a pedir Mi bolsa y repinta solo las ofertas:
 // con `todas`, sin aplicar la elección de modalidades («Ver todas»); sin él,
 // según la elección guardada. Solo toma las ofertas y su indicador.
@@ -166,12 +176,7 @@ export async function refrescarOfertasMiBolsa(estado, { todas = false, enfocar =
   if (estado.vista !== "llamamientos" || typeof estado.cliente?.cargar !== "function") return;
   const peticion = ++estado.ofertasPeticion;
   const pintar = (carga = "") => {
-    const region = porId("ofertas-mi-bolsa");
-    if (!region) return;
-    region.innerHTML = renderizarSeccionOfertasMiBolsa(estado.ofertasMiBolsa, {
-      segunModalidades: estado.ofertasSegunModalidades === true, todas: estado.ofertasTodas === true, carga,
-    });
-    if (enfocar && carga !== "cargando") region.querySelector("[data-accion]")?.focus();
+    if (pintarOfertasMiBolsa(estado, carga) && enfocar && carga !== "cargando") porId("ofertas-mi-bolsa")?.querySelector("[data-accion]")?.focus();
   };
   pintar("cargando");
   try {
@@ -335,6 +340,11 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
       participaciones: estado.participaciones });
     estado.controladorPreferenciasModalidades ??= crearControladorPreferenciasModalidades({
       api: estado.fetchImpl, anunciar,
+      alConocerEleccion: (eleccion) => {
+        const antes = Array.isArray(estado.eleccionModalidades) && !estado.eleccionModalidades.length;
+        estado.eleccionModalidades = eleccion;
+        if (antes !== (Array.isArray(eleccion) && !eleccion.length) && estado.vista === "llamamientos") pintarOfertasMiBolsa(estado);
+      },
       alGuardar: () => void refrescarOfertasMiBolsa(estado, { enfocar: false }),
     });
     estado.controladorPreferenciasModalidades.montar(porId("preferencias-modalidades"));
@@ -880,6 +890,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     ofertasSegunModalidades: false,
     ofertasTodas: false,
     ofertasPeticion: 0,
+    eleccionModalidades: null,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],

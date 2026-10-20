@@ -291,6 +291,7 @@
   },
   "ofertas": {
     "sinOfertas": "There are no open offers in your pools.",
+    "sinOfertasNinguna": "You chose not to see offers. Press “See all offers” if you want to view them.",
     "verTodas": "See all offers",
     "verElegidas": "See only the ones I am interested in",
     "sinOfertasElegidas": "There are no open offers for the contract types you chose.",
