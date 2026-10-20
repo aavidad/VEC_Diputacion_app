@@ -107,254 +107,51 @@ Si el panel de Bolsa no carga, no suponga que ha perdido todos los permisos
 del portal: la disponibilidad de Peticiones de personal temporal se comprueba por
 separado.
 
-## 4. Recorrido real de Peticiones de personal temporal
+## 4. Antecedentes de contratación temporal
 
-El orden disponible se resume a continuación. Los campos concretos, las
-responsabilidades y las alternativas de tramitación se desarrollan en el
-[manual de RRHH](../manual_rrhh/README.md). Para reproducir el ejemplo
-conservado, use los datos exactos de la
-[guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).
+El alcance de septiembre comprendía formularios de petición, análisis,
+cobertura, asignación, informe, fiscalización y registros manuales de
+llamamiento y respuesta. Eran comprobaciones parciales: no acreditaban el
+recorrido único completo ni un nombramiento eficaz.
 
-| Paso del recorrido | Acción visible disponible | Resultado y límite |
-|---|---|---|
-| 1. Solicitud | Revisar y registrar una nueva petición con datos de catálogo. | Expediente y primer recibo guardados. |
-| 2. Análisis | Registrar el análisis por Recursos Humanos. | Mismo expediente, nueva versión y recibo. Hay cinco modalidades; el ejemplo recorrido utiliza Sustitución. |
-| 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
-| 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
-| 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. | Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar seis borradores y consultar la validación manual sintética con su recibo. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz, posesión real, firma, envío ni entrega; validación manual sintética disponible, no firma oficial. |
-| 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
+| Actuación | Garantía funcional | Límite del corte histórico |
+| --- | --- | --- |
+| Petición y análisis | Revisión de datos, confirmación expresa y recibo | La petición no sustituía el análisis de crédito. |
+| Cobertura y asignación | Conservación de la decisión y de la unidad responsable | No acreditaban selección de una persona ni fiscalización. |
+| Informe | Preparación del documento y registro de la actuación | Un informe preparado no estaba firmado por el mero hecho de guardarlo. |
+| Fiscalización | Conformidad o reparo y subsanación separados | La subsanación no convertía el reparo en favorable. |
+| Llamamiento | Selección ligada al expediente y recibo propio | El aviso local no acreditaba envío, entrega ni apertura de plazo. |
+| Declaración de respuesta | Referencia, fecha y código de comprobación del correo recibido | El contenido del correo no se custodiaba ni se verificaban su origen o firma. |
+| Resolución manual de aceptación o renuncia | Revisión expresa de la respuesta y su justificante | El criterio provisional no acreditaba un plazo legal ni una respuesta propia en el portal. |
+| Continuación tras renuncia | Nuevo llamamiento con su recibo, conservando la renuncia anterior | No avisaba ni aceptaba automáticamente por la siguiente persona. |
+| Respuesta de la siguiente persona | Declaración y resolución separadas, con antecedentes conservados | No modificaba la respuesta inicial ni iniciaba una propuesta automáticamente. |
+| Propuesta de nombramiento | Antecedentes derivados y confirmación con recibo propio | Seguía siendo un borrador, sin firma, envío ni incorporación. |
 
-El número de recibos o la versión del expediente no es el número de pasos
-completados: el paso 5 contiene más de una actuación.
+### Consultar borradores
 
-### Iniciar y continuar una petición
+El corte ofrecía el informe definitivo, la resolución, la diligencia, la toma
+de posesión, la notificación y la comunicación al centro como borradores.
+Una descarga recuperaba el documento asociado a la propuesta; no creaba otra
+propuesta ni repetía el llamamiento. La notificación descargada no acreditaba
+su entrega y la comunicación al centro no confirmaba una incorporación.
 
-1. En **Peticiones de personal temporal → Nueva petición**, complete el formulario con
-   las entradas sintéticas de los catálogos. Revise fechas y campos
-   obligatorios.
-2. Pulse **Revisar solicitud** y después **Confirmar y registrar** una sola
-   vez. Espere a ver **Solicitud registrada** y su recibo.
-3. Continúe por los formularios que aparecen tras cada resultado: análisis,
-   decisión de cobertura, asignación e informe. Compruebe que mantienen la
-   misma referencia de expediente.
-4. Lea los avisos antes de confirmar. El informe muestra expresamente
-   **DOCUMENTO DE DESARROLLO — SIN FIRMA NI VALIDEZ JURIDICA**.
-5. Para fiscalizar, use el perfil separado de Intervención. En
-   **Peticiones de personal temporal**, introduzca la referencia del expediente y su
-   versión remitida `5`; pulse **Abrir fiscalización**.
+La consulta de un borrador y la recuperación de un PDF firmado son distintas.
+Las instrucciones actuales de descarga están en
+[consulta del expediente y documentos](../manuales/responsable_rrhh.md).
 
-Fiscalización admite **Favorable**, **Favorable con observaciones** y
-**Desfavorable**. Los dos últimos requieren observaciones. Un resultado
-desfavorable devuelve el expediente a la unidad con estado de incidencia;
-no habilita el llamamiento favorable ni constituye un error de guardado.
+### Recuperar después de una interrupción
 
-No registre otra solicitud solo para volver a abrir la anterior. La bandeja
-permite localizar el expediente y abrir su detalle; use las referencias
-conservadas y las entradas indicadas en la guía.
+La recuperación autorizada de una actuación ya registrada debía devolver el
+mismo recibo y su fecha original, sin crear otra actuación ni modificar sus
+antecedentes. Una duda sobre el resultado no autorizaba a cambiar la clave o
+los datos para forzar otro registro.
 
-### Iniciar o recuperar el llamamiento y su aviso local
-
-1. Con el perfil de RRHH, abra **Peticiones de personal temporal → Nueva petición →
-   Llamamiento y comunicación**.
-2. Para recuperar el ejemplo ya existente, tome de la guía la referencia
-   del expediente fiscalizado, la versión de entrada `6` y la clave de
-   selección original. No cree otra solicitud ni repita la fiscalización.
-3. Pulse **Revisar e iniciar llamamiento** y confirme. El servidor comprueba
-   los permisos y el expediente; no elija ni invente una persona candidata.
-4. Espere al **Recibo verificado**. Los datos de **Registrar comunicación**
-   se rellenan desde ese resultado. No sustituya la organización, la
-   referencia del llamamiento ni el recibo antecedente.
-5. Para recuperar también el aviso existente, introduzca su clave de
-   comunicación original y pulse **Revisar y registrar comunicación**.
-6. Compruebe el mensaje **Registrada localmente · Sin entrega acreditada** o,
-   si ya existía, **Registro local recuperado · Sin entrega acreditada**.
-
-El aviso se conserva como un archivo en el servidor de desarrollo. **No se
-envía correo corporativo ni se acredita que lo haya recibido una persona.**
-Una referencia de intención de envío o un plazo mostrado no demuestra que
-haya comenzado un plazo legal de respuesta.
-
-Para una operación genuinamente nueva, siga la guía y conserve su nueva
-clave antes de enviar. Para recuperar una anterior, no pulse **Preparar
-clave nueva**: mantenga la clave y todos los datos originales.
-
-### Registrar una respuesta declarada por RRHH
-
-1. Recupere la comunicación confirmada en versión `2` mediante el recorrido
-   anterior. En el **mismo formulario**, la operación **3. Registrar respuesta
-   recibida por correo** toma sus antecedentes del recibo; no los invente.
-   El servidor exige el permiso propio
-   `contratacion_temporal.llamamiento.respuesta.registrar`.
-2. Elija **Aceptación declarada en el correo** o **Renuncia declarada en el
-   correo**, indique una referencia opaca sin datos personales y la **fecha de
-   recepción en UTC**, no la hora local. Seleccione un `.eml` no vacío de hasta
-   **2 MiB**. WebCrypto calcula SHA-256 en su equipo: el contenido no se envía
-   ni se guarda en VEC y la huella no se edita manualmente.
-3. Espere a **Huella calculada**, revise los datos y confirme expresamente el
-   registro. El selector puede quedar vacío al actualizar la pantalla aunque
-   la huella siga calculada; el contenido del archivo no se conserva.
-4. Conserve el recibo, el justificante, la huella, las fechas y la clave. Ante
-   un resultado ambiguo o un acceso denegado, no prepare otra
-   clave ni cambie los datos para forzar el registro: avise al operador.
-
-Para practicar, use el [correo sintético existente](../manual_rrhh/ejemplos/respuesta_sintetica.eml)
-y los datos del caso de aceptación de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Ese archivo
-**nunca se envió y no corresponde a una persona real**.
-El caso de renuncia tiene otro correo y otras claves: use su apartado de la guía,
-no cambie la respuesta ni los bytes del ejemplo anterior para recuperar la renuncia.
-
-El original sigue en el sistema de correo; VEC registra la declaración, su
-referencia y su huella, **sin verificar origen, firma ni custodia**. No acredita
-envío o entrega ni resuelve aceptación o renuncia. La comunicación conserva
-la versión `2`, el expediente observado sigue en `6` y no cambia la candidatura
-ni su estado en Bolsa. No aumenta el contador de pasos.
-
-### Registrar aceptación o renuncia manual: solo ejercicio sintético
-
-1. Recupere la declaración **Aceptación declarada en el correo** o **Renuncia
-   declarada en el correo** con los datos
-   originales de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Aparece **4. Solicitar
-   resolución de respuesta** en el mismo formulario. La respuesta y el justificante
-   proceden del recibo de declaración confirmado, enlazado a comunicación `v2`;
-   no puede elegir otra respuesta desde la resolución.
-2. Use una clave propia para resolución, distinta de las operaciones anteriores.
-   Para recuperar una resolución registrada, conserve su clave y datos originales.
-3. Solo tras comprobar el caso sintético, marque las dos casillas, inicialmente
-   vacías: **He comprobado la respuesta y su justificante** y **Para este ejercicio
-   sintético, he comprobado que la respuesta llegó dentro del plazo del ejercicio**.
-   El criterio de desarrollo es de solo lectura. No se aporta otro `.eml`.
-4. Pulse **Revisar y solicitar resolución** y confirme expresamente. Solo tras
-   confirmar CT y Bolsa aparece **Aceptación registrada · ejercicio sintético**
-   o **Renuncia registrada · ejercicio sintético**, según la declaración original.
-   La renuncia muestra referencia, fecha UTC y **Siguiente candidato pendiente**:
-   no se ha seleccionado ni avisado a otra persona.
-
-**Validación manual de desarrollo: no acredita entrega de correo ni plazo legal real**.
-Sin ambas casillas no se envía. La petición antigua sin revisión manual conserva
-el `409` de validación pendiente, sin efectos: puede corregir casillas con la misma
-clave. Ante resultado ambiguo, clave y material quedan congelados, sin reintento automático.
-Dirección confirmó ambas resoluciones `201` y recuperación `200` tras reinicio,
-con sus respectivos recibos y fechas originales; la intención del recibo de renuncia conserva su `pendiente` histórico.
-La propuesta de desarrollo se describe abajo; no hay política
-legal aprobada, vencimiento ni correo corporativo completos.
-El criterio manual es provisional y exclusivo de desarrollo sintético, no aval del operador.
-
-### Quinta operación: continuar tras la renuncia sintética
-
-Tras recuperar la renuncia, el mismo panel ofrece continuar; expediente, resolución
-e intención vienen de sus recibos, no se editan. Use la quinta clave original de la
-[guía](../../GUIA_RECORRIDO_ALBERTO.md)
-y confirme expresamente la apertura de un único nuevo llamamiento, sin otro `.eml`.
-**Siguiente llamamiento abierto · ejercicio sintético** confirma la continuidad
-posterior: no reescribe el recibo de renuncia, ni acredita aviso enviado, entrega
-o aceptación. No sustituya el llamamiento de la primera comunicación.
-Una vez recibido, otro envío queda desactivado; ante ambigüedad conserve clave y
-material, reintento solo explícito. Un `409` no autoriza cambiar de clave.
-
-### Sexta operación: aviso local al sucesor
-
-Recupere las cinco operaciones previas y use **6. Registrar aviso local al sucesor**.
-Solo introduzca su sexta clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md);
-el panel deriva las referencias y versión del recibo de continuación. Confirme expresamente.
-`201` muestra **Aviso local al sucesor registrado · No enviado**; tras reinicio principal,
-`200` recupera el mismo recibo, fecha, versión `2` e intención local, sin duplicados.
-No envía correo ni abre plazo; habilita la declaración manual del paso 7, no una resolución. Los recibos previos
-se conservan; ante ambigüedad mantenga clave/material, sin reintento automático ni eludir `409`.
-
-### Séptima operación: declaración de respuesta del sucesor
-
-Tras el aviso local validado `v2`, **7. Registrar respuesta recibida del sucesor** deriva sus referencias.
-Declare aceptación o renuncia, referencia opaca de correo y fecha UTC; seleccione el `.eml` hasta 2 MiB,
-compruebe la huella calculada localmente y confirme con su clave propia. El contenido no se sube ni guarda.
-[Datos y archivo exactos para recuperar](../../GUIA_RECORRIDO_ALBERTO.md).
-`201` real y siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha, sin duplicados.
-**Declaración de respuesta del sucesor registrada · Sin resolución**
-no acredita origen, firma, entrega ni plazo; tampoco cambia la resolución original. Conserve clave/material
-ante ambigüedad. La resolución del sucesor requiere la octava operación separada, no es automática.
-
-### Octava operación: resolución manual sintética del sucesor
-
-Recupere las siete operaciones anteriores y use la octava con la clave original de la
-[guía](../../GUIA_RECORRIDO_ALBERTO.md).
-El panel deriva la respuesta y el justificante; no los edite. Marque las dos revisiones explícitas,
-inicialmente vacías, de respuesta/justificante y plazo del ejercicio sintético, y confirme sin otro `.eml`.
-La aceptación solo se confirma tras CT y Bolsa: en CT64, versión resultante `3`, expediente conservado en `6`.
-El primer `503` se recuperó con la misma clave, sin regenerar evaluación: ocho POST `200` antes y después
-del reinicio principal, mismos recibo/fecha/evaluación/auditoría, sin duplicados.
-Ante ambigüedad conserve clave/material; el `409` pendiente conocido, sin ambigüedad previa, permite corregir casillas, no cambiar clave.
-No acredita envío, plazo legal ni firma; no registra propuesta ni tercer llamamiento automáticamente.
-CT65 permite la propuesta separada descrita debajo. La métrica sigue en **5/8 más partes del sexto y séptimo**.
-
-### Propuesta de nombramiento tras aceptación
-
-Para el sucesor aceptado, recupere las ocho operaciones previas y use **Propuesta de nombramiento · desarrollo**,
-el mismo formulario, novena operación del panel. [Clave y datos CT65](../../GUIA_RECORRIDO_ALBERTO.md).
-Revise los antecedentes derivados y las publicaciones; confirme con su clave original y versión esperada `6`,
-también al recuperar desde `7`. Ocho antecedentes `200` y propuesta `201`; tras reinicio principal,
-nueve `200`, mismos recibo/fecha/v7 e historia, sin duplicados. Propuesta original conservada.
-Mantenga clave/material ante ambigüedad; no eluda conflictos con otra clave. Sin firma, envío, plazo legal ni incorporación;
-no es un noveno paso RRHH ni acredita nuevas descargas de los seis PDF ya cerrados.
-
-Para el caso original de la guía, el mismo panel ofrece **Propuesta de nombramiento · desarrollo** solo tras
-aceptación confirmada, nunca renuncia. Referencias y publicaciones no son editables;
-la solicitud conserva versión esperada `6`, también para recuperar el expediente ya en `7`.
-Use la clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md)
-y confirme expresamente, sin otro `.eml`. Si las publicaciones no cargan, no envíe.
-El recibo **Propuesta registrada · ejercicio sintético** conserva referencia y
-fecha; no es un nombramiento firmado. Ante ambigüedad mantenga clave/material:
-sin reintento automático ni otra clave para eludir un `409`.
-
-### Descargar los seis borradores de desarrollo
-
-En el caso ya validado `v8` también están disponibles: los botones recuperan
-los borradores de su propuesta `v7`, no documentos nuevos ni firmados.
-El ejemplo original siguiente permanece conservado sin esa validación.
-
-En **Peticiones de personal temporal → Cuadro de mando**, busque
-`2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
-En el detalle real `v7`, `nombramiento/en_curso`, elija un botón de cabecera:
-**Descargar informe · borrador de desarrollo** (`informe-definitivo-borrador.pdf`),
-**Descargar resolución · borrador de desarrollo** (`resolucion-borrador.pdf`),
-**Descargar diligencia · borrador de desarrollo** (`diligencia-borrador.pdf`),
-**Descargar toma de posesión · borrador de desarrollo** (`toma-posesion-borrador.pdf`),
-**Descargar notificación · borrador de desarrollo** (`notificacion-borrador.pdf`) o
-**Descargar comunicación al centro · borrador de desarrollo** (`comunicacion-centro-borrador.pdf`).
-No recupere la propuesta por POST ni repita las operaciones de llamamiento para descargar.
-Ante error se conserva el detalle. [Recorrido y huella comprobada](../../GUIA_RECORRIDO_ALBERTO.md).
-Son borradores sin firma: no certifican hechos, comparecencia, posesión real ni nombramiento eficaz;
-la notificación tampoco acredita envío, entrega ni apertura de plazo legal;
-la comunicación al centro no envía un aviso ni ordena la incorporación;
-la métrica sigue en **5/8 más partes del sexto y séptimo**, sin otro paso RRHH completo.
-
-### Qué ocurre después de un reinicio
-
-En el cierre previamente publicado, la solicitud `v1` llevó al análisis `201`/`v2` y,
-tras reiniciar, se recuperó un único recibo, mediante lectura independiente
-de PostgreSQL y navegador.
-Con la misma instalación, datos y material de seguridad, una recuperación
-autorizada del llamamiento o del aviso devuelve el mismo recibo y la fecha
-original, sin crear otro efecto.
-La declaración de respuesta también se recuperó tras corregir la comparación
-temporal y repetir el reinicio de aplicación y PostgreSQL. El navegador devolvió
-`200`, con los mismos recibo, justificante y fecha original, sin nuevo registro.
-Los identificadores exactos constan en el [manual de RRHH](../manual_rrhh/README.md).
-La aceptación manual sintética también se recuperó tras reiniciar aplicación y
-PostgreSQL principal: `200/200/200/200`, mismo recibo CT y fecha, sin duplicados.
-La renuncia manual sintética también: `200/200/200/200`, mismos recibo, resolución,
-auditoría, fecha e intención pendiente con su carga real. La aceptación anterior
-y su declaración siguen intactas. La [guía](../../GUIA_RECORRIDO_ALBERTO.md)
-separa las claves de ambos casos. La quinta operación también se recuperó tras
-reiniciar app/PostgreSQL principal: cinco `200`, mismos 14 campos salvo
-`estado_local: replay_confirmado`, sin duplicados; objetivo 7 cerrado solo tras renuncia sintética.
-La propuesta del objetivo 8 también se recuperó tras reiniciar app/PostgreSQL
-principal: `200`, mismos propuesta/recibo/fecha y versión `7`, sin duplicados.
-
-El formulario sin confirmar no se guarda automáticamente en el navegador.
-Después de cerrar o recargar puede tener que introducir de nuevo sus datos.
-La guía contiene el ejemplo y la comprobación del reinicio; no reinicie ni
-recree el servidor por su cuenta.
+Las comprobaciones históricas de recuperación eran parciales. No acreditaban
+la conservación de todo el recorrido vigente después de reiniciar.
+El formulario que aún no se había confirmado no se guardaba automáticamente
+en el navegador; al cerrar o recargar podía ser necesario volver a introducir
+sus datos. No correspondía reiniciar ni recrear el servicio para resolver una
+duda de registro: primero había que consultar el resultado existente.
 
 ## 5. Bolsas de trabajo: recorrido de presentación
 
