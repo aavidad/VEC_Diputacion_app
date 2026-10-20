@@ -65,7 +65,7 @@ class FirmantesTest(unittest.TestCase):
         datos = json.loads(manifiesto.read_bytes())
         datos['personas'][0]['certificado_sha256'] = hashlib.sha256(ruta.read_bytes()).hexdigest()
         manifiesto.write_text(json.dumps(datos))
-        with self.assertRaisesRegex(ValueError, 'comparte tramitación'):
+        with self.assertRaisesRegex(ValueError, 'certificado nominal coincide'):
             firmantes._certificados_separados(c, certificados)
 
     def test_recuperacion_rechaza_fuente_nominal_que_reutiliza_tramitacion(self):
@@ -81,6 +81,14 @@ class FirmantesTest(unittest.TestCase):
             'certificado_sha256': hashlib.sha256(original.read_bytes()).hexdigest()}
         with self.assertRaisesRegex(ValueError, 'fuente nominal'):
             firmantes._certificados_separados(c, certificados, datos)
+
+    def test_otro_actor_de_la_copia_no_comparte_certificado_nominal(self):
+        c, certificados = self.certificados()
+        otro = c.material / 'mtls/intervencion.crt'
+        otro.write_bytes((certificados / 'rrhh_tecnico/cliente.crt').read_bytes())
+        otro.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'certificado nominal coincide'):
+            firmantes._certificados_separados(c, certificados)
 
     def test_recibo_rechaza_huella_de_plan_y_rol_distintos(self):
         fila = {"version_rol_ref": "rol:ct_cargo_tecnico_consulta_dev:v2",

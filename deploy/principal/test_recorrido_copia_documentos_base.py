@@ -34,7 +34,15 @@ class DocumentosBaseTest(unittest.TestCase):
         self.c.guardar(self.c.material / 'identidad/identidad.json', {
             'version': 1, 'autoridad': 'no_autoritativo', 'roles': ['tecnico_rrhh'],
             'subject': 'desarrollo:operador-rrhh',
-            'certificate_sha256': semilla['referencias']['tecnico']['certificado_sha256']})
+            'certificate_sha256': 'e' * 64})
+        self.cuenta_tramitacion = {'sujeto': 'desarrollo:operador-rrhh',
+                                  'certificado_sha256': 'e' * 64,
+                                  'cuenta_ref': 'cta_' + 'e' * 32,
+                                  'perfil_ref': 'prf_' + 'e' * 32}
+        productor = patch.object(documentos_base, 'preparar_tramitacion',
+                                 return_value=self.cuenta_tramitacion)
+        self.preparar_tramitacion = productor.start()
+        self.addCleanup(productor.stop)
         for rol in ROLES:
             firmante = next(x for x in semilla['firmantes']
                             if x['perfil_firma_ref'] == semilla['referencias'][rol]['perfil']['firma'])
@@ -64,6 +72,7 @@ class DocumentosBaseTest(unittest.TestCase):
         base = self.c.leer(destino)
         self.assertEqual(len(base['cuentas']), 1)
         self.assertEqual(base['cuentas'][0]['sujeto'], 'desarrollo:operador-rrhh')
+        self.assertEqual(base['cuentas'], [self.cuenta_tramitacion])
         self.assertNotEqual(base['cuentas'][0]['sujeto'],
                             self.c.leer(self.c.carpeta / 'firmantes/semilla-final/firmantes-datos.json')['referencias']['tecnico']['persona_ref'])
         self.assertGreater(base['almacen']['tamano_maximo'], 0)
@@ -77,9 +86,34 @@ class DocumentosBaseTest(unittest.TestCase):
         identidad = self.c.leer(ruta)
         identidad['certificate_sha256'] = 'f' * 64
         ruta.write_text(json.dumps(identidad))
-        with self.assertRaisesRegex(ValueError, 'identidad RRHH original'):
+        with self.assertRaisesRegex(ValueError, 'identidad o perfil ajenos'):
             documentos_base.preparar(self.c)
         self.assertFalse((self.c.carpeta / 'documentos/base.json').exists())
+
+    def test_no_reutiliza_perfil_de_firma_o_custodia_para_tramitacion(self):
+        datos = self.c.leer(self.c.carpeta / 'firmantes/semilla-final/firmantes-datos.json')
+        self.cuenta_tramitacion['perfil_ref'] = datos['firmantes'][0]['perfil_documentos_ref']
+        with self.assertRaisesRegex(ValueError, 'identidad o perfil ajenos'):
+            documentos_base.preparar(self.c)
+        self.assertFalse((self.c.carpeta / 'documentos/base.json').exists())
+
+    def test_certificado_nominal_no_se_admite_como_tramitacion(self):
+        datos = self.c.leer(self.c.carpeta / 'firmantes/semilla-final/firmantes-datos.json')
+        ruta = self.c.material / 'identidad/identidad.json'
+        identidad = self.c.leer(ruta)
+        identidad['certificate_sha256'] = datos['referencias']['tecnico']['certificado_sha256']
+        ruta.write_text(json.dumps(identidad))
+        with self.assertRaisesRegex(ValueError, 'identidad RRHH original'):
+            documentos_base.preparar(self.c)
+        self.preparar_tramitacion.assert_not_called()
+
+    def test_productor_recibe_rol_aprobado_y_los_dieciseis_perfiles_reservados(self):
+        documentos_base.preparar(self.c)
+        opciones = self.preparar_tramitacion.call_args.kwargs
+        self.assertEqual(opciones['rol_documental']['version_rol_ref'],
+                         'rol:ct_cargo_tecnico_documentos_dev:v1')
+        self.assertEqual(len(opciones['perfiles_reservados']), 16)
+        self.assertNotIn(self.cuenta_tramitacion['perfil_ref'], opciones['perfiles_reservados'])
 
     def test_publicacion_nativa_del_motivo_propio(self):
         del self.c.parametros['documentos_motivo_listar']

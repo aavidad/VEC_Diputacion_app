@@ -27,6 +27,21 @@ las recetas anteriores; la fábrica completa selecciona el catálogo nuevo de
 cuatro. Esta composición requiere una copia nueva. No modifica certificados,
 perfiles ni actuaciones de una copia que ya esté en uso.
 
+Documentos reconoce al certificado original de tramitación por el resolvedor
+base. La fábrica prepara para esa misma persona y cuenta un perfil documental
+propio, distinto de los perfiles de CT, Bolsa y los dieciséis nominales. Los
+cuatro firmantes conservan su custodia y admisiones; no se añaden como cuentas
+al resolvedor base. La fuente, el SQL y el acuse de esta preparación quedan en
+`recorrido/documentos/tramitacion-*`, fuera de Git.
+
+AUT53 publica el rol y su control; su herramienta no asigna perfiles
+(`cmd/vec-publicar-cargos-firma/README.md`). La asignación documental se carga
+como semilla declarada de la copia, autorizada por dirección para F1-131.
+Comprueba el identificador PostgreSQL, las fuentes originales, el rol y su
+control antes de crear filas. No sustituye perfiles existentes o retirados.
+Una repetición coteja la postimagen; el acuse solo se guarda tras leerla.
+Ese acuse acredita datos de la copia, no un acto de gobierno de Administración.
+
 El orden es identidad, publicación de dieciséis cargos V1 por AUT53,
 asignaciones V1, publicación de cuatro cargos de consulta V2, sucesión de sus
 cuatro asignaciones y proyección de empleados en Personal. Las sucesoras V2

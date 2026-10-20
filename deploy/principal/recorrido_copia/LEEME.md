@@ -57,9 +57,12 @@ consulta de Organización histórica. Los roles compuestos de los cuatro firmant
 gobernada corresponde a F1-133.
 
 La etapa nominal confirma catorce actos, el plan y cuatro admisiones. La
-configuración de Documentos usa el sujeto del certificado RRHH reconocido
-por su resolvedor, separado de la referencia de Persona. La custodia conserva
-los perfiles nominales de los cuatro firmantes. Personal usa las referencias
+configuración de Documentos usa el sujeto y la cuenta del certificado RRHH
+original reconocido por su resolvedor, con un perfil documental propio y
+distinto de los perfiles de tramitación y de los cuatro nominales. La custodia
+conserva los perfiles nominales de los cuatro firmantes. El técnico firmante
+usa su cuarto certificado propio; la hoja original se reserva a tramitación.
+Personal usa las referencias
 de la identidad propia y la unidad confirmada. Los empleados de los cuatro
 firmantes se preparan con el guion de datos versionado existente.
 

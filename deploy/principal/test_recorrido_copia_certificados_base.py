@@ -6,8 +6,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from types import SimpleNamespace
 
-from recorrido_copia import certificados_base
+from recorrido_copia import certificados_base, firmantes
 
 
 class Copia:
@@ -126,11 +127,14 @@ class CertificadosBaseTest(unittest.TestCase):
         self.assertEqual({p["usuario_web"] for p in manifiesto["personas"]},
                          {"rrhh_tecnico", "rrhh_jefatura", "rrhh_diputacion", "rrhh_secretaria"})
         anteriores = {str(p.relative_to(salida)): p.read_bytes() for p in salida.rglob("*") if p.is_file()}
-        resultado = subprocess.run(orden, capture_output=True, text=True, check=False)
-        self.assertEqual(resultado.returncode, 0, resultado.stderr)
-        self.assertEqual(json.loads(resultado.stdout)["estado"], "replay")
+        contexto = SimpleNamespace(fuente=repo, material=self.c.material,
+            ejecutar=lambda argv, log, cwd=None: subprocess.run(argv, capture_output=True, check=False))
+        firmantes._preparar_certificados(contexto, salida)
         self.assertEqual(anteriores,
                          {str(p.relative_to(salida)): p.read_bytes() for p in salida.rglob("*") if p.is_file()})
+        (salida / 'rrhh_tecnico/cliente.p12').write_bytes(b'material alterado')
+        with self.assertRaisesRegex(ValueError, 'firmantes-certificados'):
+            firmantes._preparar_certificados(contexto, salida)
 
     def test_estado_parcial_y_sid_ajeno_rechazados(self):
         self.c.consultar = lambda sql: "9999999999999999999"

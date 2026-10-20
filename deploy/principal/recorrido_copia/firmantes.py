@@ -90,12 +90,15 @@ def _certificados_separados(c, certificados, datos=None):
 
     tramitacion = huella(c.material / "mtls/cliente.crt", "tramitacion")
     rutas, usadas = {}, {tramitacion}
+    for numero, ruta in enumerate(sorted((c.material / "mtls").glob("*.crt"))):
+        if ruta.name != "cliente.crt":
+            usadas.add(huella(ruta, "actor-" + str(numero)))
     for persona in personas:
         usuario = persona["usuario_web"]
         ruta = certificados / usuario / "cliente.crt"
         actual = huella(ruta, usuario)
         _exigir(actual == persona.get("certificado_sha256") and actual not in usadas,
-                "Un certificado comparte tramitación y firma o dos perfiles de firma")
+                "Un certificado nominal coincide con otra identidad de la copia")
         rol = usuario.removeprefix("rrhh_")
         if datos is not None:
             referencia = datos.get("referencias", {}).get(rol, {})
@@ -105,6 +108,14 @@ def _certificados_separados(c, certificados, datos=None):
         usadas.add(actual)
         rutas[rol] = str(ruta)
     return rutas
+
+
+def _preparar_certificados(c, certificados):
+    # El replay nativo coteja también clave, P12 y contraseña, sin reemitir.
+    _ejecutar(c, (sys.executable, c.fuente / "scripts/operacion/firma_ct_tres_pasos/certificados.py",
+                 "--aplicar", "PREPARA-CERTIFICADOS-CT", "--material", c.material,
+                 "--salida", certificados, "--cert-dias", "397", "--crl-dias", "90",
+                 "--incluir-tecnico"), "firmantes-certificados.log")
 
 
 def _instante(valor):
@@ -340,6 +351,7 @@ def preparar(c):
                 and meta.get("entrada_admin") == str(c.raiz / "admin/h10/entrada-vec-admin.json"),
                 "firmantes previos de otra copia")
         _privado(meta["firmantes_datos"])
+        _preparar_certificados(c, Path(meta["certificados"]))
         _certificados_separados(c, Path(meta["certificados"]), _json(meta["firmantes_datos"]))
         _exigir(timedelta(days=60) <= _instante(meta["autoridad_hasta"]) - _ahora(c) <= timedelta(days=90),
                 "autoridad previa de firmantes ya no cubre el recorrido")
@@ -377,12 +389,7 @@ def preparar(c):
            "sha256_resultante": hashlib.sha256(_privado(fuente / "firmantes.template.json").read_bytes()).hexdigest()})
     _copiar(P_CONFIG, w / "config_aut53.py")
     certificados = _carpeta(w / "certificados")
-    if not (certificados / "certificados.json").exists():
-        _ejecutar(c, (sys.executable, c.fuente / "scripts/operacion/firma_ct_tres_pasos/certificados.py",
-                     "--aplicar", "PREPARA-CERTIFICADOS-CT", "--material", c.material,
-                     "--salida", certificados, "--cert-dias", "397", "--crl-dias", "90",
-                     "--incluir-tecnico"),
-                 "firmantes-certificados.log")
+    _preparar_certificados(c, certificados)
     certificados_firma = _certificados_separados(c, certificados)
     h10 = c.raiz / "admin/h10"
     plan_h10 = _json(h10 / "fuentes/plan.json")

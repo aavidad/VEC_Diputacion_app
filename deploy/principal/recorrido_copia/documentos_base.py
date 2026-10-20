@@ -1,4 +1,4 @@
-"""Base privada de Documentos desde las cuentas nominales de esta copia."""
+"""Documentos para tramitación propia y custodia de los cuatro firmantes."""
 
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -7,6 +7,7 @@ import json
 import re
 
 from .firmantes import _roles
+from .documentos_tramitacion import preparar as preparar_tramitacion
 
 ROLES = ('tecnico', 'jefatura', 'diputacion', 'secretaria')
 HEX = re.compile(r'[0-9a-f]{64}\Z')
@@ -201,17 +202,27 @@ AND v.cuenta_ref=e.cuenta AND v.persona_ref=e.persona AND v.perfil_ref=e.perfil
 AND v.estado='activo' AND v.vigente_desde<=clock_timestamp();"""
     if c.consultar(sql).strip() != '4':
         raise ValueError('Asignaciones Documentos vigentes no acreditadas')
-    # Documentos usa el resolvedor base, distinto del resolvedor nominal R5.
-    # Su contrato sólo admite aquí la hoja RRHH original. Los otros tres
-    # firmantes conservan sus perfiles de custodia y sus admisiones R5.
+    # El resolvedor base reconoce a la técnica original. Su cuenta documental
+    # usa su propia Persona y perfil; los cuatro nominales conservan custodia.
     identidad = _propio(c, c.material / 'identidad/identidad.json')
-    tecnico = cuentas[0]
     if (identidad.get('version') != 1 or identidad.get('autoridad') != 'no_autoritativo'
             or identidad.get('roles') != ['tecnico_rrhh']
-            or identidad.get('certificate_sha256') != tecnico['certificado_sha256']
-            or not isinstance(identidad.get('subject'), str) or not identidad['subject']):
+            or not HEX.fullmatch(identidad.get('certificate_sha256', ''))
+            or not isinstance(identidad.get('subject'), str) or not identidad['subject']
+            or identidad['certificate_sha256'] in {x['certificado_sha256'] for x in cuentas}):
         raise ValueError('La cuenta Documentos no corresponde a la identidad RRHH original')
-    return [{**tecnico, 'sujeto': identidad['subject']}]
+    reservados = {valor for f in datos['firmantes'] for clave, valor in f.items()
+                  if clave in ('perfil_firma_ref', 'perfil_documentos_ref',
+                               'perfil_consulta_ct_ref', 'perfil_consulta_circuito_ref')}
+    if len(reservados) != 16 or any(not isinstance(p, str) for p in reservados):
+        raise ValueError('Perfiles nominales compartidos o incompletos')
+    cuenta = preparar_tramitacion(c, rol_documental=roles['rol:ct_cargo_tecnico_documentos_dev:v1'],
+                                 perfiles_reservados=reservados)
+    if (cuenta.get('sujeto') != identidad['subject']
+            or cuenta.get('certificado_sha256') != identidad['certificate_sha256']
+            or cuenta.get('perfil_ref') in reservados):
+        raise ValueError('La cuenta documental de tramitación usa identidad o perfil ajenos')
+    return [cuenta]
 
 
 def _custodia(c):
