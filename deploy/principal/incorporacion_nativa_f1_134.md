@@ -85,15 +85,18 @@ del preparador obtuvo las consultas de Personal con respuesta 200 antes y
 después del reinicio; fue un diagnóstico sobre su copia existente, no una
 creación completa desde la receta corregida.
 
-Las revisiones independientes del cuerpo de CT255 y sus permisos son
-favorables sobre `77b8da9c0`. La ampliación de la prueba funcional sigue
-pendiente: el borrador manual no es una prueba autónoma y varios de sus estados
-negativos están prohibidos por las restricciones del esquema. La focal
-versionada acredita solo el contrato privado y la denegación indicados arriba.
+Las dos revisiones independientes del cuerpo de CT255 y sus permisos son
+favorables sobre `77b8da9c0`. Dirección confirmó el 20/10 a las 19:35 que el
+revisor comprobó el positivo de correo, el de Mi Bolsa y los rechazos en su
+ensayo manual sobre el clon. El guion cedido después no es una prueba autónoma:
+depende de datos previos y varios negativos requieren estados que el esquema
+prohíbe. Por decisión de dirección, la focal versionada conserva su alcance de
+contrato privado y denegación; no se añade ese guion ni se anulan restricciones.
 
 La candidata conjunta D conserva CT255 después de CT253 y CT256. Su responsable
 prepara el mismo caso nativo hasta el nombramiento; no se crea otro expediente
 en paralelo para estos pasos. Faltan ese recorrido HTTP y en Chrome, el
-reinicio con sus datos, la prueba funcional pendiente, la CI de la cabeza final
-y la integración de las dependencias.
+reinicio con sus datos, la CI de la cabeza final y la integración de las
+dependencias. CT255 se integra después de CT253 y de comprobar el positivo
+nativo del plan de Personal en el paso 18 de D.
 No hay todavía una prueba positiva de alta o cese sobre el nombramiento nativo.
