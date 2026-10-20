@@ -152,6 +152,14 @@ class EntornoFirmaTest(unittest.TestCase):
                 firma.main(self.argv())
         self.assertTrue(process.terminated)
         self.assertFalse(fw.exists())
+        self.assertEqual({role: p12.read_bytes() for role, (p12, _) in self.inputs.items()},
+                         {role: ("p12-" + role).encode() for role in firma.ROLES})
+        interrupted = XvfbFicticio()
+        with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen", return_value=interrupted), patch.object(firma.select, "select", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                firma.main(self.argv())
+        self.assertTrue(interrupted.terminated)
+        self.assertFalse(fw.exists())
 
     def test_salida_obligatoria_y_parent_inseguro_o_enlace_rechazados(self):
         args = self.argv()
@@ -173,6 +181,54 @@ class EntornoFirmaTest(unittest.TestCase):
                 firma.main(args)
         self.assertTrue(self.fw.is_symlink())
         self.fw.unlink()
+
+    def test_ancestros_y_rutas_canonicas_rechazados_antes_de_sonda(self):
+        args = self.argv()
+        cases = ((self.root / "firma-web", self.root),
+                 (self.output_parent / "../instancia con %/firma-web", self.root / "sub/.."))
+        for output, source in cases:
+            with self.subTest(output=str(output)):
+                changed = args.copy()
+                changed[1], changed[3] = str(source), str(output)
+                with patch.object(firma.subprocess, "run", side_effect=self.version) as probe:
+                    with self.assertRaises(firma.Corte):
+                        firma.main(changed)
+                    probe.assert_not_called()
+        ancestor = Path(self.temp.name) / "abuelo"
+        ancestor.mkdir(mode=0o700)
+        ancestor.chmod(0o777)
+        private = ancestor / "privado"
+        private.mkdir(mode=0o700)
+        changed = args.copy()
+        changed[3] = str(private / "firma-web")
+        with patch.object(firma.subprocess, "run", side_effect=self.version) as probe:
+            with self.assertRaisesRegex(firma.Corte, "ancestro"):
+                firma.main(changed)
+            probe.assert_not_called()
+        self.assertFalse((private / "firma-web").exists())
+        Path(self.temp.name).chmod(0o777)
+        try:
+            with patch.object(firma.subprocess, "run", side_effect=self.version) as probe:
+                with self.assertRaisesRegex(firma.Corte, "ancestro"):
+                    firma.main(args)
+                probe.assert_not_called()
+        finally:
+            Path(self.temp.name).chmod(0o700)
+        original_lstat = Path.lstat
+
+        def foreign_uid(path, *a, **kw):
+            info = original_lstat(path, *a, **kw)
+            if path == self.output_parent:
+                fields = list(info)
+                fields[4] = os.getuid() + 1
+                return os.stat_result(fields)
+            return info
+
+        with patch.object(Path, "lstat", foreign_uid), patch.object(firma.subprocess, "run", side_effect=self.version) as probe:
+            with self.assertRaisesRegex(firma.Corte, "ancestro"):
+                firma.main(args)
+            probe.assert_not_called()
+        self.assertFalse(self.fw.exists())
 
 
 if __name__ == "__main__":

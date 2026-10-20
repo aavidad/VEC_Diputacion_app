@@ -103,27 +103,40 @@ def autorizar_pantalla(auth, display, cookie):
         raise Corte("FALTA: autenticación privada de pantalla rechazada")
 
 
+def cadena_confiable(path):
+    for part in (path, *path.parents):
+        if not os.path.lexists(part):
+            continue
+        info = part.lstat()
+        mode = stat.S_IMODE(info.st_mode)
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, os.getuid())
+                or (mode & 0o022 and not mode & stat.S_ISVTX)):
+            raise Corte("FALTA: ancestro ajeno o escribible sin protección")
+
+
 def preparar_salida(root, fw):
-    if fw is None or not fw.is_absolute() or root == fw or root in fw.parents:
+    if fw is None or not fw.is_absolute():
         raise Corte("FALTA: --salida privada absoluta y separada de las fuentes")
     ruta_privada(fw, "--salida")
+    fw = fw.resolve(strict=False)
+    if root == fw or root in fw.parents:
+        raise Corte("FALTA: --salida dentro de las fuentes")
     if os.path.lexists(fw):
         raise Corte("FALTA: salida ya existe; conservar su entorno")
+    cadena_confiable(fw.parent)
     parent = fw.parent
     missing = []
     while not parent.exists():
         missing.append(parent)
         parent = parent.parent
-    info = parent.stat()
-    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
-            or stat.S_IMODE(info.st_mode) & 0o022):
-        raise Corte("FALTA: directorio de salida ajeno o con escritura ajena")
-    for directory in reversed(missing):
-        directory.mkdir(mode=0o700)
-    return fw
+    return fw, missing
 
 
 def preparar(root, origin, binary, sha, salida=None):
+    ruta_privada(root, "--raiz-instancia")
+    root = root.resolve(strict=False)
+    cadena_confiable(root)
+    fw, missing = preparar_salida(root, salida)
     if not re.fullmatch(r"[0-9a-f]{64}", sha):
         raise Corte("FALTA: huella SHA256 del manejador inválida")
     if not binary.is_absolute() or binary.is_symlink() or not binary.is_file():
@@ -155,7 +168,9 @@ def preparar(root, origin, binary, sha, salida=None):
             raise Corte("FALTA: el binario no es grxfirma-afirmauri")
         verified_bytes = verified.read_bytes()
     paths = fuentes(root)
-    fw = preparar_salida(root, salida)
+    for directory in reversed(missing):
+        directory.mkdir(mode=0o700)
+    cadena_confiable(fw.parent)
     created = False
     process = None
     try:
@@ -220,7 +235,7 @@ def preparar(root, origin, binary, sha, salida=None):
         escribir(fw / "display", display + "\n")
         escribir(fw / "xvfb.pid", str(process.pid) + "\n")
         print("Entornos de firma preparados; abra las sesiones de cada firmante en su navegador")
-    except Exception:
+    except BaseException:
         if process is not None:
             process.terminate()
             try:
