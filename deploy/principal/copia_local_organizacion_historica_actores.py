@@ -88,7 +88,7 @@ def _contexto_f1(copia, segundo, organismo):
     return contexto, corporativo
 
 
-def sql_segunda(contexto, corporativo, refs, organismo):
+def sql_segunda(contexto, corporativo, refs, organismo, repo):
     """Inserta solo perfil y asignación de la segunda persona; reutiliza rol OH."""
     cuenta, persona = contexto['cuenta_ref'], contexto['persona_ref']
     perfil, vinculo, corp, asignacion = (refs[k] for k in
@@ -164,14 +164,10 @@ SET LOCAL ROLE vec_autorizacion_propietario;
 DO $asignacion$
 DECLARE ahora timestamptz := clock_timestamp(); doc jsonb; t text; h text;
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol r
-   JOIN vec_autorizacion.control_vigencia_version_rol_actual a USING(version_rol_ref)
-   JOIN vec_autorizacion.control_vigencia_version_rol c USING(version_rol_ref,revision)
-   WHERE r.version_rol_ref={oh._literal(oh.ROL_REF)} AND r.documento->>'estado'='publicada'
-     AND c.estado='habilitada')
+ IF NOT {oh.condicion_rol_publicado(repo)}
  OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual
    WHERE perfil_activo_ref={oh._literal(perfil)})
- THEN RAISE EXCEPTION 'segunda OH: rol ausente o asignación existente' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'segunda OH: cierre AUT60 ausente o asignación existente' USING ERRCODE='55000'; END IF;
  t := to_char(date_trunc('second',ahora) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"');
  h := to_char(date_trunc('second',ahora+interval '89 days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"');
  doc := {oh._json_sql(doc)} || jsonb_build_object('emitida_en',t,'vigente_desde',t,
@@ -196,6 +192,7 @@ def extender_contextos(copia, repo):
     estado = copia.leer()
     if not estado.get('organizacion_historica_semilla_sha256') or not estado.get('rrhh_adicional_semilla_sha256'):
         raise ValueError('Faltan las dos semillas declaradas de la copia')
+    oh.comprobar_rol_publicado(copia, repo)
     organismo = oh.organismo(repo)
     segundo = _segundo(copia, organismo)
     contexto, corporativo = _contexto_f1(copia, segundo, organismo)
@@ -208,12 +205,14 @@ def extender_contextos(copia, repo):
     if not isinstance(contextos, dict) or len(contextos) != 1 or segundo['cuenta_ref'] in contextos:
         raise ValueError('La entrada OH inicial no tiene una sola cuenta original')
     semilla = {'tipo': 'semilla_sintetica_de_copia', 'gobierno_real_acreditado': False,
+               'asignacion_gobernada': False, 'rol_gobernado': True,
+               'gobierno_rol': 'cierre_AUT60_dos_admin',
                'cuenta_ref': segundo['cuenta_ref'], 'persona_ref': segundo['persona_ref'],
                'perfil_ref': refs['perfil'], 'asignacion_id': refs['asignacion'],
                'rol_ref': oh.ROL_REF, 'organismo_ref': organismo, 'unidades': list(oh.UNIDADES)}
     ruta_semilla = copia.raiz / 'organizacion-historica-segunda-semilla.json'
     oh._escribir(ruta_semilla, json.dumps(semilla, ensure_ascii=False, indent=2) + '\n')
-    copia.sql_bytes(sql_segunda(contexto, corporativo, refs, organismo).encode(),
+    copia.sql_bytes(sql_segunda(contexto, corporativo, refs, organismo, repo).encode(),
                     'organizacion-historica-segunda-semilla.log')
     contextos[segundo['cuenta_ref']] = {'perfil_activo_ref': refs['perfil'], 'perfil_version': 1,
                                         'organismo_ref': organismo, 'unidad_clave': ''}

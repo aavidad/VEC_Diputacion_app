@@ -337,6 +337,13 @@ petición y los ámbitos de la política vigente; no presupone campos ajenos al
 canon de decisión. La recuperación exige el mismo perfil que el enlace del
 acto original. Activación: `deploy/principal/f1_95_publicacion_bases_web/`.
 
+AD304 (F1-106) añade solo la fila 7 a
+`conjunto_audiencias_capacidad_admin_v1`: conserva el conjunto 6 y suma las
+dos audiencias ya admitidas de propuesta y cierre de roles nuevos. Las claves
+se publican mediante el gobierno técnico existente y AUT60 conserva el acto
+de dos personas, sus decisiones, auditoría y recibo. No se reconstruye la
+función central ni se alteran los conjuntos anteriores.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
@@ -796,9 +803,11 @@ no aquí. Plan del módulo: `docs/plan_modulos/personal.md` y
 F1-104 reutiliza `consultar_organizacion_historica_v1` y su recibo desde el
 puerto en proceso de Contratación. La consulta lleva el perfil de Personal de
 la misma cuenta autenticada, con el organismo y las unidades de su asignación.
-No añade tablas, funciones ni roles PostgreSQL. La semilla de la copia local
-puede preparar un segundo perfil nominal con los vínculos de su propia cuenta;
-no acredita un acto de Administración en producción.
+No añade tablas, funciones ni roles PostgreSQL. El rol
+`consulta_organizacion_historica_rrhh:v1` se publica por AUT60 con dos
+administradores distintos. La semilla de la copia local prepara dos cuentas nominales, cada una
+con su persona y su perfil, con ámbitos `organismo_ref` y `unidad_clave`; esa asignación
+ficticia no es un acto de Administración. Su gobierno queda pendiente.
 
 ### 8.5 Autorización (`vec_autorizacion`)
 
