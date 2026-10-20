@@ -587,6 +587,45 @@ consulta, y la selección fallaba.
   necesidad de la RPT. Hasta resolverlo, el llamamiento del paso 9 se emite
   desde el asistente de Bolsa.
 
+### 6.1. Administración y manifiesto de firma de la copia
+
+F1-121, decisión de dirección del 20/10: la preparación sigue usando el
+material local autorizado. Estas son las fuentes comunes; se leen sin
+modificarlas y cada equipo genera sus claves, configuraciones y recibos en
+su propia copia:
+
+```sh
+export VEC_COPIA_ORIGEN="$HOME/.local/state/vec-ensayo-candidata"
+export VEC_ENSAYO_ADMIN_KIT="$VEC_COPIA_ORIGEN/admin-copia/kit"
+export VEC_ENSAYO_FIRMA_KIT="$VEC_COPIA_ORIGEN/firma-hz39/kit"
+```
+
+El alta de los dos administradores se describe en
+[`candidata_hz39/admin_copia/LEEME.md`](candidata_hz39/admin_copia/LEEME.md)
+y en `$VEC_COPIA_ORIGEN/admin-copia/LEEME.md`. La preparación de firmantes,
+cargos y plan está en `$VEC_COPIA_ORIGEN/firma-hz39/LEEME.md`. Las recetas
+de la presentación están bajo
+`$HOME/.local/state/vec-direccion-20260930/presentacion-20261018/`;
+sus puertos y destinos se adaptan a una instancia nueva. No se ejecutan
+sobre las copias de presentación.
+
+La orden `firma` del [apartado 11](#11-firma-compuesta-orden-firma) recibe
+un manifiesto privado de esa instancia mediante `--manifiesto-firma`.
+El manifiesto debe apuntar a sus etapas, su verificador y un puerto libre.
+Las fuentes comunes anteriores no incluyen todavía un manifiesto de siete
+etapas confirmado por P o H dentro de esas carpetas. El 20/10 P confirmó
+que usa uno propio fuera del material común. Queda pendiente que dirección
+publique la ruta común y H confirme la suya; no se presenta otra ruta como
+ensayada ni se reutilizan sus claves o recibos.
+
+`copia_local_firma_generacion.py` es un borrador para generar ese manifiesto
+desde fuentes versionadas. No está conectado a `copia_local.py` y faltan las
+fuentes de las siete etapas. Comprueba esa ausencia antes de escribir ningún
+lanzador; sus pruebas no acreditan Administración, firmas ni arranque.
+El traslado completo a Git queda como trabajo posterior. La herramienta
+instalada 0.0.105 tampoco se considera validada para este recorrido: en el
+ensayo local del 20/10 su propia verificación rechazó el PDF firmado.
+
 ## 7. Arrancar `vec-server`
 
 Base común (`docs/producto/TRD.md`, apartado 4):
