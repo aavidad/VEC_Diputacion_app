@@ -76,7 +76,7 @@ perfiles/actos que correspondan. Ninguna de estas fusiones acredita producción,
 aprobación de bases, solicitud registrada o firma legal.
 
 Estado comprobado en `origin/main@0a62a3ea6` el 1/10/2026. Este plan describe
-la continuación de oposición, concurso y concurso-oposición. El ensayo A que se
+la continuación de oposición, concurso y concurso-oposición. El ensayo de Selectivos que se
 preparaba hoy está conservado en ramas remotas, todavía fuera de `main`.
 
 ## Qué existe en `main`
