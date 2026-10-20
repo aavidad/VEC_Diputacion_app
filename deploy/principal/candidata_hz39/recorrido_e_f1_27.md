@@ -58,6 +58,7 @@ mediante formularios de Chrome del sistema, con Playwright.
 | Borradores de la ficha | Sin montar | Capacidad declarada sin_montaje; no se pide la lista |
 | 11–15 | Pendientes | Requieren completar el llamamiento y su aceptación |
 | Reinicio de aplicación y PostgreSQL | Correcto | Chrome conserva v5 e historial; instantáneas iguales |
+| Segundo reinicio, tras el paso 8 | Datos conservados | v6, dos firmas y ocho recuentos iguales; PDF firmado descargado en Chrome |
 
 Las identidades nuevas del centro se llaman Lucía Navarro Molina y Diego
 Serrano Vega, según la receta. No se cambiaron sus nombres para hacerlos
@@ -122,3 +123,16 @@ El técnico nominal volvió a pulsar «Comprobar opciones de firma» en Chrome
 después del reinicio. La recuperación del original devuelve 200 con los mismos
 bytes PDF, referencia, huella y comprobante de custodia que antes. No se
 inició otra firma.
+
+Después de las dos firmas y la fiscalización se reiniciaron de nuevo la
+aplicación y PostgreSQL con el gestor público. Las instantáneas de v6, sus
+dos recibos de firma, fechas, huellas y ocho recuentos son idénticas. Chrome
+recupera la ficha y muestra el informe con sus dos firmas completas en VEC.
+La descarga autenticada del PDF firmado devuelve 200: 49.098 bytes y SHA-256
+`6916a1ff9e2797c9bf33f9286c5cc750f112c47ef148d0a75d993813536ef3cf`,
+igual a la huella de la segunda firma. No se repitió ninguna firma ni la
+fiscalización.
+
+La consulta de comunicaciones devolvió 503 en la primera recuperación tras
+este reinicio; permanece anotada para el registro de errores de F1-33.
+No se declara superado el paso 9 ni el recorrido completo.
