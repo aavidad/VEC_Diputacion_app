@@ -85,8 +85,10 @@ propios preparados, como correo, Administración o verificador de firmas.
 No edite a mano un fichero sellado para evitar una comprobación de huella.
 
 Si falla la preparación, conserve los registros privados de esa instancia,
-comunique el error y siga la recuperación de su receta. Una copia incompleta
-no se marca como preparada ni se reutiliza con una revisión distinta.
+comunique el error y siga la recuperación de su receta. La marca `preparada` puede guardarse antes de terminar el arranque y las
+etapas de Administración; por sí sola no acredita que la creación haya
+terminado. Coteje el estado, los registros y las comprobaciones finales.
+Una instancia no se reutiliza con una revisión distinta.
 No reaplique migraciones instaladas: para otro ensayo extraiga una copia nueva.
 
 ## Firma y Personal
