@@ -1,0 +1,114 @@
+-- Fixture de datos HZ37 para una copia local autorizada y desechable.
+-- El preparador coteja el respaldo HZ37 y la preimagen ADMIN de esa copia.
+-- El SID de la copia se inserta en la guarda antes de revisar este SQL.
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '30s';
+DO $guard$
+BEGIN
+ IF current_database()<>'postgres' OR (SELECT system_identifier FROM pg_control_system())<>@@SYSTEM_IDENTIFIER@@ THEN
+  RAISE EXCEPTION 'fixture ADMIN: destino PostgreSQL ajeno';
+ END IF;
+ IF (SELECT count(*) FROM vec_autorizacion.fuentes_iniciales_admin_v1 WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f')<>1
+ OR (SELECT count(*) FROM vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1 WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f')<>1
+ OR (SELECT count(*) FROM vec_contexto_actor_v1.fuentes_iniciales_admin_v1 WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f')<>1
+ OR (SELECT count(*) FROM vec_identidad_sesiones_v1.politica_certificado_admin_v1 WHERE politica_ref='pga_b5803cce743fd5374144498cf21d4790')<>1
+ OR (SELECT count(*) FROM vec_autorizacion.bootstrap_central_admin_v3 WHERE singleton)<>1
+ OR (SELECT count(*) FROM vec_autorizacion.control_continuidad_admin WHERE control_id AND revision=2 AND bootstrap_estado='consumido' AND bootstrap_acto_ref IS NOT NULL)<>1
+ OR (SELECT count(*) FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref IN (
+   'prf_d55cca032ba141285950ec281d4a2456','prf_1452c486716685fa536bfbb292a6e205','prf_88643f2b4566eaadebff280c860468c2'))<>3 THEN
+  RAISE EXCEPTION 'fixture ADMIN: preimagen HZ37 divergente';
+ END IF;
+END $guard$;
+-- Sólo los disparadores de inmutabilidad de estas filas de ensayo. Las FK
+-- internas siguen habilitadas y obligan a respetar el orden de borrado.
+ALTER TABLE vec_autorizacion.asignacion_perfil_actual DISABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.vinculo_certificado_admin_actual_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.vinculo_certificado_admin_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.politica_certificado_admin_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.titularidad_cuenta_persona_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_contexto_actor_v1.titularidad_cuenta_persona_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.fuentes_iniciales_admin_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_contexto_actor_v1.fuentes_iniciales_admin_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.outbox_bootstrap_central_admin_v3 DISABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.bootstrap_central_admin_v3 DISABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.control_continuidad_admin DISABLE TRIGGER USER;
+DELETE FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref IN (
+ 'prf_d55cca032ba141285950ec281d4a2456','prf_1452c486716685fa536bfbb292a6e205','prf_88643f2b4566eaadebff280c860468c2');
+DELETE FROM vec_identidad_sesiones_v1.vinculo_certificado_admin_actual_v1
+ WHERE vinculo_ref IN (SELECT vinculo_ref FROM vec_identidad_sesiones_v1.vinculo_certificado_admin_v1
+ WHERE politica_ref='pga_b5803cce743fd5374144498cf21d4790');
+DELETE FROM vec_identidad_sesiones_v1.vinculo_certificado_admin_v1
+ WHERE politica_ref='pga_b5803cce743fd5374144498cf21d4790';
+DELETE FROM vec_identidad_sesiones_v1.titularidad_cuenta_persona_v1
+ WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f';
+DELETE FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1
+ WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f';
+DELETE FROM vec_identidad_sesiones_v1.politica_certificado_admin_v1
+ WHERE politica_ref='pga_b5803cce743fd5374144498cf21d4790';
+DELETE FROM vec_autorizacion.outbox_bootstrap_central_admin_v3
+ WHERE acto_ref=(SELECT acto_ref FROM vec_autorizacion.bootstrap_central_admin_v3 WHERE singleton);
+DELETE FROM vec_autorizacion.bootstrap_central_admin_v3 WHERE singleton;
+DELETE FROM vec_contexto_actor_v1.fuentes_iniciales_admin_v1
+ WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f';
+DELETE FROM vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1
+ WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f';
+DELETE FROM vec_autorizacion.fuentes_iniciales_admin_v1
+ WHERE operacion_ref='pfi_f7ed9742477cf1847be7e2a9e16bb72f';
+UPDATE vec_autorizacion.control_continuidad_admin
+ SET revision=1,bootstrap_estado='pendiente',bootstrap_acto_ref=NULL,actualizado_en=clock_timestamp()
+ WHERE control_id;
+SET CONSTRAINTS ALL IMMEDIATE;
+ALTER TABLE vec_autorizacion.control_continuidad_admin ENABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.bootstrap_central_admin_v3 ENABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.outbox_bootstrap_central_admin_v3 ENABLE TRIGGER USER;
+ALTER TABLE vec_contexto_actor_v1.fuentes_iniciales_admin_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.fuentes_iniciales_admin_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_contexto_actor_v1.titularidad_cuenta_persona_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.titularidad_cuenta_persona_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.politica_certificado_admin_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.vinculo_certificado_admin_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_identidad_sesiones_v1.vinculo_certificado_admin_actual_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.asignacion_perfil_actual ENABLE TRIGGER USER;
+DO $post$
+BEGIN
+ IF EXISTS(SELECT 1 FROM vec_autorizacion.fuentes_iniciales_admin_v1)
+ OR EXISTS(SELECT 1 FROM vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1)
+ OR EXISTS(SELECT 1 FROM vec_contexto_actor_v1.fuentes_iniciales_admin_v1)
+ OR EXISTS(SELECT 1 FROM vec_identidad_sesiones_v1.politica_certificado_admin_v1)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.bootstrap_central_admin_v3)
+ OR jsonb_array_length(vec_autorizacion.administradores_aplicacion_efectivos_internos_v3())<>0
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref IN (
+   'prf_d55cca032ba141285950ec281d4a2456','prf_1452c486716685fa536bfbb292a6e205','prf_88643f2b4566eaadebff280c860468c2'))
+ OR NOT EXISTS(SELECT 1 FROM vec_autorizacion.control_continuidad_admin
+ WHERE control_id AND revision=1 AND bootstrap_estado='pendiente' AND bootstrap_acto_ref IS NULL) THEN
+  RAISE EXCEPTION 'fixture ADMIN: postestado H10 divergente';
+ END IF;
+END $post$;
+-- Dos filas ficticias de gobierno ADMIN v9/v1 y marcador singleton Personal,
+-- ambos incluidos en el respaldo. No se elimina version_rol ni nodo/historia.
+DO $gob$ BEGIN
+ IF (SELECT count(*) FROM vec_autorizacion.rol_administrable_exacto_v1
+  WHERE version_rol_ref IN ('rol:administracion_perfiles:v9','rol:operador_plataforma:v1'))<>2
+ OR (SELECT count(*) FROM vec_personal.unidad_inicial_admin_v1)<>1 THEN
+  RAISE EXCEPTION 'fixture ADMIN: gobierno o marcador divergente';
+ END IF;
+END $gob$;
+ALTER TABLE vec_autorizacion.rol_administrable_exacto_v1 DISABLE TRIGGER USER;
+ALTER TABLE vec_personal.unidad_inicial_admin_v1 DISABLE TRIGGER USER;
+DELETE FROM vec_autorizacion.rol_administrable_exacto_v1
+ WHERE version_rol_ref IN ('rol:administracion_perfiles:v9','rol:operador_plataforma:v1');
+DELETE FROM vec_personal.unidad_inicial_admin_v1;
+SET CONSTRAINTS ALL IMMEDIATE;
+ALTER TABLE vec_autorizacion.rol_administrable_exacto_v1 ENABLE TRIGGER USER;
+ALTER TABLE vec_personal.unidad_inicial_admin_v1 ENABLE TRIGGER USER;
+DO $fin$ BEGIN
+ IF EXISTS(SELECT 1 FROM vec_autorizacion.rol_administrable_exacto_v1
+  WHERE version_rol_ref IN ('rol:administracion_perfiles:v9','rol:operador_plataforma:v1'))
+ OR EXISTS(SELECT 1 FROM vec_personal.unidad_inicial_admin_v1) THEN
+  RAISE EXCEPTION 'fixture ADMIN: gobierno o marcador persistente';
+ END IF;
+END $fin$;
+COMMIT;

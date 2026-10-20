@@ -1,0 +1,40 @@
+{
+  "directorio_vec_admin": "",
+  "runner": "",
+  "checkout": "",
+  "host": "",
+  "dias_tls_servidor": 90,
+  "dias_crl": 90,
+  "pg_host": "",
+  "pg_port": "",
+  "pg_base": "",
+  "pg_ca": "",
+  "sufijo_login": "",
+  "vigente_hasta_config": "",
+  "entorno": "desarrollo",
+  "audiencia": "",
+  "espacio_identidad": "",
+  "procesos": {
+    "cuentas": "vec-admin-cuentas",
+    "selector": "vec-admin-selector",
+    "contexto": "vec-admin-contexto",
+    "usuarios": "vec-admin-usuarios"
+  },
+  "gobierno_dir": "",
+  "semilla_raiz": "",
+  "identidad": {
+    "directorio_material": "",
+    "ruta_configuracion_hmac": "",
+    "espacio_identidad": "",
+    "dominio_ref": "",
+    "espacio_clave": "",
+    "dominio_hmac": ""
+  },
+  "motivo": {},
+  "identificadores": "",
+  "escucha": "",
+  "emisor_identidad": "",
+  "redes": "",
+  "retirada_en": "",
+  "kit_dir": ""
+}
