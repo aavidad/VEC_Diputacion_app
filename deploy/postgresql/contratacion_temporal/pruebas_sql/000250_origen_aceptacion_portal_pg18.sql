@@ -15,7 +15,7 @@ BEGIN
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       <>'d5c812acbb329273947de7a4b7f2ed400a82ba7c94f9c3e749772247fbad1c1d' THEN
+       <>'82a116f0069fb7220fa81e6411b01ea6fde4a474f66e3f5863f8bb2d944485b1' THEN
   RAISE EXCEPTION 'CT250 prueba: definición, dueño o ACL divergentes'; END IF;
  original:=p.prosrc;
  IF position('consultar_detalle_rrhh_atestado_v1' in original)=0
@@ -57,5 +57,16 @@ BEGIN
  SELECT bool_and(CASE WHEN tipo='manual' THEN NOT confirmado ELSE confirmado END)
  INTO v_ok FROM resultados;
  IF v_ok IS NOT TRUE THEN RAISE EXCEPTION 'CT250 prueba: clasificación O6 ordinaria/manual divergente'; END IF;
+ SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
+  'vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ IF NOT FOUND OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+    OR p.prosecdef IS NOT TRUE OR p.provolatile<>'v'
+    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
+    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
+    OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
+      <>'a2fb96e9e5fd06a8ac9bca781a935db85a50bf175ed0d78b0d90ce9585adf8c6'
+    OR position('numero_visible_vigente_v1' in p.prosrc)=0
+    OR position('verificar_emision_ct_v1' in p.prosrc)=0 THEN
+  RAISE EXCEPTION 'CT250 prueba: vínculo opaco/manual o autoridad divergente'; END IF;
 END $ct250$;
 ROLLBACK;
