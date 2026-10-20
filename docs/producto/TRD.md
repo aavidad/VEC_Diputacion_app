@@ -254,8 +254,8 @@ apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
 F1-131 añade `crear --recorrido-completo` con productores versionados. Prepara
 Administración con dos personas, los roles simples, el plan, las admisiones,
 Documentos y Personal; los roles compuestos conservan su condición de semilla
-técnica. Genera material propio y exige declarar las huellas del software de
-verificación y del manejador de firma cuando se aporta. Los LOGIN nuevos
+técnica. Genera material propio y coteja el software de verificación declarado.
+Puede incluir el manejador de firma y conserva las huellas de ambos. Los LOGIN nuevos
 caducan a los 90 días; los certificados de desarrollo pueden cubrir 400.
 La orden y sus parámetros están en `deploy/principal/recorrido_copia/LEEME.md`.
 La aceptación de la creación integrada sigue pendiente; no acredita la firma
