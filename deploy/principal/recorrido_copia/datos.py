@@ -97,6 +97,10 @@ def preparar_datos(copia) -> None:
                    "; END IF; END $r$;")
     sql.append("COMMENT ON ROLE vec_autorizacion_motivos_rrhh_resolutor IS "
                "'vec_autorizacion:rol-motivos-rrhh-resolutor:v1';")
+    # Excepción heredada: el contrato instalado del resolutor exige NULL.
+    # Dirección la retirará cuando ese contrato admita una fecha de caducidad.
+    sql.append("UPDATE pg_catalog.pg_authid SET rolvaliduntil=NULL WHERE rolname='" +
+               logins["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"] + "';")
     gov = logins["VEC_CT_GOBIERNO_DATABASE_URL"]
     sql.append("GRANT vec_contratacion_temporal_gobernador TO " + gov +
                " WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;")
