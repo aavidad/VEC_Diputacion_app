@@ -22,8 +22,9 @@ certificados y firmas de desarrollo no dan eficacia administrativa.
 
 El [caso único](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación)
 exige informe con técnica y Jefatura antes de Intervención; después, resolución
-con Jefatura, Diputación y Secretaría General. Cada paso usa una persona
-ficticia distinta y conserva su justificante. La recuperación debe acreditar
+con Jefatura, Diputación y Secretaría General. Son cuatro personas ficticias:
+Jefatura firma ambos documentos, pero nadie firma dos pasos del mismo
+documento. Cada firma conserva su justificante. La recuperación debe acreditar
 el mismo original y recibo después de reiniciar aplicación y PostgreSQL.
 Los otros cuatro documentos del caso se descargan sin firma, identificados
 como pendientes; no se simulan sus firmas.
