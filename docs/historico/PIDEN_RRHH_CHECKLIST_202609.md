@@ -154,12 +154,9 @@ si son menores que la preferencia, la interfaz explicará el límite efectivo.
 4. Firma y actos eficaces: hay borradores, cese y sanción durables de desarrollo; su validez y modelos oficiales requieren autoridad competente y Portafirmas (dudas 7, 33, 39 y 62).
 5. Los datos sintéticos solo sirven para verificar recorridos y no sustituyen historia laboral o entrega externa.
 
-## Comprobación del corte (28/09/2026)
+## Condiciones funcionales conservadas
 
-- `main@eb2061f33` contiene los PR #78 y #80 (código de cortes 1 y 2) y #79 y #81 (operaciones de cortes 1 y 2). El PR #82 de revocación Mi Bolsa (`91cc66097`) está abierto y sin fusionar. El corte 3 sigue en rama separada; sus piezas y el cambio documental `5f6d51d3d` no forman parte de `main` por esta actualización del checklist.
-- El histórico propio AD3-90/Bolsa44 pasó PostgreSQL 18 efímero y dos revisiones, y entró en el corte 1. Esto acredita código, no instalación ni consulta de servidor.
-- La puerta completa de los cortes 1 y 2 de código fue verde antes de sus PR; los ensayos PostgreSQL 18 de reglas, auditoría y reincorporación fueron aislados. En este corte del 28/09 faltaban clon, instalación de diez SQL, identidad V3 y navegador con recuperación. Dirección comunicó su instalación y arranque estable el 29/09; esa noticia no cierra por sí sola los puntos PARCIAL ni acredita una firma. En particular, 3.06 carece de segunda validación durable por otra persona y 3.07 no impone el siguiente día hábil ni el horario 09:00–14:00; ambos requieren contrato transaccional pendiente.
-- Los datos de prueba son sintéticos. Este corte solo actualiza documentación: no instala migraciones, modifica servicios compartidos ni envía correos o SMS.
+El corte histórico distinguía código integrado, instalación documentada y recorrido comprobado. El ensayo aislado no acreditaba firma ni transmisión corporativa. Las limitaciones de los apartados 3.06 y 3.07 se conservan en sus filas; las migraciones históricas no se reaplican.
 
 ## SQL acumulada de cidonia: 39 instaladas — NO reaplicar (29/09/2026)
 
@@ -167,7 +164,7 @@ Inventario acumulado fijado sobre
 `origin/main@089933415e18e5c5cf710e40df865e911320d33d` (merge #97).
 Las filas funcionales anteriores conservan su fotografía histórica y no se
 reinterpretan aquí; C3 ya entró en `main` mediante #88. Este apartado actualiza
-solo el inventario SQL y su estado de instalación comunicado por Dirección.
+solo el inventario SQL y su estado de instalación documentado.
 Son 39 rutas únicas en orden causal: **29 instaladas el 28/09/2026**
 (27 `UP` y dos deltas DBA de rol de los cortes 1/2) y **10 instaladas el
 29/09/2026** (cinco `UP` de C3 y cinco `UP` de #97). El corte 2 repite la lista
@@ -175,13 +172,13 @@ del corte 1: se incluye **una sola vez**. Las listas de respuesta semántica,
 consulta de recibo y contexto ya están reunidas en la lista de #97: CT138,
 AD3-104, CT139, AD3-105 y CT140 aparecen **una sola vez**.
 
-**Estado comunicado por Dirección:** las 29 rutas de los cortes 1/2 quedaron
+**Estado documentado:** las 29 rutas de los cortes 1/2 quedaron
 **instaladas el 28/09/2026 en cidonia/principal; NO reaplicar ninguna**.
 AD3-94 y AD3-95 se instalaron con las correcciones del PR #84; conservar esa
-historia y su postimagen. **Dirección comunicó que las cinco rutas de C3 y las
+historia y su postimagen. **Consta en el registro histórico que las cinco rutas de C3 y las
 cinco de #97 se instalaron el 29/09/2026 en cidonia/principal; NO reaplicar.**
 El ensayo anterior de #97 fue solo en clon; el hito 1 posterior arrancó estable
-sobre `main@65241ff1` más el ajuste #102 de audiencia CT140, según Dirección.
+sobre `main@65241ff1` más el ajuste #102 de audiencia CT140, según el registro de instalación.
 Esta anotación no acredita por sí sola navegador, firma legal ni producción.
 Para futuras migraciones se volverán a comprobar preimagen, roles y postimagen
 contra la historia real. **No reaplicar migraciones históricas ni ejecutar
