@@ -52,10 +52,10 @@ COMMIT;
 
 
 def declarar(copia):
-    """Aplica la semilla en la copia si su material trae el manifiesto de Bolsa."""
+    """Declara el ámbito tras preparar los datos de la copia con módulos."""
     ruta = copia.material / 'identidad' / 'bolsa-bback.json'
     if not ruta.is_file():
-        return
+        raise ValueError("Falta el manifiesto de Bolsa antes de declarar su ámbito")
     sql = sentencias(json.loads(ruta.read_text()))
     if sql is not None:
         copia.sql_bytes(sql, 'ambito-bolsas.log')
