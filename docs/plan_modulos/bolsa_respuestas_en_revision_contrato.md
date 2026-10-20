@@ -1,6 +1,13 @@
 # Confirmar una aceptación directa pendiente — F1-71
 
-Dirección confirmó el 16/10/2026 a las 01:39 este alcance: RRHH confirma una aceptación de llamamiento directo desde la ficha existente. Se reutiliza la lista nominal de candidatos; este corte no añade una bandeja ni otra lectura. La admisión y el rechazo de justificaciones quedan pendientes de la integración de #1147 y de su cotejo nominal de custodia. CAT15 permanece reservada y sin activar.
+Dirección confirmó el 16/10/2026 a las 01:39 este alcance: RRHH confirma una aceptación de llamamiento directo desde la ficha existente. Se reutiliza la lista nominal de candidatos; este corte no añade una bandeja ni otra lectura. La admisión y el rechazo de justificaciones quedan fuera de este corte. El código del justificante PDF de #1147 ya está integrado; su activación y el cotejo nominal de custodia conservan su aceptación propia. CAT15 permanece fuera de esta confirmación.
+
+Corte de estado del 20/10/2026 sobre `origin/main@3ef7dee0b`: AD288 y B128
+están integradas por #1176 y #1164. El
+[guion existente](../../deploy/principal/aceptacion_desde_ficha_f1_71_20261018.md)
+conserva el ensayo parcial del 18/10 y sus límites. La copia ensayada recibió
+la cadena por etapas; no acredita una instalación desde cero de toda la lista
+actual. Tampoco sustituye la resolución de la aceptación del caso único.
 
 ## Recorrido y contrato
 
@@ -20,4 +27,8 @@ El [guion de activación](../../deploy/principal/aceptacion_desde_ficha_f1_71_20
 
 La regla de confirmación es provisional y configurable mediante la política de situación mientras RRHH responde la duda 157. El [Reglamento publicado el 16 de enero de 2026](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf), artículos 10 y 11, se aplica al posterior corte de justificaciones según el procedimiento acreditado. El [cambio del 14 de mayo](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1778713220300-final-241a2c51.pdf) regula la adhesión de organismos autónomos; no aporta un vínculo entre esta respuesta y una oferta publicada.
 
-El código preparado aún necesita los consumidores de R, los actos de activación, las revisiones finales y el recorrido real tras reinicio. Este documento no acredita instalación ni una PR lista para fusionar.
+El código y su consumidor están integrados. Cada copia necesita los actos de
+activación y el material descritos en el guion; la presencia de código no los
+crea al arrancar. El ensayo acreditado recupera el recibo tras reiniciar, con
+sus límites declarados. No acredita instalación en un servidor ni el cierre
+del [caso 4.0](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
