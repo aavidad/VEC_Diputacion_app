@@ -1,128 +1,178 @@
 # Manual mantenido del programador de VEC
 
-## Guía de desarrollo — `main@7247682cb` (28 de septiembre de 2026)
+Guía vigente, contrastada con `origin/main@3c643ce34` el 20/10/2026.
+El estado de las tareas está en el [tablero](../producto/TABLERO_TAREAS.md);
+las decisiones técnicas, en el [TRD](../producto/TRD.md). Se desarrolla y
+recorre en copias locales. cidonia permanece congelada; la siguiente
+instalación corresponde a dirección en un servidor nuevo.
 
-Esta guía describe el árbol integrado en `main` en ese hash. Para saber qué
-está instalado, publicado o probado de extremo a extremo, consulte el
-[estado del proyecto](../../ESTADO_PROYECTO.md) y la
-[guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md). Una carpeta, un
-manifiesto o una prueba aislada no convierten una capacidad en operativa.
-El [índice de API Go](LEEME.md) es generado: para actualizar sus firmas y
-comentarios, cambie la documentación del código y ejecute
-`python3 scripts/generar_manual_programador.py`. Su texto introductorio no
-reemplaza esta guía mantenida; el generador aún necesita sincronizar esa
-introducción con el estado actual antes de regenerar el índice completo.
+## Antes de escribir
 
-### Dónde va cada cambio
+Lea [AGENTS.md](../../AGENTS.md), [PRD](../producto/PRD.md) y
+[plan de implementación](../producto/PLAN_IMPLEMENTACION.md), además de los
+documentos que afecte el encargo. El caso de aceptación es
+[FLUJO_APP §4.0](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
+Busque la capacidad en el índice de código, `origin/main`, las ramas y las PR
+abiertas. Para Go use `gopls` desde terminal. Si no dispone del índice,
+indíquelo y contraste el árbol y sus referencias antes de añadir otra pieza.
 
-| Pieza | Código integrado | Responsabilidad |
+Cada tarea parte de `origin/main`, tiene rama y carpeta propias y declara sus
+ficheros. No se edita un fichero ocupado por otra PR. Una PR tiene una sola
+responsabilidad, objetivo de 400 líneas manuales y máximo de 1.500.
+Los títulos siguen `Tarea: <ID> — …`. Dirección revisa e integra.
+
+## Arquitectura y propietarios
+
+| Pieza | Ruta | Responsabilidad |
 | --- | --- | --- |
-| Dominio | `internal/modules/<modulo>/domain`, `internal/vec/domain` | Estados, invariantes y decisiones puras; sin HTTP, SQL ni proveedores. |
-| Aplicación | `internal/modules/<modulo>/application`, `internal/vec/application` | Casos de uso que coordinan reglas y puertos; una misma regla sirve a todos los canales. |
-| Puertos | `internal/modules/<modulo>/ports`, `internal/vec/ports` | Contratos y DTO mínimos entre propietarios; no contienen lógica de transporte. |
-| Adaptadores | `internal/modules/<modulo>/adapters`, `internal/vec/adapters` | Traducción HTTP, PostgreSQL, documentos y proveedores concretos. |
-| Composición | `internal/app/bootstrap`, `cmd/vec-server`, `cmd/vec-publico`, `cmd/vec-interno` | Selección explícita de adaptadores, dependencias, rutas y superficies de cada ejecutable. |
-| Interfaz | `web/static/portal-empleado`, `web/static/bolsa` | Vistas y clientes HTTP que consumen contratos publicados; no deciden permisos. |
+| Dominio | `internal/modules/<modulo>/domain`, `internal/vec/domain` | Invariantes, estados y cálculos; sin HTTP, SQL ni proveedores |
+| Puertos | `internal/modules/<modulo>/ports`, `internal/vec/ports` | Contratos mínimos que necesita la aplicación |
+| Aplicación | `internal/modules/<modulo>/application`, `internal/vec/application` | Casos de uso que coordinan dominio y puertos |
+| Adaptadores | `internal/modules/<modulo>/adapters`, `internal/vec/adapters` | PostgreSQL, HTTP, correo y otros proveedores |
+| Composición | `internal/app/bootstrap`, `internal/app/composicion` | Selección de adaptadores, configuración y montaje de superficies |
+| Servidor común | `internal/app/server` | Estáticos, salud, cabeceras y límites HTTP |
+| Interfaz | `web/static/portal-empleado`, `web/static/area-personal`, `web/static/bolsa` | Pantallas y clientes de los contratos montados |
+| Utilidades | `internal/shared` | i18n, telemetría y herramientas comunes sin negocio |
 
-La dependencia apunta hacia el caso de uso y el dominio. El adaptador
-implementa el puerto que necesita la aplicación; la composición inyecta la
-implementación. Esto permite probar decisiones sin servidor y sustituir una
-dependencia de infraestructura sin copiar las reglas en cada canal. No todo
-paquete antiguo sigue exactamente esta disposición: antes de mover código,
-compruebe el propietario y el contrato real.
+Las dependencias apuntan hacia los contratos y las reglas. El adaptador
+implementa el puerto y la composición lo inyecta; el dominio no importa
+aplicación ni adaptadores. Compruebe la ubicación real antes de mover código:
+el árbol conserva paquetes con organización anterior.
 
-### Módulos, persona y datos
+Hay quince módulos en `internal/modules/`: `administracion`, `aspirantes`,
+`bolsa`, `calendarios`, `carrera`, `certificados`, `contrataciontemporal`,
+`cronos`, `dietas`, `formacion`, `meritos`, `personal`, `provision`, `seleccion`
+y `usuarios`. Su presencia no acredita que estén completos ni activados.
+El manifiesto común está en [types.go](../../internal/vec/domain/types.go),
+y el registro en [service.go](../../internal/vec/application/service.go).
+El menú consulta el catálogo de módulos; declararlo no monta sus rutas ni
+concede permisos. No hay un instalador dinámico de módulos.
 
-El núcleo contiene el [manifiesto de módulo](../../internal/vec/domain/types.go)
-y su [registro de aplicación](../../internal/vec/application/service.go).
-La [composición](../../internal/app/bootstrap/bootstrap.go) registra los
-módulos; el [catálogo web](../../web/static/portal-empleado/portal-catalogo-modulos.js)
-lee `/api/vec/modules` para construir navegación. El registro y el menú
-describen la capacidad: sus rutas, permisos, persistencia y dependencias se
-conectan expresamente. Añadir un módulo exige código revisado, composición y,
-si procede, migraciones y despliegue; no hay carga dinámica ni instalador
-genérico de plugins.
+Persona es común. Cada módulo conserva sus datos y obtiene proyecciones
+ajenas mediante puertos autorizados. Contratación temporal coordina; Bolsa
+conserva convocatorias, candidaturas, orden y llamamientos; Personal conserva
+relaciones de servicio y ocupaciones. Ningún módulo consulta tablas de otro.
+Una cuenta o un certificado no prueban una relación de servicio.
 
-Cada módulo conserva sus reglas y datos. Contratación temporal coordina
-referencias y puertos; Bolsa conserva convocatorias, candidaturas, orden y
-llamamientos; Personal conserva relaciones de servicio, ocupación e
-incorporación. Una integración nueva pide una proyección autorizada al dueño
-del dato y no consulta ni escribe tablas ajenas. El
-[ContextoActor](../../internal/vec/domain/contexto_actor.go) enlaza la persona
-común con referencias opacas de candidato o empleado, con versión y vigencia.
-Una persona externa puede ser candidata sin ser empleada; una cuenta o un
-certificado tampoco prueban una relación de servicio.
+## Composición y consumidores
 
-Los catálogos y reglas que gobiernan una actuación pertenecen a su autoridad
-y versión. Una mejora concreta de este diseño es poder cambiar una definición
-admitida conservando qué versión usó cada expediente, sin reinterpretar su
-historia. El [contrato de módulos](../portal_vec/contrato_modulos_vec.md)
-detalla el límite entre extensiones existentes y ampliaciones aún previstas.
+[bootstrap.go](../../internal/app/bootstrap/bootstrap.go) monta los servidores
+y registra módulos. Los ficheros de capacidad de `internal/app/bootstrap`
+construyen dependencias concretas; `internal/app/composicion/interna` separa
+la raíz interna y su configuración. Por ejemplo,
+[contrataciontemporal/rutas.go](../../internal/app/composicion/interna/contrataciontemporal/rutas.go)
+recibe casos de uso y autoridades ya constituidos y forma las rutas.
+No se añade una conexión o una comprobación de entorno al dominio.
 
-### Seguridad, recibos e historia
+`cmd/vec-server` conserva el montaje combinado de desarrollo;
+`cmd/vec-admin` atiende Administración por separado. `cmd/vec-interno` y
+`cmd/vec-publico` tienen composiciones y superficies separadas. Una herramienta
+de `cmd/` prepara o ejecuta su operación concreta: no es un cliente general
+del expediente ni una autorización para publicar otras rutas.
 
-La [matriz de roles y ámbitos](../producto/FLUJO_APP.md)
-define denegación por defecto: las operaciones conectadas a V3 exigen una
-concesión central positiva, exacta y vigente para actor, acción, recurso,
-ámbito, finalidad, perfil, campos y obligaciones. El perfil o un botón visible
-no conceden autoridad. La frontera obtiene el actor del canal validado y el
-caso de uso revalida la decisión antes del efecto; una dependencia caída no
-abre acceso. Compruebe la composición concreta antes de afirmar que una ruta
-usa V3: el requisito de producto no acredita por sí mismo todos los caminos.
+Para añadir una capacidad:
 
-Para escrituras durables, el caso de uso y su adaptador deben conservar la
-versión esperada, la clave de idempotencia, la auditoría, el recibo, la
-historia de solo adición y, cuando haya intercambio, la salida pendiente.
-Un reintento con la misma clave recupera el resultado admitido sin crear otra
-operación; una clave reutilizada con material distinto se rechaza. La
-autorización se vuelve a comprobar dentro de la transacción que produce el
-efecto. Las [reglas de PostgreSQL](../portal_vec/seguridad_persistencia_postgresql.md)
-exigen roles técnicos propios y permisos mínimos por propietario. Estas
-garantías se prueban por recorrido; no se deducen de una interfaz o de un
-repositorio en memoria.
+1. Identifique su propietario y el paso del recorrido que la consume.
+   Reutilice reglas y contratos existentes; un puerto nuevo necesita un
+   consumidor concreto.
+2. Añada la regla en dominio y su coordinación en aplicación. Conserve la
+   versión esperada, la clave de idempotencia y el recibo del resultado.
+3. Implemente los puertos con adaptadores. Si necesita datos ajenos, pida al
+   módulo dueño una proyección autorizada. Pruebe persistencia y denegación
+   en PostgreSQL real cuando la garantía dependa de él.
+4. Conecte HTTP y composición con identidad validada, autorización positiva,
+   límites y errores de catálogo. El actor no procede del cuerpo HTTP.
+5. Conecte la pantalla al contrato real, con carga, vacío, error y reintento.
+   Los textos van en `web/static/textos/<idioma>/`; la ayuda se abre con «?».
+6. Recorra el paso en la copia propia y compruebe el resultado tras reiniciar
+   aplicación y PostgreSQL. La PR dice qué pantalla usa la capacidad.
 
-### Idiomas y clientes
+La ausencia de configuración opcional debe cerrar solo su función y explicar
+qué falta mediante un error de catálogo. Las garantías se comprueban en el
+montaje concreto: no se dan por cumplidas porque exista una interfaz.
 
-Los textos y formatos compartidos usan
-[i18n Go](../../internal/shared/i18n/i18n.go) y los
-[catálogos del portal](../../web/static/portal-empleado/portal-i18n.js).
-Los manifiestos describen nombres y navegación, pero no sustituyen el
-catálogo ni dan permisos. La localización de toda la superficie sigue siendo
-parcial: al añadir un estado, mensaje, documento o ayuda, agregue su clave y
-pruébela con el traductor real. La ayuda de usuario se abre desde «?»; no
-disperse instrucciones permanentes por las pantallas.
+## Identidad, autorización e historia
 
-El cliente web existente llama a la API de los casos de uso compuestos.
-`cmd/` contiene ejecutables de servidor y herramientas operativas concretas;
-no constituye hoy un cliente CLI general del expediente. Tampoco hay un
-cliente de escritorio integrado. Si se crean esos canales, deberán adaptar
-entrada y salida a los mismos casos de uso, con identidad, autorización,
-auditoría y resultado equivalentes: poner las reglas en la aplicación evita
-que web, escritorio y CLI den respuestas distintas.
+La lectura usa la sesión ligada al certificado y deja constancia de auditoría.
+Los actos requieren una decisión central positiva para actor, acción, recurso,
+ámbito y finalidad, consumida en la misma transacción que el efecto. Un perfil,
+un menú o un selector no conceden autoridad.
 
-### Cómo verificar un incremento
+Una escritura conserva auditoría, recibo e historia. El reintento con la misma
+clave y contenido recupera el resultado; otro contenido con la misma clave
+se rechaza. Una dependencia caída no abre acceso ni confirma una entrega.
+Identificarse no firma documentos; un recibo local no confirma GINPIX,
+correo ni un portafirmas externo. Use datos ficticios y deje claves,
+certificados y configuración privada fuera de Git.
 
-1. Localice el propietario, la fuente funcional y el caso de uso existente;
-   conserve las referencias opacas y las versiones. Añada un puerto solo si
-   hay una dependencia concreta que lo consume.
-2. Pruebe la decisión del dominio o aplicación y el adaptador afectado. Para
-   una escritura, cubra denegación, versión obsoleta, replay, material
-   distinto con la misma clave e historia conservada.
-3. Ejecute la [puerta local](../../scripts/verificar_calidad.sh) cuando el
-   cambio de código lo requiera: formato, módulos Go, pruebas, `go vet`,
-   pruebas web y verificadores de superficies. La
-   [CI](../../.github/workflows/ci.yml) añade puertas de secretos, artefactos
-   y PostgreSQL focales. Un cambio solo documental se comprueba con enlaces y
-   `git diff --check`.
-4. Para afirmar persistencia o disponibilidad, pruebe navegador → API →
-   autorización → aplicación → PostgreSQL → recibo, y recupere tras reinicio.
-   Separe código integrado, SQL instalado, recorrido verificado y publicación.
-   Los cambios de SQL, identidad, criptografía o datos personales requieren
-   dos revisiones independientes de la versión final.
+## Migraciones y ensayo SQL
 
-Use solo datos sintéticos. Mantenga secretos y configuración privada fuera de
-Git. Los borradores, avisos y recibos técnicos no acreditan firma, entrega
-legal, incorporación ni confirmación de un sistema externo.
+La estructura y los permisos se describen en
+[ESQUEMA_BACKEND](../producto/ESQUEMA_BACKEND.md). Antes de crear una migración,
+reserve su número en `RESERVAS_MIGRACIONES.md`, fuera de Git. Las nuevas
+migraciones del núcleo de autorización son del equipo R.
+
+Las migraciones viven en `deploy/postgresql/<esquema>/migraciones/`.
+La lista común posterior al esquema de referencia es
+[`lista_sql_main_tras_hz37.txt`](../../deploy/principal/lista_sql_main_tras_hz37.txt):
+respete el orden causal y sus huellas. No se modifica ni reaplica una SQL
+instalada; se corrige con otra migración. No se usa DOWN sobre historia.
+Al reconstruir una función, parta de su cuerpo instalado en la principal.
+Toda función nueva o reconstruida `SECURITY DEFINER` lleva
+`SET search_path = pg_catalog, pg_temp`.
+
+El [ensayador de fase 1](../../deploy/postgresql/fase1/LEEME.md) restaura el
+esquema sin datos y ejecuta instalación, pruebas SQL y reinicio:
+
+```sh
+python3 deploy/postgresql/fase1/ensayar.py --pruebas
+```
+
+Se ejecuta una vez sobre la cabeza final, con PostgreSQL 18 propio y memoria
+disponible. Este ensayo de esquema y SQL no acredita el recorrido web.
+La copia con datos y servicios se prepara con
+[`copia_local.py`](../../deploy/principal/copia_local.py), según su
+[receta](../../deploy/principal/LEEME_copia_local.md). No se ensaya en cidonia.
+
+## Pruebas y entrega
+
+En local se ejecutan solo las pruebas focales: formato, `go test -p 6`,
+`go vet` del paquete y `-race` si hay concurrencia; Node sobre las pruebas
+web afectadas y `git diff --check`. En escrituras cubra denegación, versión
+vieja, repetición, clave con contenido distinto y conservación de historia.
+Las pantallas se recorren con Playwright y el Chrome del sistema a 1440 y
+390 px. Las reglas y los valores pendientes de RRHH se mantienen configurables.
+
+La [CI](../../.github/workflows/ci.yml) ejecuta secretos, calidad, artefactos,
+identidad y autorización PostgreSQL, Bolsa pública y recorrido SQL de fase 1.
+La puerta completa es [`scripts/verificar_calidad.sh`](../../scripts/verificar_calidad.sh);
+no se repite en local sobre el mismo commit. Una PR documental comprueba
+referencias y espacios y deja las puertas automáticas a la CI.
+
+Antes de entregar se usan `revisar-cambios-vec`, `documentar-entregar-vec`
+y `pr-vec`. SQL lleva `revisar-sql-vec` y su ensayo. Los cambios de
+identidad, permisos, SQL, HTTP o ficheros subidos pasan revisión de seguridad
+focal, Semgrep local sin métricas y GoSec sobre lo cambiado cuando corresponda.
+Dos revisiones independientes para lógica de negocio, permisos, identidad,
+cifrado o SQL con permisos; una para lo demás. Los textos pasan `humanizer`.
+
+La PR incluye resultado, pruebas, límites, configuración y SQL en orden.
+Si cambia comportamiento, aporta guion de activación y arranque con la
+configuración nueva y sin ella. La documentación sola declara activación
+«ninguna». No se equiparan código integrado, SQL instalado, recorrido
+comprobado y publicación. Dirección da por cerrada la tarea al integrar.
+
+## Inventario generado e historia
+
+[LEEME.md](LEEME.md) y los otros nueve índices Go son una instantánea generada
+anterior al corte actual. Sus firmas se consultan contra el código vigente y
+`gopls`. El generador `scripts/generar_manual_programador.py` conserva una
+introducción desfasada; regenerar requiere corregirlo en una tarea de código.
+Esta entrega solo documental no cambia el generador.
+
+Los apartados siguientes conservan el estado técnico y los relevos de
+septiembre. Sus instrucciones de arranque, ramas y servidor son históricas;
+para operar hoy se usan la guía anterior y la receta de copia local.
 
 ## Estado técnico del 23 de septiembre de 2026 — histórico
 

@@ -1,3 +1,5 @@
+> Histórico: inventario Go generado conservado al 20/10/2026; sus firmas e instrucciones pueden estar desfasadas. Para desarrollar, use el [manual vigente](README.md) y el código de `origin/main`.
+
 # Manual del programador
 
 Referencia de todas las funciones, tipos, constantes y variables exportadas
