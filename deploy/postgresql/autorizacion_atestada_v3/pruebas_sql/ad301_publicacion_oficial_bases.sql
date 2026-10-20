@@ -6,13 +6,14 @@ SET LOCAL timezone='UTC';
 SET LOCAL search_path=pg_catalog,pg_temp;
 CREATE FUNCTION pg_temp.exigir(caso text,ok boolean) RETURNS void LANGUAGE plpgsql AS $f$
 BEGIN IF ok IS NOT TRUE THEN RAISE EXCEPTION 'AD301 prueba: %',caso; END IF; END $f$;
+-- AD305 conserva el contrato de publicación y corrige otra rama del núcleo.
 SELECT pg_temp.exigir('núcleo y ACL', EXISTS(
  SELECT 1 FROM pg_proc p
  WHERE p.oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
   AND p.prosecdef AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
   AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}'
   AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=
-   '49d6559e7aa6e5575c630531cf5c2142a67677e5cf7d3d38da3f04cab7253035'));
+   '58c98915e85aec4ff54d45864df4f733cd013a5a2be5863482cfce96fc0c0c46'));
 SELECT pg_temp.exigir('perfil en las tres ramas', (SELECT count(*)=3 FROM regexp_matches(
  pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
  'publicacion_oficial_bases_rrhh','g')));

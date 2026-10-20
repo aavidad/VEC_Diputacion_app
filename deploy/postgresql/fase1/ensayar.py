@@ -38,6 +38,7 @@ PRUEBAS_SQL = (
     CA48_PRUEBA,
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b147_orden_estricto_llamamiento.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql',
+    'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad292_fachada_derivacion_nombramiento_ct.sql',
     # El último caso es el fixture de la concurrencia de contexto externo.
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',
 )

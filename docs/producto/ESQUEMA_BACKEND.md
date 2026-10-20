@@ -291,12 +291,19 @@ recuperado solo sirve para devolver un recibo ya existente. Las lecturas de
 datos personales (ficha, contactos, detalle de expediente, consulta propia de
 méritos) también consumen V3 y quedan registradas.
 
-AD292, preparada y pendiente de instalación, añade la fachada nominal para
+AD292 añade la fachada nominal para
 derivar un nombramiento desde una plaza adjudicada. Solo el propietario CT
 puede llamarla. La fachada conserva el booleano de consumo del núcleo y coteja
 decisión, efecto y huella. CT234 comprueba primero el recibo original de la
 misma intención; exige consumo nuevo si debe crear el hijo. AD292 depende del
 perfil y audiencia que AD291 añade al núcleo y reutiliza el pool CT existente.
+
+AD305 retira de esa rama y de la fachada la exigencia de `d.ambitos`, que no
+existe en el canon de decisión. Conserva referencia y huella firmada del recurso,
+audiencia, finalidad, certificado, auditoría y permisos. CT234 recompone esa
+huella desde el material inmutable del hijo, con organización y unidad propias.
+El positivo conjunto con CT247 y su activación siguen pendientes; la prueba de
+contrato de AD292 se incorpora a la puerta SQL existente.
 
 F1-36A prepara AD286 (`comprobar_consumo_recuperacion_firmas_ct_v2`) para
 revalidar el consumo V3 con la unidad histórica, CT228 para recuperar el acto

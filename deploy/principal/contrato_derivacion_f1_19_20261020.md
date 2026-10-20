@@ -1,8 +1,8 @@
 # Autorización del expediente hijo (F1-19)
 
-Borrador del corte acordado por dirección el 20/10 a las 11:11. AD305 está
-reservada. Antes de instalarla se necesita AD301 integrada y ensayada; este
-documento todavía no acredita instalación ni un acto permitido.
+Corte acordado por dirección el 20/10 a las 11:11. AD305 corrige el contrato
+existente y debe integrarse después de AD301. El positivo de la derivación y
+la activación conjunta con el consumidor CT247 siguen pendientes.
 
 La decisión firmada vigente contiene la referencia del recurso y la huella
 de su contexto. Los ámbitos forman parte de ese contexto; no aparecen como
@@ -37,3 +37,22 @@ acuse. Una unidad ajena debe quedar denegada, aunque coincida el padre.
 
 El ensayo positivo requiere el consumidor de L y la configuración admitida;
 las pruebas de contrato y de denegación del núcleo por sí solas no lo sustituyen.
+
+## Definiciones y prueba focal
+
+Las preimágenes se extrajeron de PostgreSQL 18.4 propio, con la fuente base
+`a8e4f8994` (main y la candidata AD301/BC17) y 133 migraciones instaladas.
+La migración recompone las dos funciones desde sus definiciones instaladas:
+marca única, cinco líneas retiradas y comparación de cuerpos, configuración,
+propietarios, permisos y dependencias. La lista de audiencias se conserva.
+
+| Función | Antes | Después |
+| --- | --- | --- |
+| Núcleo | `49d6559e7aa6e5575c630531cf5c2142a67677e5cf7d3d38da3f04cab7253035` | `58c98915e85aec4ff54d45864df4f733cd013a5a2be5863482cfce96fc0c0c46` |
+| Fachada AD292 | `9d1e4fc89863e7fa8a99e1353826be997107571f746c6d3a32b7f29f13b1a1d1` | `2f00e33d4778828eaf25ef2c8d48eabef7d846de60bc86ccb4c885253188b3b5` |
+
+Tras instalar AD305 una vez, ejecutar las pruebas SQL existentes de AD301 y
+AD292. La primera conserva su contrato de publicación con la nueva huella
+global; la segunda coteja la fachada, la denegación de material ajeno y la
+ausencia de consumo en el rechazo. Las dos quedan en la puerta de fase 1.
+Estos casos no emiten decisiones falsas ni acreditan un acto permitido.
