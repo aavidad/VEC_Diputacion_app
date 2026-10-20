@@ -170,7 +170,7 @@ class ContextoFalso:
 
 class CatalogoRecorridoTest(unittest.TestCase):
     def setUp(self):
-        self.scratch = tempfile.TemporaryDirectory(dir=os.environ['VEC_TEST_SCRATCH'])
+        self.scratch = tempfile.TemporaryDirectory(dir=os.environ.get('VEC_TEST_SCRATCH'))
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
         os.chmod(self.root, 0o700)
