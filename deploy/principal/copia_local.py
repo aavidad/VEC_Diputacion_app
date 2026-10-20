@@ -139,6 +139,31 @@ class Copia:
                             '-d', 'postgres'], input=contenido, stdout=destino,
                            stderr=subprocess.STDOUT, check=True, timeout=300)
 
+    def registrar_sid(self):
+        """Conserva el identificador PostgreSQL comprobado de esta copia propia."""
+        entorno = {'PATH': '/usr/bin:/bin', 'LANG': 'C',
+                   'DOCKER_HOST': 'unix:///var/run/docker.sock'}
+        if not self.existe(entorno=entorno):
+            raise ValueError('El contenedor propio no está disponible para cotejar el SID')
+        resultado = subprocess.run(
+            ['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
+             'psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres',
+             '-d', 'postgres', '-c',
+             'SELECT system_identifier::text FROM pg_catalog.pg_control_system();'],
+            capture_output=True, text=True, check=True, timeout=30, env=entorno)
+        sid = resultado.stdout.strip()
+        if not re.fullmatch(r'[0-9]{15,20}', sid) or int(sid) == 0:
+            raise ValueError('SID PostgreSQL inválido en la copia propia')
+        estado = self.leer()
+        anterior = estado.get('sid_copia')
+        if anterior is not None:
+            if anterior != sid:
+                raise ValueError('SID PostgreSQL distinto del registrado para la copia')
+            return sid
+        estado['sid_copia'] = sid
+        guardar(self.estado, estado)
+        return sid
+
     def crear(self, args):
         verificar_fuente()
         if args.rrhh_original:
@@ -202,13 +227,8 @@ class Copia:
         for ruta in acl:
             self.sql(ruta, 'restauracion.log')
         self.comprobar_acl(acl, permitir_nuevas=False)
-        sid = subprocess.check_output(['docker', 'exec', '-u', 'postgres', self.nombre,
-            'psql', '-XAtq', '-U', 'postgres', '-d', 'postgres',
-            '-c', 'SELECT system_identifier::text FROM pg_catalog.pg_control_system()'], text=True).strip()
-        if not re.fullmatch(r'[1-9][0-9]{14,19}', sid):
-            raise ValueError('Identificador de sistema PostgreSQL inválido')
+        self.registrar_sid()
         estado = self.leer()
-        estado['sid_copia'] = sid
         estado['recorrido_completo'] = completo
         guardar(self.estado, estado)
         if completo:
