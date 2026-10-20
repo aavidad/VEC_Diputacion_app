@@ -81,7 +81,8 @@ El guion `ensayar_http.py` recibe una entrada JSON con los ocho campos del
 contrato de derivación. Sus valores proceden de una oferta adjudicada y de una
 aceptación registradas en la propia copia. El guion no crea esos antecedentes
 ni decide permisos. Solo admite un origen HTTPS local y no sigue redirecciones
-ni usa el proxy del entorno.
+ni usa el proxy del entorno. El transporte omite la cabecera `Connection`,
+que el contrato del servidor rechaza.
 
 ```sh
 python3 deploy/principal/f1_19_nombramiento_derivado/ensayar_http.py \
@@ -100,5 +101,6 @@ Después de reiniciar la copia con su fábrica, repetir la orden con otra salida
 y `--recuperar-desde "$RESULTADO_ANTERIOR"`. Esto coteja la recuperación y la
 lectura contra la respuesta conservada; el reinicio lo hace la fábrica, no el
 guion HTTP. Comprobar además el 403 ajeno con un perfil publicado de otro ámbito
-y el arranque sin el archivo de activación. No se cambia la revisión, el árbol
+y el arranque sin el archivo de activación. Para este último caso,
+`--esperar-cerrada` exige un 503 catalogado y no intenta crear ni recuperar. No se cambia la revisión, el árbol
 ni el estado registrado de una instancia para sustituir su binario.
