@@ -718,6 +718,21 @@ test("conserva acceso a propuesta v9 desde resolución v10 y anotación v11", as
 });
 
 
+test("el análisis previo conserva el grupo y la entrada de retención que publica el servidor", async () => {
+  const cliente = clienteFalso([]);
+  const consultar = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const datos = await consultar(...args);
+    datos.analisis = { ...datos.analisis, grupo_subgrupo: "A1", entrada_rc_ref: "rc:desarrollo:001" };
+    return datos;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar({ filtros: { texto: "", estado: "", fase: "" } });
+  const detalle = await adaptador.obtener(resumen.expediente_ref);
+  assert.equal(detalle.analisis_previo.grupo_subgrupo, "A1");
+  assert.equal(detalle.analisis_previo.entrada_rc_referencia, "rc:desarrollo:001");
+});
+
 test("distingue el período solicitado del revisado por RRHH sin sustituir el antecedente", async () => {
   const cliente = clienteFalso([]);
   const consultar = cliente.consultarDetalleRRHH;
@@ -741,6 +756,7 @@ test("distingue el período solicitado del revisado por RRHH sin sustituir el an
   assert.equal(detalle.analisis_previo.periodo.inicio, "2026-09-04T00:00:00Z");
   assert.equal(detalle.analisis_previo.porcentaje_jornada, 10000);
   assert.equal(Object.hasOwn(detalle.analisis_previo, "entrada_rc"), false);
+  assert.equal(Object.hasOwn(detalle.analisis_previo, "grupo_subgrupo"), false);
   conAnalisis = false;
   const sinAnalisis = await adaptador.obtener(resumen.expediente_ref);
   assert.deepEqual(sinAnalisis.cabecera.find(c => c.clave === "periodo"), solicitado);

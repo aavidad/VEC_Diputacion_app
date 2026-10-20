@@ -94,8 +94,8 @@
 13067 web/static/app.js
 974 web/static/area-personal/aplicacion.js
 602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
-818 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js
-1111 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
+821 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js
+1127 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 958 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
 1235 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
@@ -104,7 +104,7 @@
 848 web/static/bolsa/bolsa.css
 969 web/static/bolsa/lista-bolsas.test.mjs
 1393 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
-998 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
+1002 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 835 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
 1806 web/static/portal-empleado/portal-modulos-coordinador.js
@@ -206,7 +206,7 @@
 845 data/catalogos/bolsa/reglas.v7.json
 834 deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
-814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
+821 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
 1054 web/static/portal-empleado/portal-bolsas-ofertas.test.mjs
 3397 deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql
 3481 deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql

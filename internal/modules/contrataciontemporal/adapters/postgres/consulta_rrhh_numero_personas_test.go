@@ -28,7 +28,8 @@ func columnasSelectConsultaRRHH(t *testing.T, consulta string) ([]string, string
 // El detalle ordinario lee la cifra de personas en sus cuatro variantes; con
 // la concesión de firma histórica (selectores) ya no queda «sin cantidad».
 // El orden de columnas debe coincidir con el de destinos de consultarDetalle:
-// cierre, resultado de Bolsa, cifra y anexo de selectores.
+// cierre, resultado de Bolsa, cifra, grupo y entrada de retención del análisis
+// (CT243) y anexo de selectores.
 func TestDetalleRRHHLeeNumeroPersonasTambienConSelectores(t *testing.T) {
 	base := []string{"contenido_canonico", "esquema", "acceso_ref", "secuencia",
 		"anterior_sha256", "huella_sha256", "vinculo_identidad_huella_sha256",
@@ -63,7 +64,8 @@ func TestDetalleRRHHLeeNumeroPersonasTambienConSelectores(t *testing.T) {
 			if caso.bolsa {
 				esperadas = append(esperadas, "resultado_bolsa")
 			}
-			esperadas = append(esperadas, "numero_personas")
+			esperadas = append(esperadas, "numero_personas",
+				"analisis_grupo_subgrupo", "analisis_entrada_rc_ref")
 			if caso.conSelectores {
 				esperadas = append(esperadas, selectores...)
 			}
@@ -80,8 +82,9 @@ func TestDetalleRRHHLeeNumeroPersonasTambienConSelectores(t *testing.T) {
 		consultaOriginalPropuestaConSelectoresRRHHPostgreSQL} {
 		columnas, _ := columnasSelectConsultaRRHH(t, consulta)
 		if consultaDetalleRRHHConNumeroPersonas(consulta) ||
-			strings.Contains(strings.Join(columnas, ","), "numero_personas") {
-			t.Fatal("el original de la propuesta no debe leer la cifra")
+			strings.Contains(strings.Join(columnas, ","), "numero_personas") ||
+			strings.Contains(strings.Join(columnas, ","), "analisis_") {
+			t.Fatal("el original de la propuesta no debe leer la cifra ni el análisis")
 		}
 	}
 }

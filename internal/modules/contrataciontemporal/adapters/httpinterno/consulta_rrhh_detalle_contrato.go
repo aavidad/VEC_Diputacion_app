@@ -102,6 +102,10 @@ type analisisRRHHJSON struct {
 	CostePrevisto     *importeRRHHJSON `json:"coste_previsto,omitempty"`
 	FuenteCosteRef    string           `json:"fuente_coste_ref,omitempty"`
 	Observaciones     string           `json:"observaciones,omitempty"`
+	// Grupo y entrada de retención elegidos al analizar (CT243), para
+	// precargar la rectificación. La entrada no acredita crédito.
+	GrupoSubgrupo string `json:"grupo_subgrupo,omitempty"`
+	EntradaRCRef  string `json:"entrada_rc_ref,omitempty"`
 }
 
 type comprobacionRRHHJSON struct {
@@ -248,6 +252,8 @@ func proyectarAnalisisRRHH(entrada ports.AnalisisOperativoRRHH) *analisisRRHHJSO
 		ResultadoRC:       string(entrada.ResultadoRC),
 		FuenteCosteRef:    entrada.FuenteCosteRef,
 		Observaciones:     entrada.Observaciones,
+		GrupoSubgrupo:     entrada.GrupoSubgrupo,
+		EntradaRCRef:      entrada.EntradaRCRef,
 	}
 	if entrada.CostePrevisto != nil {
 		salida.CostePrevisto = &importeRRHHJSON{
