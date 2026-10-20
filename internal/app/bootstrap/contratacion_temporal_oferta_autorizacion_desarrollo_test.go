@@ -148,11 +148,11 @@ func TestSeleccionOfertaCTExigeConcesionYAudienciaPropias(t *testing.T) {
 	c := core.ConcesionRol{Accion: ports.AccionVincularOfertaBolsaCT,
 		ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoVinculoOfertaBolsaCT,
 		Finalidades: []string{ports.FinalidadVincularOfertaBolsaCT}, GarantiaMinima: core.AuthAssuranceHigh}
-	if !concesionExactaSeleccionOfertaCTDesarrollo(c) {
+	if !concesionExactaPerfilOfertaCTDesarrollo(c, politicaVinculoOfertaCTDesarrollo()) {
 		t.Fatal("concesión exacta rechazada")
 	}
 	c.Accion = ports.AccionVincularEmisionBolsa
-	if concesionExactaSeleccionOfertaCTDesarrollo(c) {
+	if concesionExactaPerfilOfertaCTDesarrollo(c, politicaVinculoOfertaCTDesarrollo()) {
 		t.Fatal("concesión singular aceptada para oferta")
 	}
 	d := descriptorMaterialSeleccionOfertaCTDesarrollo()

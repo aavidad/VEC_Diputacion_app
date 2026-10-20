@@ -114,10 +114,6 @@ func (f *fuenteRolSeleccionOfertaCTDesarrollo) ObtenerInstantaneaAutorizacion(ct
 	return i, nil
 }
 
-func concesionExactaSeleccionOfertaCTDesarrollo(c core.ConcesionRol) bool {
-	return concesionExactaPerfilOfertaCTDesarrollo(c, politicaVinculoOfertaCTDesarrollo())
-}
-
 func concesionExactaPerfilOfertaCTDesarrollo(c core.ConcesionRol, p politicaPerfilOfertaCTDesarrollo) bool {
 	return c.Accion == p.accion && c.ModuloID == p.modulo && c.TipoRecurso == p.tipo &&
 		len(c.Finalidades) == 1 && c.Finalidades[0] == p.finalidad &&
