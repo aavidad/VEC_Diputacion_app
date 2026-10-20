@@ -71,6 +71,8 @@ La confianza externa publicada dura 89 días en esta copia de desarrollo.
 | Mi Bolsa con certificado del candidato, antes del reinicio | 200; esquema de Mi Bolsa v1; participaciones vacías |
 | La misma consulta después de reiniciar aplicación y PostgreSQL | 200; mismo esquema y participaciones vacías |
 | Mi Bolsa con certificado de RRHH | 401 en la autenticación externa |
+| Chrome del sistema, Mi Bolsa tras reiniciar | Pantalla 200; Mi Bolsa e historial 200; aviso de participaciones vacías |
+| Orden de bolsas en esa cuenta | 403, con aviso visible de falta de permiso |
 | Motivo de Mi Bolsa publicado, por su LOGIN externo nominal | `true` |
 | Catálogo ajeno, por ese LOGIN | Rechazado con `42501` |
 | Motivo documental del justificante en esta copia | No está publicado; no hay comprobación positiva de ese motivo |
