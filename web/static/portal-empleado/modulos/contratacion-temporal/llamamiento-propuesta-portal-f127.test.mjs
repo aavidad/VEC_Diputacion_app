@@ -18,11 +18,6 @@ const resultado = (participaciones = [persona()]) => ({ vinculos: [{ bolsa_ref: 
   siguiente_cursor: null, total_vinculos: 1, personas_solicitadas: 1, aceptaciones_firmes: 1 });
 const contexto = (bolsa) => ({ expediente_ref: EXPEDIENTE, version_esperada: 6,
   numero_personas: 1, resultado_bolsa: bolsa });
-const solicitud = () => ({ fuente_respuesta: "portal", clave_idempotencia: CLAVE,
-  expediente_ref: EXPEDIENTE, bolsa_ref: "bolsa:portal:001", llamamiento_ref: LLAMAMIENTO,
-  recibo_emision_ref: `recibo:${LLAMAMIENTO}`, participacion_ref: "participacion:portal:001",
-  recibo_respuesta_ref: respuesta, respuesta: "aceptacion", revision_respuesta_rrhh: true,
-  revision_plazo_rrhh: true, criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906" });
 const recibo = (estado_local = "confirmado") => ({ esquema: "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1",
   fuente_respuesta: "portal", respuesta: "aceptacion", estado_plazo: "revision_manual_portal",
   estado_local, resolucion_ref: "resolucion:portal:001", recibo_local_ref: "recibo:ct:portal:001",
@@ -111,4 +106,20 @@ test("la proyección rechaza datos extra, renuncia y disponibilidad contradictor
     assert.throws(() => validarResultadoBolsaCT(resultado([{ ...persona(false), resolucion_ct: { ...proyeccion(), ...cambio } }])));
   }
   assert.throws(() => validarResultadoBolsaCT(resultado([{ ...persona(), resolucion_ct: proyeccion() }])));
+});
+
+test("avanzar el mismo expediente cancela la preparación pendiente sin otra propuesta", async () => {
+  const raiz = raizPrueba(); let signal, liberar;
+  const cerrar = montar(raiz, { prepararPropuestaFormalizacion: async () => assert.fail("sin acto") }, {
+    contexto: contexto(recuperado()), fetchPublicaciones: async (_, opciones) => {
+      signal = opciones.signal;
+      return new Promise((resolver) => { liberar = resolver; });
+    },
+  });
+  assert.equal(cerrar.actualizarContexto({ ...contexto(recuperado()), version_esperada: 7 }), true);
+  assert.equal(signal.aborted, true);
+  liberar(await publicaciones());
+  await esperar();
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  cerrar();
 });
