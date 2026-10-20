@@ -1,0 +1,40 @@
+{
+  "modulo_id": "personal",
+  "referencia": "fuente:personal:organizacion_historica_rrhh",
+  "version": 1,
+  "huella_sha256": "cd8b8fa94164b578c914b4e29663d433d81f99ebffe297fd6e83399bfefdd5c8",
+  "entradas_canon": "[{\"referencia\":\"accion:personal.organizacion_historica.consultar\",\"version\":1,\"fuente_ref\":\"fuente:personal:organizacion_historica_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"personal.organizacion_historica.consultar\",\"modulo_id\":\"personal\",\"tipo_recurso\":\"organizacion_historica\",\"finalidades\":[\"consultar_organizacion_historica\"],\"garantia_minima\":\"sustancial\",\"campos_permitidos\":[\"dotaciones\",\"plazas\",\"puestos_individuales\",\"puestos_tipo\",\"unidades\",\"vinculos\"]},\"dimensiones_ambito\":[\"organismo_ref\",\"unidad_clave\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-20T00:00:00Z\",\"vigente_hasta\":\"2027-10-20T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:personal.organizacion_historica.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:personal:organizacion_historica_rrhh",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "cd8b8fa94164b578c914b4e29663d433d81f99ebffe297fd6e83399bfefdd5c8",
+      "concesion": {
+        "accion": "personal.organizacion_historica.consultar",
+        "modulo_id": "personal",
+        "tipo_recurso": "organizacion_historica",
+        "finalidades": [
+          "consultar_organizacion_historica"
+        ],
+        "garantia_minima": "sustancial",
+        "campos_permitidos": [
+          "dotaciones",
+          "plazas",
+          "puestos_individuales",
+          "puestos_tipo",
+          "unidades",
+          "vinculos"
+        ]
+      },
+      "dimensiones_ambito": [
+        "organismo_ref",
+        "unidad_clave"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-20T00:00:00Z",
+      "vigente_hasta": "2027-10-20T00:00:00Z"
+    }
+  ]
+}
