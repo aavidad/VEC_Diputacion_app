@@ -1118,6 +1118,7 @@ export function montarFormularioLlamamiento({
     } finally {
       paso.ocupado = false;
       paso.controlador = null;
+      if (!montado) return;
       repintar();
       raiz.querySelector(`[data-ct-portal-estado="${indice}"]`)?.focus?.();
       try { anunciar(t(paso.mensaje), paso.tono); } catch { /* La región viva permanece. */ }
