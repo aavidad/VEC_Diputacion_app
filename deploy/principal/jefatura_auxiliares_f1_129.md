@@ -50,10 +50,31 @@ responden correctamente y que no se emiten estas cinco peticiones:
 | GET | `bolsa/bolsas` como contexto de la ficha |
 
 La ficha no ofrece las acciones de preparación ni cancelación. Las descargas
-del panel de firma siguen por su cliente propio. Comprobar además el montaje
+del panel de firma siguen por su cliente propio. La tarjeta Documentos no
+queda vacía: se muestra al llegar una descarga firmada y custodiada válida.
+Comprobar además el montaje
 de RRHH, el resumen de Inicio, el teclado y la ausencia de desbordamiento.
 Tras reiniciar aplicación y PostgreSQL, repetir las lecturas de recuperación.
 
 Preferencias e imagen propias permanecen en el portal. Su vínculo de identidad
 y sus permisos en la copia corresponden a F1-130; su respuesta no se oculta ni
 se presenta como resuelta en este corte.
+
+## Contraste del perfil técnico
+
+En la copia de aceptación, documentar el control con esta descripción:
+«control sin la configuración nominal R5; con R5 el certificado técnico
+resuelve a ct_cargo_tecnico_firma_dev».
+
+Para ese contraste, conservar una copia privada exacta de la configuración,
+parar la instancia por la fábrica y apagar solo `VEC_CT_FIRMA_VEC_R5_ENABLED`.
+Registrar su huella real y arrancar por el procedimiento oficial. La sesión
+observada debe devolver `tecnico_rrhh`; comprobar sus consultas de tramitación.
+Después parar, restaurar los bytes originales y su huella real, y volver a
+arrancar. Confirmar el rol único de Jefatura y que binario, plan y recibos
+siguen iguales. No crear otro certificado ni repetir actos o publicaciones.
+
+El zoom al 200 % se comprueba con el ajuste nativo de Chrome, sin `zoom` CSS.
+Registrar ancho de ventana, `innerWidth` y `devicePixelRatio`. Abrir solo el
+bloque desplegable de firma para comprobar su contenido; no ejecutar firmas
+ni operaciones de negocio al verificar estas cargas de lectura.

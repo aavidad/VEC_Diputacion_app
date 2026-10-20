@@ -56,7 +56,8 @@ test("la ficha de firmante conserva el detalle y oculta los paneles auxiliares",
   await presentador.cargar(); await presentador.seleccionarExpediente(REF);
   const conCapacidades=new Proxy(presentador,{get(objeto,clave){return clave==="resolverDisponibilidadOpcional"
     ?()=>({estado:"montado"}):Reflect.get(objeto,clave)}});
-  const zonas={"[data-ct-exp-documentos-comun]":{hidden:false},"[data-ct-exp-borradores-publicados]":{hidden:false},
+  const tarjetaDocumentos={hidden:false,dataset:{}};
+  const zonas={".ct-exp-ficha-documentos":tarjetaDocumentos,"[data-ct-exp-documentos-comun]":{hidden:false},"[data-ct-exp-borradores-publicados]":{hidden:false},
     "[data-ct-exp-borradores-legados]":{hidden:false},"[data-ct-exp-vista=\"alta\"]":{hidden:false},"[data-ct-exp-vista=\"documentos\"]":{hidden:false}};
   const raiz={innerHTML:"",addEventListener(){},removeEventListener(){},querySelector:selector=>zonas[selector]??null,
     contains:()=>true};
@@ -68,6 +69,9 @@ test("la ficha de firmante conserva el detalle y oculta los paneles auxiliares",
     assert.equal(presentador.obtenerEstado().vista,"expediente");
     assert.match(raiz.innerHTML,/data-ct-exp-vista="expediente"/u);
     assert.match(raiz.innerHTML,/data-ct-exp-ancla-firma/u);
+    assert.match(raiz.innerHTML,/class="panel ct-exp-ficha-documentos"[^]*<\/section>\s*<div data-ct-exp-ancla-firma hidden>/u);
+    assert.equal(tarjetaDocumentos.hidden,true);
+    assert.equal(Object.hasOwn(tarjetaDocumentos.dataset,"ctSoloFirmante"),true);
     assert.equal(zonas["[data-ct-exp-documentos-comun]"].hidden,true);
     assert.equal(zonas["[data-ct-exp-borradores-publicados]"].hidden,true);
     assert.equal(zonas["[data-ct-exp-borradores-legados]"].hidden,true);
