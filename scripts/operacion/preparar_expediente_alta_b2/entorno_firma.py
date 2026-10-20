@@ -36,9 +36,8 @@ def privado(path, root):
 
 
 def fuentes(root):
-    paths = {"tecnico": (root / "material/mtls/cliente.p12",
-                         root / "material/mtls/cliente.p12.password")}
-    for role in ROLES[1:]:
+    paths = {}
+    for role in ROLES:
         folder = root / "recorrido/firmantes/certificados" / ("rrhh_" + role)
         paths[role] = (folder / "cliente.p12", folder / "pkcs12.password")
     for p12, password in paths.values():
