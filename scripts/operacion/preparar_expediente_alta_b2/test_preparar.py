@@ -89,18 +89,13 @@ class CanonTrasReinicio(unittest.TestCase):
             with self.assertRaisesRegex(Corte, "cinco códigos"):
                 datos_ejercicio(args)
 
-    def test_fuente_nativa_exige_b110_ad261_bolsa_unica_y_m10(self):
+    def test_fuente_nativa_exige_b110_ad261_bolsa_unica_y_consulta_personal(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             config = root / "config/personal-b2/servidor.json"
-            config.parent.mkdir(parents=True)
-            config.write_text('{"personal_b2":{"organismo_ref":"org:uno"}}')
-            (root / "config/cliente_m10_ct.json").write_text(json.dumps({
-                "version": 1, "organismo_ref": "org:uno", "origen": "https://127.0.0.1:18446",
-                "directorio": "/privado", "autoridad_ca": "/privado/ca",
-                "certificado_cliente": "/privado/cert", "clave_cliente": "/privado/key"}))
             launcher = root / "arrancar.sh"
-            launcher.write_text("export VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH=/vec-incorporacion/cliente_m10_ct.json\n")
+            launcher.write_text("export VEC_ORGANIZACION_HISTORICA_CONSULTA_ENABLED=true\n"
+                                "export VEC_ORGANIZACION_HISTORICA_MATERIAL_DIR=/material-oh\n")
             args = SimpleNamespace(config=config, launcher=launcher, origen="https://127.0.0.1:18446")
             with patch("preparar.lectura_db", return_value=["1|1|1"]) as lectura:
                 comprobar_fuente_bolsa_ct(args)
@@ -108,6 +103,15 @@ class CanonTrasReinicio(unittest.TestCase):
             self.assertIn("bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk", lectura.call_args.args[1])
             with patch("preparar.lectura_db", return_value=["1|1|2"]):
                 with self.assertRaisesRegex(Corte, "Bolsa Administrativo"):
+                    comprobar_fuente_bolsa_ct(args)
+            launcher.write_text("export VEC_ORGANIZACION_HISTORICA_CONSULTA_ENABLED=false\n"
+                                "export VEC_ORGANIZACION_HISTORICA_MATERIAL_DIR=/material-oh\n")
+            with patch("preparar.lectura_db", return_value=["1|1|1"]):
+                with self.assertRaisesRegex(Corte, "consulta histórica de Personal activada"):
+                    comprobar_fuente_bolsa_ct(args)
+            launcher.write_text("export VEC_ORGANIZACION_HISTORICA_CONSULTA_ENABLED=true\n")
+            with patch("preparar.lectura_db", return_value=["1|1|1"]):
+                with self.assertRaisesRegex(Corte, "material privado de consulta histórica"):
                     comprobar_fuente_bolsa_ct(args)
 
     def test_relevo_cese_exige_selectores_y_dsn_sin_imprimirlo(self):

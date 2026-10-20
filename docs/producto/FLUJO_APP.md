@@ -909,8 +909,10 @@ pantalla son las actuales.
 
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
-(`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
-arranca). Exige que la solicitud conserve la necesidad de la RPT publicada.
+y la consulta de puestos de Personal en proceso. F1-104 liga esa consulta al
+perfil de Personal de la misma cuenta que tramita la selección, con sus
+ámbitos y su recibo de auditoría. Sin la consulta configurada responde 503
+y el resto arranca. Exige que la solicitud conserve la necesidad de la RPT publicada.
 Lo que hay en cidonia todavía usa el puente anterior.
 
 El primer corte de la conexión añade a Bolsa el inicio de plazo por publicación

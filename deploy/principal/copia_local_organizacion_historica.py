@@ -2,8 +2,8 @@
 
 La ficha del expediente llama a la siguiente persona de la bolsa constituida.
 Para emitir, Contratación consulta el puesto de la RPT en la Organización
-histórica de Personal con el cliente M10 y el certificado de la técnica de
-RRHH. En una copia nueva faltaba todo: el permiso, el montaje de la consulta
+histórica de Personal con el perfil de consulta de la misma cuenta de
+RRHH, mediante el puerto en proceso. En una copia nueva faltaba todo: el permiso, el montaje de la consulta
 en el proceso combinado y el cliente. Contratación respondía 409.
 
 Este módulo deja la copia como la describe
@@ -13,7 +13,7 @@ Este módulo deja la copia como la describe
   con la concesión de la fuente versionada, perfil nuevo de la técnica con su
   vínculo de contexto y su vínculo corporativo (gemelos de los de su perfil de
   Bolsa), asignación con organismo y unidades exactos, catálogo de cuatro
-  motivos, cuatro LOGIN propios, cliente M10 y selector de gobierno OH. Es
+  motivos, cuatro LOGIN propios y selector de gobierno OH. Es
   semilla de copia con procedencia no autoritativa, como los demás roles
   sembrados; no es un acto de Administración (F0-37).
 - `preparar_material` (con la aplicación ya publicada): deriva la clave OH con
@@ -45,7 +45,6 @@ PUBLICADOR = 'seguridad:desarrollo:no-autoritativa'
 DIAS_ASIGNACION = 89
 CERO_GO = '0001-01-01T00:00:00Z'
 DIRECTORIO = 'organizacion-historica'
-CLIENTE_M10 = 'cliente_m10_ct.json'
 SEMILLA = 'organizacion-historica-semilla.json'
 REFERENCIA = re.compile(r'(per|cta|prf|vca|vcr|prc|org)_[A-Za-z0-9_-]{22,128}')
 
@@ -310,13 +309,7 @@ def sembrar(copia, repo):
         'contextos': {contexto['cuenta_ref']: {'perfil_activo_ref': refs['perfil'], 'perfil_version': 1,
                                                'organismo_ref': organismo_ref, 'unidad_clave': ''}}},
         ensure_ascii=False) + '\n')
-    _escribir(copia.raiz / CLIENTE_M10, json.dumps({
-        'version': 1, 'organismo_ref': organismo_ref, 'origen': f"https://localhost:{estado['puerto_app']}",
-        'directorio': str(copia.material), 'autoridad_ca': 'ca/ca.crt',
-        'certificado_cliente': 'mtls/cliente.crt', 'clave_cliente': 'mtls/cliente.key',
-        'maximo_bytes_pagina': 1048576}) + '\n')
-    nuevo.update(VEC_ORGANIZACION_HISTORICA_GOBIERNO_ENABLED='true',
-                 VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH=str(copia.raiz / CLIENTE_M10))
+    nuevo.update(VEC_ORGANIZACION_HISTORICA_GOBIERNO_ENABLED='true')
     guardar(entorno, nuevo)
     estado['entorno_modulos_sha256'] = sha256(entorno)
     guardar(copia.estado, estado)

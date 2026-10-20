@@ -566,11 +566,13 @@ consulta, y la selección fallaba.
   Los pasos (perfil con sus seis campos, motivos, material y cuatro conexiones)
   están en el guion `deploy/principal/organizacion_historica_combinado_20261015.md`
   de esa PR. Las fechas de los motivos llevan seis decimales.
-- La lectura de Personal para Contratación (M10) sigue
-  `candidata_hz39/personal/LEEME.md`. Copia del material privado el cliente
-  `cliente_m10_ct.json` y cambia su origen al puerto de tu propio servicio; el
-  que trae apunta al de otro equipo. `VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`
-  apunta a esa fuente.
+- F1-104 conecta Contratación con el servicio de Personal dentro del proceso.
+  Cada técnica usa su cuenta y su perfil de consulta, con las unidades de su
+  asignación. No se prepara un cliente HTTP ni un certificado fijo para esta
+  lectura. `--segundo-rrhh` añade un segundo perfil de consulta en la copia,
+  después de proyectar sus vínculos propios y antes de preparar el material.
+  Ambos perfiles pueden consultar el centro 520; otro centro debe dar 403.
+  Son semillas ficticias no autoritativas, sin valor de publicación administrativa.
 - Unidad gestora y unidad del puesto: el puesto 9/01 de la semilla es de
   `unidad:centro:520` y la unidad gestora de Contratación es la de RRHH. Hasta
   que entre F1-21 (#1153), la selección rechaza ese puesto. No cambies el dato
@@ -603,8 +605,8 @@ consulta, y la selección fallaba.
      (`organizacion_historica_semilla_sha256`).
   2. Crea cuatro LOGIN propios (Personal, fuente y registro de autorización y
      motivos), la fila de origen del consumo de Personal (AD172), el catálogo
-     de cuatro motivos, el cliente `cliente_m10_ct.json` con el puerto de la
-     copia y `VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`.
+     de cuatro motivos y los selectores de Organización histórica. La consulta
+     de Contratación usa el perfil de Personal de la misma cuenta en proceso.
   3. Con la aplicación ya arrancada, deriva la clave con
      `vec-preparar-material-interno` (con un LOGIN de gobierno que solo vive
      mientras dura ese paso), escribe `organizacion_historica_combinado.json`,
@@ -794,7 +796,7 @@ mismo volcado y las listas necesarias.
 | Mi Bolsa responde 403 a Antonio | Su permiso estaba ligado a la candidatura de la bolsa sustituida | Arreglado en F1-99: la copia crea su identidad ligada a la candidatura vigente (apartado 2) |
 | Registrar una llamada o ver los contactos de una participación da 503 | Faltaba la conexión del calendario oficial | Arreglado en F1-99: `VEC_CALENDARIOS_DATABASE_URL` (apartado 2) |
 | El aviso del llamamiento no llega al buzón | La participación no tenía datos de contacto | Arreglado en F1-99: la copia registra un correo `@example.test` (apartado 2) |
-| El cliente de Personal (M10) llama a un puerto ajeno | `cliente_m10_ct.json` copiado sin cambiar | Apuntarlo a tu servicio |
+| La selección no puede consultar Personal | Falta el montaje o el perfil de consulta de la cuenta | Revisar la configuración de Organización histórica y su asignación; no usar otro certificado |
 | La consulta de firmas da 503 con «autenticación histórica inválida» | Falta IS20 | Aplicar la lista 1b |
 | El contenedor de la app no arranca al montar `/app` en solo lectura y `/app/var` en escritura | Falta la carpeta `var/` en tu carpeta de trabajo | Crea `var/` en tu carpeta de trabajo antes de montar (lo vio T el 16/10) |
 | Rechazo de una fecha que es el mismo instante | Representación distinta: AUT32 compara texto con el canon nominal; CA25 y los motivos de Organización histórica exigen seis decimales | Generar las fechas en el formato canónico de cada guarda; corregir el dato de la copia |
