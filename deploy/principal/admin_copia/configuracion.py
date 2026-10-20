@@ -82,18 +82,25 @@ def validar_kit(kit, revision, sid, puerto_admin, catalogo):
            'manifiesto de fuentes alterado')
     for name, sha in manifest.get('textos_sha256', {}).items():
         exigir(name in ('arranque.py', 'configuracion.py', 'guardar_preimagen.py',
-                       'preparar_fixture.py', 'plantilla-config.json',
-                       'fixture-admin-hz37.sql.in', 'derivar_raiz_test.go') and
+                       'preparar_fixture.py', 'preparar_gobierno.py',
+                       'preparar_lote_plan.py', 'preparar_relevo_logins.py',
+                       'preparar_runtime.py', 'preparar_vec_admin.py',
+                       'preparar_overlay_externo.py', 'plantilla-config.json',
+                       'plantilla-runtime.json', 'fixture-admin-hz37.sql.in',
+                       'derivar_raiz_test.go') and
                digest(archivo(kit / name)) == sha, 'texto del kit divergente')
-    exigir(len(manifest.get('textos_sha256', {})) == 7, 'textos del kit incompletos')
+    exigir(len(manifest.get('textos_sha256', {})) == 14, 'textos del kit incompletos')
     for name in BINARIOS:
         relative = 'bin/' + name
         exigir(manifest.get('binarios_sha256', {}).get(relative) == digest(archivo(kit / relative)),
                'binario del kit divergente')
     for name, sha in contract.get('scripts_sha256', {}).items():
-        exigir(name in ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py') and
+        exigir(name in ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py',
+                       'preparar_gobierno.py', 'preparar_lote_plan.py',
+                       'preparar_relevo_logins.py', 'preparar_runtime.py',
+                       'preparar_vec_admin.py', 'preparar_overlay_externo.py') and
                digest(kit / name) == sha, 'script de contrato divergente')
-    exigir(len(contract.get('scripts_sha256', {})) == 3, 'scripts de contrato incompletos')
+    exigir(len(contract.get('scripts_sha256', {})) == 9, 'scripts de contrato incompletos')
     for name, sha in contract.get('bin_sha256', {}).items():
         exigir(name in ('bin/h-root-seed.test', 'bin/vec-gobierno-usuarios-admin',
                         'bin/vec-admin') and digest(kit / name) == sha,

@@ -18,7 +18,14 @@ TEXTOS = {
     'configuracion.py': 'configuracion.py',
     'guardar_preimagen.py': 'guardar_preimagen.py',
     'preparar_fixture.py': 'preparar_fixture.py',
+    'preparar_gobierno.py': 'preparar_gobierno.py',
+    'preparar_lote_plan.py': 'preparar_lote_plan.py',
+    'preparar_relevo_logins.py': 'preparar_relevo_logins.py',
+    'preparar_runtime.py': 'preparar_runtime.py',
+    'preparar_vec_admin.py': 'preparar_vec_admin.py',
+    'preparar_overlay_externo.py': 'preparar_overlay_externo.py',
     'datos/plantilla_arranque.json': 'plantilla-config.json',
+    'datos/plantilla_runtime.json': 'plantilla-runtime.json',
     'datos/fixture_hz37.sql.in': 'fixture-admin-hz37.sql.in',
     'datos/derivar_raiz_test.go.in': 'derivar_raiz_test.go',
 }
@@ -222,7 +229,10 @@ def crear_kit(args):
             'catalogo_entrada_unidad': args.catalogo_entrada_unidad,
             'puerto_admin': args.puerto_admin, 'encargo_ref': args.encargo_ref,
             'scripts_sha256': {name: digest(output / name) for name in
-                ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py')},
+                ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py',
+                 'preparar_gobierno.py', 'preparar_lote_plan.py',
+                 'preparar_relevo_logins.py', 'preparar_runtime.py',
+                 'preparar_vec_admin.py', 'preparar_overlay_externo.py')},
             'bin_sha256': {'bin/' + name: digest(bin_dir / name) for name in CONTRATO_BIN}}
         guardar(output / 'contrato-copia-local-admin-v1.json', contract)
         manifest['estado'] = 'compilado_sin_actos'

@@ -123,6 +123,36 @@ class KitTest(unittest.TestCase):
             configuracion.validar_kit(root, 'a' * 40, '1234567890123456789',
                                        18443, 'rrhh_centro')
 
+    def test_snapshot_incluye_fuentes_runtime_cotejadas(self):
+        root = Path(__file__).parent / 'admin_copia'
+        revision = 'a' * 40
+        def fake_git(command, **_kwargs):
+            operation = command[3]
+            path = command[-1].split(':', 1)[-1]
+            if operation == 'ls-tree':
+                path = command[-1]
+            source = Path(__file__).parents[2] / path
+            self.assertTrue(source.is_file(), path)
+            raw = source.read_bytes()
+            if operation == 'ls-tree':
+                return f'100644 blob {"0" * 40}\t{path}\n'.encode()
+            if operation == 'cat-file':
+                return str(len(raw)).encode()
+            self.assertEqual(operation, 'show')
+            return raw
+
+        with mock.patch.object(kit, 'ejecutar', side_effect=fake_git):
+            texts = kit.leer_textos_git(self.base, revision)
+        self.assertEqual(len(texts), 14)
+        self.assertEqual(len(set(texts)), 14)
+        runtime = ('preparar_gobierno.py', 'preparar_lote_plan.py',
+                   'preparar_relevo_logins.py', 'preparar_runtime.py',
+                   'preparar_vec_admin.py', 'preparar_overlay_externo.py')
+        for name in runtime:
+            self.assertEqual(texts[name], (root / name).read_bytes())
+        self.assertEqual(texts['plantilla-runtime.json'],
+                         (root / 'datos/plantilla_runtime.json').read_bytes())
+
     def test_configuracion_h10_con_kit_cotejado_sin_aprobaciones(self):
         root = self.base / 'kit'
         root.mkdir(mode=0o700)
@@ -158,7 +188,10 @@ class KitTest(unittest.TestCase):
             'puerto_admin': 18443, 'catalogo_entrada_unidad': 'rrhh_centro',
             'conjunto_capacidades': 7,
             'scripts_sha256': {name: kit.digest(root / name) for name in
-                ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py')},
+                ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py',
+                 'preparar_gobierno.py', 'preparar_lote_plan.py',
+                 'preparar_relevo_logins.py', 'preparar_runtime.py',
+                 'preparar_vec_admin.py', 'preparar_overlay_externo.py')},
             'bin_sha256': {name: bin_hashes[name] for name in
                 ('bin/h-root-seed.test', 'bin/vec-gobierno-usuarios-admin', 'bin/vec-admin')}}
         kit.guardar(root / 'contrato-copia-local-admin-v1.json', contract)
@@ -184,6 +217,7 @@ class KitTest(unittest.TestCase):
             salida=output, dias_organizacion=90, dias_personas=89,
             dias_unidad=89, dias_perfiles=88, dias_ca=400)
         configuracion.preparar(args)
+        self.assertEqual(len(contract['scripts_sha256']), 9)
         loaded = arranque.cargar_config(output / 'config.json')
         self.assertEqual(loaded['fuentes']['ttl_organizacion_segundos'], 90 * 86400)
         self.assertEqual(loaded['bootstrap']['ttl_perfiles_segundos'], 88 * 86400)
