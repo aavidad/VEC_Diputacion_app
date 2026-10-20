@@ -2,7 +2,7 @@
 
 Tarea: TABLERO-CRONOS-DIETAS. Base examinada: `origin/main`, commit
 `cda070a31`. Comprobaciones ejecutadas el 20 de octubre, para la actualización
-del 21. No se ha cambiado código, SQL ni configuración.
+del 21. No se ha cambiado código, SQL ni configuración versionada.
 
 Dietas tiene solicitud propia, cálculo provisional, circuito y correcciones
 conectados a la aplicación. Las pruebas Go de sus 16 paquetes pasan. No está
@@ -11,7 +11,7 @@ propone como «Hecha» por el mero resultado de esas pruebas.
 
 ## Qué significa cada estado
 
-Criterio fijado por dirección en el canal el 20/10, a las 22:06:
+Criterio fijado por dirección en el canal el 20/10, a las 22:10:
 
 - **Fusionada:** código en main, composición raíz, ruta, orden SQL versionado,
   pantalla y pruebas Go positivas. Se añade «sin recorrer en la web».
@@ -39,7 +39,7 @@ la primera línea relevante de cada evidencia.
 | DIE-04. Liquidación durable, rectificación enlazada y PDF exacto | A medias; propuesta construida sin montaje económico | `internal/modules/dietas/application/preparacionliquidacion/preparacion.go:1` declara propuesta local sin efectos; `cmd/vec-dietas/main.go:43` ofrece preparación por terminal. `deploy/postgresql/dietas_borradores/borradores/000012_liquidacion_economica.md:1` es diseño, no migración instalable. Paquete `application/preparacionliquidacion` pasa | Acto económico persistido, instantánea, recibo, rectificación, ruta y pantalla; PDF del acto exacto. La decisión genérica de la etapa «liquidación» no acredita ese efecto |
 | DIE-05. Fiscalización e informes nominales con exportación separada | A medias; etapa montada e informes locales construidos sin montaje nominal | `internal/app/bootstrap/dietas_asignacion_apertura.go:39` incluye fiscalización; `internal/modules/dietas/application/informeperiodo/informe.go:1` limita el informe a paquetes ficticios, sin consulta de expedientes ni autorización. `cmd/vec-dietas/main.go:21` y `:24` ofrecen CSV/PDF. Paquetes `application/informeperiodo` y `adapters/informeperiodo` pasan | Fiscalización del acto económico de DIE-04; lectura nominal paginada, política de campos y autorización/auditoría de exportación; consumidor en el portal |
 | DIE-06. Salida económica con acuse, rechazo y conciliación | No existe el efecto integrado en main | El plan `docs/plan_modulos/dietas.md`, tabla de cortes, exige contrato del receptor; el montaje de `internal/app/bootstrap/dietas_borradores.go:119` termina en el circuito. No se ha localizado envío al receptor, acuse ni conciliación en los consumidores de Dietas | Contrato receptor, lote durable, permisos, acuse, reintento y conciliación. Fiscalizado no significa pagado |
-| DIE-07. Recorrido completo con recibo, negativos y reinicio | A medias | Los 16 paquetes Go pasan; las piezas anteriores conservan los límites descritos. El plan `docs/plan_modulos/dietas.md` exige navegador, PostgreSQL, reintento y recuperación | Completar DIE-02 a DIE-06 y registrar un recorrido sobre una única copia, con reinicio, recibos y revisiones. No hay acta ni captura nueva en este estudio |
+| DIE-07. Recorrido completo con recibo, negativos y reinicio | A medias | Los 16 paquetes Go pasan; las piezas anteriores conservan los límites descritos. El plan `docs/plan_modulos/dietas.md` exige navegador, PostgreSQL, reintento y recuperación | Completar DIE-02 a DIE-06 y registrar un recorrido sobre una única copia, con reinicio, recibos y revisiones. La copia local no permite completar el circuito; véase la comprobación de navegador |
 
 ## Capacidades que ya conviene inventariar por separado
 
@@ -83,20 +83,85 @@ posteriores al volcado de referencia del 14/10: no contiene entradas de
 por `deploy/principal/ensamblado_dietas_test.go:12` y `:61`. Es evidencia del
 orden versionado en main; no se presenta como una lista nueva ni como una
 instalación. La ausencia de entradas en la lista posterior a HZ37 tampoco
-prueba que falten las anteriores en el volcado. Este estudio no ha consultado el inventario instalado de una copia y
-no acredita qué versiones están instaladas allí. No se ha ejecutado SQL.
+prueba que falten las anteriores en el volcado. En la copia restaurada se
+comprobó que existen `vec_dietas.comision_revision` y
+`vec_dietas.cola_circuito_comision`; esa consulta no acredita por sí sola
+las firmas, cuerpos y permisos de todas las migraciones.
 
-La receta `deploy/principal/copia_local.py:609` prepara con `--modulos`
-conexiones de Bolsa y Contratación; esa opción por sí sola no acredita Dietas
-activada. Dirección concedió el turno del equipo d por el canal (20/10, 22:00).
-La orden `crear --equipo d --instancia estudio-dietas-20261021 --modulos
---lista-sql deploy/principal/lista_sql_main_tras_hz37.txt` terminó antes de crear la copia: «Falta
-VEC_COPIA_DATOS_SCRIPT: preparación de datos de su copia». Tampoco está
-definido `VEC_COPIA_ROLES_SCRIPT`. Se solicitaron a dirección los dos
-productores privados que exige la receta. La comprobación web queda pendiente;
-no hay capturas nuevas, contenedor ni base creados. Dirección decidió después
-(20/10, 22:06) no crear copias para este estudio ni ceder rutas privadas. Se
-retira la espera de esos productores. No se han usado copias ni servicios ajenos.
+## Comprobación en copia local, 20/10 a las 22:18
+
+Dirección corrigió a las 22:10 la decisión anterior y pidió comprobar Dietas
+en una copia local sin `--modulos`. Esa opción prepara Bolsa y Contratación,
+no Dietas. Se usó la receta de main sobre la cabeza documental `3b5035e0c`,
+con el mismo código de aplicación que `cda070a31`.
+
+La primera creación sin `--modulos`, con
+`--lista-sql deploy/principal/lista_sql_main_tras_hz37.txt`, restauró el
+volcado HZ37 y sus permisos, pero la instalación posterior terminó con
+`AD278: origen CT nominal incompatible`. No llegó a generar material ni a
+compilar la aplicación. No se alteró la migración ni se omitió su guarda.
+Se borró la instancia incompleta y se restauró de nuevo en el mismo destino,
+sin la lista general, para comprobar la base disponible. No se atribuye a
+esta segunda restauración ninguna migración posterior a HZ37.
+
+La orden utilizada fue `deploy/principal/copia_local.py crear --equipo d
+--instancia estudio-dietas-local-20261021`, con el origen HZ37 autorizado.
+Terminó con salida 0 y anunció la aplicación disponible en 68,84 segundos.
+La copia genera sus certificados y arranca con Dietas apagado. El inventario
+confirmó que no existe ninguna de las once cuentas técnicas de la receta
+actual de Dietas y que falta `identidad/dietas-comisiones.json` en el material
+recién generado.
+
+Con el entorno del proceso de esa copia y solo
+`VEC_DIETAS_BORRADORES_ENABLED=true`, `vec-server comprobar-dietas` terminó
+con salida 1: «faltan conexiones PostgreSQL separadas para borradores de
+dietas». Es una comprobación previa en solo lectura; no se reinició la
+aplicación con configuración incompleta ni se afirma Dietas encendido.
+
+Faltan cuatro conexiones de entorno y siete conexiones del manifiesto, con
+identidades distintas, así como las cuentas, motivos y asignaciones que
+consumen. La composición exige también las cinco variables `VEC_OSRM_*` y
+material de autorización del gobierno común de Contratación
+(`internal/app/bootstrap/dietas_comisiones.go:469` y
+`internal/app/bootstrap/dietas_comprobacion_arranque.go:59`).
+`deploy/principal/03_entorno.md:3` prohíbe repetir el preparador histórico;
+la receta actual de `f4b_acceso_dietas/README.md:12` presupone ocho cuentas
+anteriores y la asignación retirada, ausentes en esta copia. Activar el
+selector o reinstalar las migraciones de tablas no produce ese material.
+No se improvisó otro productor, conforme a la orden de dirección.
+
+Chrome del sistema, manejado con Playwright y el certificado propio de la
+copia, abrió `/portal-empleado/?lang=es#dietas` a 1440 × 1000. La sesión
+respondió 200 y se pintó «Mis dietas y comisiones de servicio». El resultado
+fue el siguiente:
+
+| Paso pedido | Resultado observado |
+| --- | --- |
+| Solicitud | «Nueva comisión de servicio» deshabilitada; el aviso indica que no se han podido consultar las relaciones de Personal |
+| Consulta de borradores | «Consultar borradores registrados» hace la petición real, que responde 503 |
+| Envío | Sin alta disponible; no se envió ninguna comisión ni se obtuvo recibo |
+| Bandeja | Competencias del circuito responde 503; no se acreditó ninguna bandeja operativa |
+| Devolución y reenvío | No ejecutables sin comisión y competencias; no se atribuye ningún acto ni historia |
+
+Las peticiones a `/api/vec/personal/relaciones-dietas`,
+`/api/vec/dietas/route-catalog`, `/api/vec/dietas/comisiones?limit=6` y
+`/api/vec/dietas/comisiones/circuito/competencias` devolvieron 503.
+La consola registró esos fallos, otros 503 de preferencias y un error de
+certificado al cargar un script; no se presenta como recorrido sin errores.
+
+La captura `dietas-local-no-disponible.png` y la instantánea
+`dietas-local-final.yml` se conservan en la evidencia local del equipo,
+fuera de Git. SHA-256 de la captura:
+`ac50072a295faad9aeade3bb72abd3a4ecf7b04baf6a1f1436d88a22518e680d`.
+Se conservan también el inventario y la salida de la comprobación previa,
+sin secretos. La captura acredita la pantalla de indisponibilidad, no la
+funcionalidad de solicitud o circuito.
+
+Tras la comprobación se cerró la sesión propia de Chrome y se ejecutaron
+`copia_local.py parar` y `copia_local.py borrar` para esa instancia, ambas
+con salida 0. Se liberó el turno para C en el canal. No se usaron copias ni
+servicios de otros equipos ni se accedió a cidonia. F4-08 a F4-11 conservan
+«Fusionada, sin recorrer en la web»; F4-12 a F4-14 siguen «Pendiente».
 
 ## Documentación e historial que requieren cautela
 
@@ -142,8 +207,9 @@ con los límites de montaje y recorrido de este estudio.
 `go test -p 6 ./internal/modules/dietas/...` terminó con salida 0: los 16
 paquetes pasaron, sin resultados de caché. Incluye pruebas con dobles de SQL,
 HTTP, Documentos y motor de rutas; no equivale a un ensayo PostgreSQL ni a
-peticiones nominales de navegador. No se ejecutaron pruebas SQL ni órdenes de la terminal de Dietas sobre
-expedientes. La puerta general `GOFLAGS=-p=6 GOMAXPROCS=6
+peticiones nominales de navegador. No se ejecutaron pruebas SQL de Dietas ni actos sobre expedientes; la
+restauración, el intento de lista general y la comprobación previa en solo
+lectura se describen arriba. La puerta general `GOFLAGS=-p=6 GOMAXPROCS=6
 scripts/verificar_calidad.sh` terminó después con salida 0 sobre el mismo
 código de main, sin cambios de comportamiento: incluye pruebas Go normales
 y con detección de carreras, análisis estático, 4.169 pruebas Node positivas
@@ -157,6 +223,6 @@ completó la orden del intento de copia. La revisión confirmó también
 `22805490d`, con la clasificación fijada por dirección y el orden SQL de
 main. Esos dictámenes no acreditan el recorrido web.
 
-Configuración nueva: ninguna. SQL a instalar: ninguno. Activación: ninguna;
-solo cambia este documento. La integración en el tablero, su recuento y la
+Configuración nueva: ninguna. SQL a instalar: ninguno. La copia temporal
+se retiró; solo cambia este documento. La integración en el tablero, su recuento y la
 PR conjunta corresponden a C y dirección.
