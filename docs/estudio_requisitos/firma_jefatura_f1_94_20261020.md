@@ -11,7 +11,7 @@ curso cuando cambia la red del equipo y las da por fallidas con
 `net::ERR_NETWORK_CHANGED`. En el equipo de desarrollo basta con que arranque
 o se borre un contenedor Docker de otra copia: su interfaz gana o pierde una
 dirección IPv6 de enlace y Chrome lo trata como un cambio de red. En una
-oficina pasa lo mismo al conectar o desconectar una red o una VPN.
+oficina pasa lo mismo al cambiar de wifi o de conexión remota.
 
 Lo que se vio en F1-32 encaja con esto y no con una cancelación de la página:
 
@@ -47,16 +47,21 @@ En `circuito-firma-acciones.js`:
 - Un registro enviado ya no depende de la señal de la sesión de firma.
   «Comprobar», el repintado o salir de la ficha no lo cancelan; si la ficha ya
   no está, el resultado no se pinta.
-- Si el envío se queda sin respuesta (`servicio_no_disponible`), se repite
-  solo dos veces, tras 1 s y 3 s, con la misma clave de idempotencia y una
+- Si el envío falla con `servicio_no_disponible` (sin respuesta, un 503 o un
+  código que el cliente no conoce) o agota su plazo de 90 s, se repite solo
+  dos veces, tras 1 s y 3 s, con la misma clave de idempotencia y una
   copia nueva de los mismos bytes. El servidor responde 200 `ya_registrada` si
   ya lo tenía o 201 si no, y nunca guarda dos firmas. Un rechazo del servidor
   (conflicto, firma no verificada, verificación no disponible, acceso
   denegado, resultado no confiable) no se repite.
+- Si mientras tanto se pulsa «Comprobar opciones de firma» en otro
+  documento, ese bloque avisa de que se está registrando otra firma del
+  expediente y pide volver a comprobar cuando termine. Es un texto nuevo del
+  catálogo, en castellano e inglés.
 - Si los tres intentos fallan, el aviso y la recuperación son los de antes:
   la persona pulsa de nuevo y VEC envía el mismo PDF sin volver a firmarlo.
 
-No cambian el servidor, el SQL, los permisos ni los textos. El servidor sigue
+No cambian el servidor, el SQL ni los permisos. El servidor sigue
 anotando como 503 el registro que el navegador abandona; distinguirlo de un
 fallo real queda como mejora del registro técnico.
 

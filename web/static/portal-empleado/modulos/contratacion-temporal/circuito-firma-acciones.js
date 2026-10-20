@@ -55,6 +55,8 @@ const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 // la misma clave y los mismos bytes hacen que el servidor confirme el registro
 // ya hecho (200) o lo haga ahora (201), nunca dos veces.
 const PAUSAS_REINTENTO_REGISTRO_MS = Object.freeze([1000, 3000]);
+// Plazo de cada intento: un envío que no termina no bloquea la ficha para siempre.
+const PLAZO_INTENTO_REGISTRO_MS = 90 * 1000;
 
 function claveError(error) {
   if (["acceso_denegado", "denegado", "recurso_no_encontrado"].includes(error?.codigo)) return "circuito_firma_error_denegado";
@@ -74,6 +76,7 @@ export function crearAccionesFirma({
   autofirma, registrarVec, registrarExterna, alCambiar, entornoDescarga = globalThis,
   crearClave = () => globalThis.crypto.randomUUID(),
   esperar = (ms) => new Promise((resolver) => { globalThis.setTimeout(resolver, ms); }),
+  plazoIntento = (ms) => globalThis.AbortSignal?.timeout?.(ms),
 } = {}) {
   let sesion = null;
   let retirada = false;
@@ -251,9 +254,14 @@ export function crearAccionesFirma({
     for (let i = 0; ; i += 1) {
       const enviada = Object.freeze({ ...intento.datos, firmado: intento.datos.firmado.slice(),
         ...(intento.datos.original ? { original: intento.datos.original.slice() } : {}) });
-      try { return await registro(enviada, {}); }
+      const plazo = plazoIntento(PLAZO_INTENTO_REGISTRO_MS);
+      try { return await registro(enviada, plazo ? { signal: plazo } : {}); }
       catch (error) {
-        if (error?.codigo !== "servicio_no_disponible" || i >= PAUSAS_REINTENTO_REGISTRO_MS.length) throw error;
+        // Agotar el plazo propio no es una cancelación de la persona: el envío queda sin respuesta.
+        const sinRespuesta = error?.codigo === "servicio_no_disponible"
+          || (error?.codigo === "operacion_abortada" && plazo?.aborted === true);
+        if (!sinRespuesta) throw error;
+        if (i >= PAUSAS_REINTENTO_REGISTRO_MS.length) throw { codigo: "servicio_no_disponible" };
       }
       await esperar(PAUSAS_REINTENTO_REGISTRO_MS[i]);
     }
@@ -346,7 +354,7 @@ export function crearAccionesFirma({
       if (envio) {
         // Cancelar la sesión dejaría el registro enviado sin confirmar.
         const aviso = bloque?.querySelector?.("[data-ct-firma-resultado]");
-        if (aviso) { aviso.textContent = t("circuito_firma_registrando"); aviso.focus?.({ preventScroll: true }); }
+        if (aviso) { aviso.textContent = t("circuito_firma_otra_en_curso"); aviso.focus?.({ preventScroll: true }); }
         return;
       }
       if (pendiente && sesion?.bloque === bloque) return;

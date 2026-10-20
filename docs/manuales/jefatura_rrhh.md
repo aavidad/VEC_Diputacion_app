@@ -190,7 +190,7 @@ Una misma persona no puede firmar dos pasos del mismo documento.
 
 Para firmar desde VEC, el equipo necesita GrxFirma 0.0.106 o posterior. Con la 0.0.105, la segunda firma de un documento se rechaza. Informática instala la versión correcta.
 
-Si la red del equipo cambia justo al registrar la firma, por ejemplo al conectar o desconectar una red o una VPN, el navegador corta el envío. VEC lo repite solo hasta dos veces con el mismo PDF, y nunca guarda dos firmas. Si aun así no puede confirmarlo, la pantalla dice «No se ha podido confirmar el registro». Pulse otra vez **Firma con certificado en VEC**: VEC envía el mismo PDF sin firmarlo de nuevo y comprueba si ya estaba registrado.
+Si la red del equipo cambia justo al registrar la firma, por ejemplo al cambiar de wifi o al conectar o desconectar la conexión remota de la Diputación, el navegador corta el envío. VEC lo repite solo hasta dos veces con el mismo PDF, y nunca guarda dos firmas. Si aun así no puede confirmarlo, la pantalla dice «No se ha podido confirmar el registro». Pulse otra vez **Firma con certificado en VEC**: VEC envía el mismo PDF sin firmarlo de nuevo y comprueba si ya estaba registrado.
 
 ### Paso 10. Incorporación
 

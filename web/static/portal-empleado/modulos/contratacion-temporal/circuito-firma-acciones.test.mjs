@@ -312,7 +312,7 @@ test("comprobar otro documento mientras se registra no cancela el envío", async
   const firma = a.manejarClic(e.evento("certificado_vec")); await enVuelo(r);
   await a.manejarClic(evento2("comprobar"));
   assert.notEqual(r.opciones?.signal?.aborted, true); assert.equal(consultas, 1);
-  assert.match(aviso2.textContent, /registrando/u);
+  assert.match(aviso2.textContent, /Se está registrando otra firma/u);
   r.ok(e.recibo); await firma;
   assert.equal(e.contador.confirmaciones, 1); assert.match(e.aviso.textContent, /Firma verificada y registrada/u);
   await a.manejarClic(evento2("comprobar")); assert.equal(consultas, 2);
@@ -337,7 +337,7 @@ test("un registro cortado por la red se repite solo, con la misma clave y una so
   const a = crearAccionesFirma(e.deps);
   await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
   assert.equal(peticiones.length, 2); assert.deepEqual(peticiones[0].s, peticiones[1].s);
-  assert.equal(peticiones[1].s.clave, "clave-prueba-123456789"); assert.equal(peticiones[1].opciones?.signal, undefined);
+  assert.equal(peticiones[1].s.clave, "clave-prueba-123456789"); assert.notEqual(peticiones[1].opciones?.signal?.aborted, true);
   assert.deepEqual(e.contador.pausas, [1000]); assert.equal(e.contador.firmas, 1);
   assert.equal(e.contador.confirmaciones, 1); assert.match(e.aviso.textContent, /Firma verificada y registrada/u);
 });
@@ -351,4 +351,29 @@ test("un rechazo del servidor no se repite solo", async () => {
     assert.equal(llamadas, 1, codigo); assert.deepEqual(e.contador.pausas, [], codigo);
     assert.equal(e.contador.confirmaciones, 0, codigo);
   }
+});
+
+test("un intento que agota su plazo se trata como envío sin respuesta y se repite con la misma clave", async () => {
+  const e = escenario(["certificado_vec"]); const peticiones = [];
+  const plazos = []; e.deps.plazoIntento = (ms) => { const c = new AbortController(); plazos.push({ ms, c }); return c.signal; };
+  e.deps.registrarVec = (s, opciones) => { peticiones.push(s);
+    if (peticiones.length === 1) return new Promise((_, ko) => opciones.signal.addEventListener("abort", () => ko({ codigo: "operacion_abortada" })));
+    return Promise.resolve(e.recibo); };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar"));
+  const firma = a.manejarClic(e.evento("certificado_vec"));
+  for (let i = 0; i < 200 && plazos.length === 0; i += 1) await new Promise((ok) => setTimeout(ok, 1));
+  assert.equal(plazos[0].ms, 90000); plazos[0].c.abort();
+  await firma;
+  assert.equal(peticiones.length, 2); assert.deepEqual(peticiones[0], peticiones[1]);
+  assert.deepEqual(e.contador.pausas, [1000]); assert.equal(e.contador.confirmaciones, 1);
+});
+
+test("una cancelación que no es el plazo propio no se repite", async () => {
+  const e = escenario(["certificado_vec"]); let llamadas = 0;
+  e.deps.plazoIntento = () => new AbortController().signal;
+  e.deps.registrarVec = async () => { llamadas++; throw { codigo: "operacion_abortada" }; };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+  assert.equal(llamadas, 1); assert.deepEqual(e.contador.pausas, []);
 });
