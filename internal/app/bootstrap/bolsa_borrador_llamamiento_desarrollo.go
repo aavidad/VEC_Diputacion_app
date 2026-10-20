@@ -792,6 +792,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		emisor.publicacionOficial, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialPublicacionOficial)
 		if err != nil {
 			slog.Warn("publicacion_oficial_bases_no_habilitada", "etapa", "emisor")
+		} else if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+			[]dominiovec.ReferenciaEntradaCatalogo{motivoPublicacionOficialBases()}, desde) != nil {
+			// Sin su catálogo de motivos publicado, el registro de la decisión
+			// no la admitiría: la ruta queda montada y responde 503.
+			emisor.publicacionOficial = nil
+			slog.Warn("publicacion_oficial_bases_no_habilitada", "etapa", "motivos")
 		}
 	}
 	if emisor.consultaDatosContacto, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaDatosContacto); err != nil {
