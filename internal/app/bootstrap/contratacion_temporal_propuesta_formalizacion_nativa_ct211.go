@@ -20,10 +20,14 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 	a ct.AntecedentePropuestaFormalizacion, p preparacionLlamamientoDesarrollo,
 ) (ct.MaterialPropuestaFormalizacion, error) {
 	vacio := ct.MaterialPropuestaFormalizacion{}
-	if e == nil || e.soporte == nil || ctx == nil || ctx.Err() != nil ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(e.resultadoEmisionNativo) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(e.aceptacionNativa) ||
-		e.actorAceptacionNativa == nil || a.ValidarPara(s) != nil {
+	if e == nil || e.soporte == nil || ctx == nil || ctx.Err() != nil || a.ValidarPara(s) != nil {
+		return vacio, application.ErrResolucionFormalizacionNoAceptada
+	}
+	if dependenciaEsNulaContratacionTemporalDesarrollo(e.resultadoEmisionNativo) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(e.aceptacionNativa) || e.actorAceptacionNativa == nil {
+		if a.Portal != nil {
+			return vacio, application.ErrPropuestaFormalizacionNoDisponible
+		}
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
 	var bolsa, reciboEmision, necesidad, unidad, categoria, clave, participacion string

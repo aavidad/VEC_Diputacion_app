@@ -172,4 +172,8 @@ func TestMaterialPropuestaNativaCTRevalidaPortalConB98YB113(t *testing.T) {
 	if _, err := f.ejecutor.materialPropuestaNativaCT(f.ctx, s, a, p); !errors.Is(err, application.ErrPropuestaFormalizacionNoDisponible) {
 		t.Fatal("error B113 presentado como éxito", err)
 	}
+	f.ejecutor.resultadoEmisionNativo = nil
+	if _, err := f.ejecutor.materialPropuestaNativaCT(f.ctx, s, a, p); !errors.Is(err, application.ErrPropuestaFormalizacionNoDisponible) {
+		t.Fatal("fuente portal ausente clasificada como aceptación inválida", err)
+	}
 }
