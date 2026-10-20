@@ -206,3 +206,5 @@ deploy/postgresql/contratacion_temporal/migraciones/000243_grupo_retencion_detal
 deploy/postgresql/contratacion_temporal/migraciones/000244_fecha_rc_declarada_analisis.up.sql 943e5009eefb8b329d6b871dabdced664c6a175ff5f0b0486ffa6b49b4e3d13f
 # F1-95 — BC15: fachada web de la declaración de publicación oficial (RRHH), tras BC14; deniega (55000) hasta que el núcleo tenga consumir_publicacion_oficial_bases_v1.
 deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql 3418e4c1aebc1c0e5568c67846d460c75e8a5adc15eaf2865b1c684e6b2fb7a8
+# F1-105 — CA48: el cotejo de lectura de Bolsa bloquea cuenta, perfil, vínculo y persona en el orden de la acreditación V3 (sin interbloqueo en la ficha del candidato); tras CA47.
+deploy/postgresql/contexto_actor_v1/migraciones/000048_cotejo_lectura_bolsa_orden_bloqueo.up.sql 9708680221f72a1774d25009f0f73eb09c9ac05df5f0b423f586431c50e41e45

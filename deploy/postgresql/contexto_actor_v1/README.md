@@ -123,6 +123,20 @@ sus ventanas. La primera llamada conserva los locks de contexto hasta el final
 de la transacción; la segunda ya no espera y detecta una expiración ocurrida
 mientras se adquirían locks del consumidor.
 
+Toda función que bloquee punteros actuales de un contexto debe tomarlos en el
+mismo orden que esta acreditación y que el resolutor CA36: cuenta, perfil,
+vínculo de contexto y persona, y después el resto. Dos funciones con órdenes
+distintos se esperan en cruz cuando atienden a la misma persona a la vez, y
+PostgreSQL aborta una con `40P01`. Así fallaba la ficha del candidato de Bolsa
+hasta CA48 (`000048_cotejo_lectura_bolsa_orden_bloqueo.up.sql`, tarea F1-105).
+El cotejo `cotejar_contexto_lectura_bolsa_actual_v1` bloqueaba el vínculo
+antes que la cuenta, mientras la decisión V3 de otra sección de la misma ficha
+acreditaba en el orden común. CA48 solo cambia ese orden: conserva la
+comprobación, la configuración y los permisos de CA43. La prueba
+`pruebas_sql/ca48_orden_bloqueo_lectura_bolsa.sql` comprueba el orden en las
+tres funciones, y `deploy/postgresql/fase1/concurrencia_lectura_bolsa.py`
+reproduce el cruce con dos sesiones reales.
+
 ### Organización corporativa versionada C2.2-A
 
 La migración `000003` incorpora la historia de solo adición y el puntero
