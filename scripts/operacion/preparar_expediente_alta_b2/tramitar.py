@@ -40,6 +40,13 @@ def entrada_privada(path):
 
 
 def destino(args, actor):
+    try:
+        material_info = args.material.stat()
+    except OSError as exc:
+        raise Corte("FALTA: directorio de material no disponible") from exc
+    if (not stat.S_ISDIR(material_info.st_mode) or material_info.st_uid != os.getuid()
+            or stat.S_IMODE(material_info.st_mode) & 0o022):
+        raise Corte("FALTA: directorio de material inseguro")
     cert, key = mTLS(args, actor)
     ca = args.material / "ca/ca.crt"
     if not ca.is_file():
@@ -47,6 +54,10 @@ def destino(args, actor):
     try:
         if any(path.is_symlink() or not path.is_file() for path in (cert, key, ca)):
             raise Corte("FALTA: material mTLS enlazado o inválido")
+        key_info = key.stat()
+        if (not stat.S_ISREG(key_info.st_mode) or key_info.st_uid != os.getuid()
+                or stat.S_IMODE(key_info.st_mode) != 0o600):
+            raise Corte("FALTA: clave mTLS privada insegura")
         if any(path.stat().st_size > 1048576 for path in (cert, ca)):
             raise Corte("FALTA: certificado o CA demasiado grande")
         huellas = [hashlib.sha256(path.read_bytes()).hexdigest() for path in (cert, ca)]
@@ -108,6 +119,10 @@ def tramitar(args):
     input_hash = hashlib.sha256(raw).hexdigest()
     expected = destino(args, actor)
     args.estado.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    parent_info = args.estado.parent.stat()
+    if (not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != os.getuid()
+            or stat.S_IMODE(parent_info.st_mode) & 0o022):
+        raise Corte("FALTA: directorio del estado privado inseguro")
     lock = args.estado.with_name(args.estado.name + ".lock")
     if args.estado.is_symlink() or lock.is_symlink():
         raise Corte("FALTA: estado o bloqueo privado enlazado")

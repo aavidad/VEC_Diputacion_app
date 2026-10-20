@@ -2,6 +2,7 @@
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -17,6 +18,7 @@ class TramitarTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.material = self.root / "material"
         (self.material / "mtls").mkdir(parents=True)
+        self.material.chmod(0o700)
         (self.material / "ca").mkdir()
         for path, content in ((self.material / "mtls/cliente.crt", b"certificado-ficticio"),
                               (self.material / "mtls/cliente.key", b"clave-ficticia"),
@@ -61,6 +63,40 @@ class TramitarTest(unittest.TestCase):
             with self.assertRaises(cliente.Corte):
                 self.run_client()
             post.assert_not_called()
+
+    def test_rechaza_clave_abierta_sin_crear_intencion(self):
+        (self.material / "mtls/cliente.key").chmod(0o644)
+        with patch.object(cliente, "data_http") as post:
+            with self.assertRaisesRegex(cliente.Corte, "clave mTLS privada insegura"):
+                self.run_client()
+            post.assert_not_called()
+        self.assertFalse(self.estado.exists())
+
+    def test_rechaza_directorio_de_estado_abierto_o_ajeno(self):
+        self.root.chmod(0o777)
+        try:
+            with patch.object(cliente, "data_http") as post:
+                with self.assertRaisesRegex(cliente.Corte, "directorio del estado privado inseguro"):
+                    self.run_client()
+                post.assert_not_called()
+            self.assertFalse(self.estado.exists())
+        finally:
+            self.root.chmod(0o700)
+        original_stat = Path.stat
+
+        def uid_ajeno(path, *args, **kwargs):
+            info = original_stat(path, *args, **kwargs)
+            if path == self.root:
+                fields = list(info)
+                fields[4] = os.getuid() + 1
+                return os.stat_result(fields)
+            return info
+
+        with patch.object(Path, "stat", uid_ajeno), patch.object(cliente, "data_http") as post:
+            with self.assertRaisesRegex(cliente.Corte, "directorio del estado privado inseguro"):
+                self.run_client()
+            post.assert_not_called()
+        self.assertFalse(self.estado.exists())
 
     def test_rechaza_cuerpo_alterado_y_respuesta_vacia(self):
         with patch.object(cliente, "data_http", return_value={}):
