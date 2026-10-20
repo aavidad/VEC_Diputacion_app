@@ -794,6 +794,13 @@ lo ejecuta. Las categorías de la RPT se gobiernan en `vec_catalogos_configurabl
 no aquí. Plan del módulo: `docs/plan_modulos/personal.md` y
 `docs/plan_modulos/organizacion_rpt.md`.
 
+F1-104 reutiliza `consultar_organizacion_historica_v1` y su recibo desde el
+puerto en proceso de Contratación. La consulta lleva el perfil de Personal de
+la misma cuenta autenticada, con el organismo y las unidades de su asignación.
+No añade tablas, funciones ni roles PostgreSQL. La semilla de la copia local
+puede preparar un segundo perfil nominal con los vínculos de su propia cuenta;
+no acredita un acto de Administración en producción.
+
 ### 8.5 Autorización (`vec_autorizacion`)
 
 ```mermaid

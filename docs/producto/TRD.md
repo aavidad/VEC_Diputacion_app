@@ -245,7 +245,11 @@ restaura el volcado y sus permisos sin credenciales globales, genera material
 de 90 días y permite reiniciar o borrar una instancia propia. Este primer
 corte arranca el portal con funciones opcionales apagadas; las conexiones y
 actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
-El arranque HTTP no acredita el recorrido funcional.
+F1-119 añade la orden `personal` a la fábrica: genera las conexiones propias,
+publica por el gobierno existente y prepara incorporación B2, categoría RPT,
+GINPIX manual y cese desde una configuración aprobada, sin copiar capacidades
+antiguas. La activación y la semilla no autoritativa de Plantilla están en el
+apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
 
 ### Arranque de Administración
 
@@ -482,6 +486,15 @@ transacción. No se crean fachadas de permisos nuevas para cada lectura. Su esta
 
 ## 6. Autorización
 
+En desarrollo, el cuadro, el detalle y la descarga de Contratación temporal
+usan un perfil estable de lectura de la técnica (F1-114, compuesto en
+F1-124). Reúne sus tres concesiones existentes, con los mismos ámbitos,
+persona y cuenta. Cada petición comprueba la asignación publicada; no cambia
+el rol por consultar ni recupera una asignación revocada. Su preparación en
+la copia usa la vía no autoritativa de perfiles fijos y no sustituye la
+provisión gobernada del uso real. Activación en
+`deploy/principal/comunicaciones_f1_124.md`.
+
 Se deniega por defecto. Solo autoriza una concesión central positiva, exacta y
 vigente para actor, perfil, acción, recurso, ámbito, finalidad, campos y
 obligaciones. Ausencia, lista vacía, ambigüedad, valor desconocido, caducidad,
@@ -548,6 +561,14 @@ y `/cierres`, en `deploy/principal/habilitacion_b1_convoca_20261009.md`). La
 restauración de copias sigue el mismo patrón (`docs/plan_modulos/copias_seguridad.md`).
 
 ### Lecturas y actos
+
+F1-104 conecta la selección de Contratación con Organización histórica de
+Personal mediante un puerto en proceso. Revalida el certificado y la cuenta
+de la petición y selecciona el perfil de consulta propio de esa cuenta, sin
+sumarlo al perfil de Contratación. Conserva la ruta original, la autorización
+y la auditoría de Personal. El cliente M10 con certificado fijo deja de usarse
+en este recorrido. Si falta el montaje de Personal, falla solo la selección.
+
 
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe
   el estado (apartado 7).

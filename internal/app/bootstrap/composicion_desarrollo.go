@@ -571,6 +571,9 @@ func nuevoServidorDesarrollo(
 	ctxOH, cancelarOH := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	montajeOH, errOH := nuevoMontajeOrganizacionHistoricaCombinada(ctxOH, cfg, autoridadContratacion, registradorFrontera)
 	cancelarOH()
+	if autoridadContratacion.configurarPersonalLlamamiento != nil {
+		autoridadContratacion.configurarPersonalLlamamiento(montajeOH)
+	}
 	if errOH != nil && cfg.OrganizacionHistoricaConsultaEnabled != "" && cfg.OrganizacionHistoricaConsultaEnabled != "false" {
 		causa := "capacidad_no_disponible"
 		if errors.Is(errOH, vecports.ErrVinculoCorporativoRRHHNoDisponible) {

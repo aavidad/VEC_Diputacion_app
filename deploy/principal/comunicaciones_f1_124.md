@@ -31,6 +31,14 @@ no lo reintenta.
 
 ## Qué se corrige
 
+La composición incorpora el perfil estable de lectura de F1-114: cuadro,
+detalle y descarga usan las tres concesiones que ya tenían, con la misma
+persona y cuenta. Su asignación deja de cambiar en cada consulta. En la copia
+de desarrollo se prepara con la vía existente de perfiles fijos; es material
+no autoritativo y no acredita provisión por Administración para uso real.
+Una revocación sigue denegada y el arranque no la reactiva. No añade
+configuración ni SQL de permisos.
+
 La consulta de SQL atrapaba los conflictos de serialización e interbloqueos
 (`40001`, `40P01`) y los traducía a `P1405`, el mismo código de algunas
 inconsistencias. CT248 conserva los dos primeros. Go reutiliza la política
