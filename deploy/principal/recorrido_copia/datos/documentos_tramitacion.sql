@@ -102,14 +102,14 @@ BEGIN
  SELECT ra.vigente_hasta
  INTO STRICT hasta
  FROM vec_autorizacion.version_rol r
-   ON r.version_rol_ref='rol:ct_cargo_tecnico_documentos_dev:v1'
  JOIN vec_autorizacion.rol_administrable_exacto_v1 ra
    ON ra.version_rol_ref=r.version_rol_ref
  JOIN vec_autorizacion.control_vigencia_version_rol_actual ca
    ON ca.version_rol_ref=r.version_rol_ref
  JOIN vec_autorizacion.control_vigencia_version_rol cv
    ON cv.version_rol_ref=ca.version_rol_ref AND cv.revision=ca.revision
- WHERE r.rol_id='ct_cargo_tecnico_documentos_dev' AND r.version=1
+ WHERE r.version_rol_ref='rol:ct_cargo_tecnico_documentos_dev:v1'
+   AND r.rol_id='ct_cargo_tecnico_documentos_dev' AND r.version=1
    AND r.huella_sha256=current_setting('vec.f131.docs.rol_sha')
    AND r.documento->>'estado'='publicada' AND cv.estado='habilitada'
    AND cv.huella_sha256=current_setting('vec.f131.docs.control_sha')

@@ -114,6 +114,13 @@ class DocumentosTramitacionTest(unittest.TestCase):
         self.assertIn('pg_control_system()', sql)
         self.assertIn('rol_administrable_exacto_v1', sql)
         self.assertIn("ra.unidad_requerida IS FALSE", sql)
+        self.assertIn("set_config('vec.f131.docs.ctx_hasta'", sql)
+        autorizacion = sql.split('SET LOCAL ROLE vec_autorizacion_propietario;', 1)[1]
+        self.assertIn("current_setting('vec.f131.docs.ctx_hasta',true)", autorizacion)
+        self.assertIn("WHERE r.version_rol_ref='rol:ct_cargo_tecnico_documentos_dev:v1'", autorizacion)
+        self.assertNotIn('FROM vec_autorizacion.version_rol r\n   ON', autorizacion)
+        self.assertNotIn('FROM vec_contexto_actor_v1.', autorizacion)
+        self.assertNotIn('JOIN vec_contexto_actor_v1.', autorizacion)
         self.assertIn("'semilla:ensayo:f131:documentos-tramitacion'", sql)
         self.assertEqual(self.c.leer(self.c.carpeta / 'documentos/tramitacion-acuse.json')['cuenta'], cuenta)
         self.assertEqual(dt.preparar(self.c, rol_documental=ROL, perfiles_reservados={ORIGINAL}), cuenta)
