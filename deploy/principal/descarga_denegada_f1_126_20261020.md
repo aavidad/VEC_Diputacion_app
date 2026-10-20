@@ -1,6 +1,7 @@
 # F1-126: descarga denegada con constancia del intento
 
-Estado: diagnóstico previo. La implementación espera la entrega de F1-58.
+Estado: corrección implementada y regresiones focales verdes. El ensayo
+en una copia nueva y las dos revisiones finales siguen pendientes.
 Encargo de dirección del 20 de octubre, a las 12:13.
 
 ## Fallo reproducido
@@ -34,3 +35,25 @@ la lista existente; no hace falta otra función, permiso humano ni migración.
 - Conservar identidad, recurso, correlación y resultado denegado del intento.
 - Desde Chrome, comprobar la negativa y una descarga autorizada; repetir las
   lecturas tras reiniciar sin firmar de nuevo ni cambiar las concesiones.
+
+## Cambio y comprobación focal
+
+La lista admite ahora la pareja exacta de descarga V2 y acción de consulta.
+El selector de descarga conserva el control del paso del cargo; no se cambia
+el lector, la autorización ni el contenido del PDF.
+
+La prueba de la fábrica real comprueba intento, contexto, recurso,
+correlación y resultado denegado, y mantiene cerradas otras rutas o acciones.
+La prueba HTTP comprueba que un selector denegado no consulta el registro ni
+lee el PDF: devuelve 404 con acuse válido, y 503 si falla la orden, el registro
+o la validación del acuse. Pasaron ambas pruebas y `go vet` de los dos paquetes,
+con Go 1.26.9 y sin acceso a la red.
+
+Semgrep local ejecutó 42 reglas sobre los tres archivos Go sin hallazgos.
+GoSec cargó ambos paquetes y no señaló el archivo de producción modificado;
+registró 83 diagnósticos en otros archivos, fuera del cambio. Su configuración
+oficial excluye los archivos de pruebas. Los informes completos son privados.
+
+CONFIG NUEVA: ninguna. SQL NUEVA: ninguna. La copia de aceptación debe usar
+su propia revisión, materiales y firmas reales; no se alterará la revisión
+registrada de la copia anterior para arrancar otro binario.
