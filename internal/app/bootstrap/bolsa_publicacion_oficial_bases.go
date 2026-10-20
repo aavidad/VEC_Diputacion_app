@@ -81,11 +81,12 @@ type consultaPublicacionesOficialesBolsa struct {
 	repositorio ports.RepositorioPublicacionOficial
 	registrador vp.RegistradorIntentosAuditoria
 	proceso     string
+	ahora       func() time.Time
 }
 
 func (c *consultaPublicacionesOficialesBolsa) ConsultarPublicacionesOficiales(ctx context.Context) (pagina ports.PaginaVersionesPublicacionOficial, fallo error) {
 	if c == nil || c.preparador == nil || c.fuente == nil || c.repositorio == nil || c.registrador == nil ||
-		c.proceso == "" || ctx == nil || ctx.Err() != nil {
+		c.ahora == nil || c.proceso == "" || ctx == nil || ctx.Err() != nil {
 		return pagina, ports.ErrPublicacionOficialNoDisponible
 	}
 	actor, err := c.preparador.contextoRevalidado(ctx)
@@ -109,7 +110,7 @@ func (c *consultaPublicacionesOficialesBolsa) ConsultarPublicacionesOficiales(ct
 			pagina, fallo = ports.PaginaVersionesPublicacionOficial{}, ports.ErrPublicacionOficialNoDisponible
 		}
 	}()
-	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	ahora := c.ahora().UTC().Truncate(time.Microsecond)
 	datos, err := actor.Vinculo.Datos()
 	if err != nil || !actor.Vinculo.VigenteEn(ahora, actor.Resultado) || datos.Superficie != "interna_corporativa" || datos.CuentaPrivilegiada {
 		return pagina, vd.ErrAutorizacionDenegada
@@ -139,7 +140,7 @@ func (c *consultaPublicacionesOficialesBolsa) ConsultarPublicacionesOficiales(ct
 			Recurso: vd.RecursoAutorizable{Referencia: v.ConvocatoriaRef, ModuloID: ports.ModuloPublicacionOficialBases,
 				Tipo: ports.TipoRecursoVersionConvocatoria, Ambitos: map[string]string{"unidad_ref": v.UnidadRef, "ambito_ref": v.AmbitoRef}}})
 	}
-	ahora = time.Now().UTC().Truncate(time.Microsecond)
+	ahora = c.ahora().UTC().Truncate(time.Microsecond)
 	evaluadas, _, err := vd.EvaluarCapacidadesInformativasV3(actor.Vinculo, actor.Resultado, instantanea, consultas, ahora)
 	if err != nil || len(evaluadas) != len(leidas.Items) {
 		return ports.PaginaVersionesPublicacionOficial{}, vd.ErrAutorizacionDenegada
@@ -183,13 +184,13 @@ func (c *consultaPublicacionesOficialesBolsa) auditar(ctx context.Context, actor
 // la fuente y la auditoría; la declaración, además, el emisor de su audiencia.
 func nuevaRutaPublicacionOficialBases(pool *pgxpool.Pool, preparador *preparadorBorradorLlamamientoDesarrollo,
 	emisor *emisorBorradorLlamamientoDesarrollo, fuente vp.FuenteAutorizacion,
-	registrador vp.RegistradorIntentosAuditoria, proceso string,
+	registrador vp.RegistradorIntentosAuditoria, proceso string, ahora func() time.Time,
 ) vechttp.RutaExacta {
 	var consultor bolsahttp.ConsultorPublicacionesOficiales
 	var servicio ports.ServicioPublicacionOficial
 	repositorio, err := postgresbolsa.NuevoRepositorioPublicacionOficialPostgreSQL(pool)
-	if err == nil && preparador != nil && fuente != nil && registrador != nil && proceso == "vec-rrhh" {
-		consultor = &consultaPublicacionesOficialesBolsa{preparador, fuente, repositorio, registrador, proceso}
+	if err == nil && preparador != nil && fuente != nil && registrador != nil && proceso == "vec-rrhh" && ahora != nil {
+		consultor = &consultaPublicacionesOficialesBolsa{preparador, fuente, repositorio, registrador, proceso, ahora}
 	}
 	if err == nil && emisor != nil && emisor.publicacionOficial != nil {
 		if s, e := appbolsa.NuevoServicioPublicacionOficialBases(emisor, repositorio); e == nil {

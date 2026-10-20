@@ -98,6 +98,10 @@ const DATOS_VACIOS = Object.freeze({
 });
 const DATOS_PANEL = DATOS_VACIOS;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
+// Vistas de Bolsa con su propia API: no esperan al cuadro de bolsas ni a la
+// base del panel interno. renderizar() y prepararBolsaBase() usan esta misma
+// lista; si discrepan, la vista se queda en «Comprobando» para siempre.
+const VISTAS_BOLSA_SIN_BASE = Object.freeze(["solicitudes", "meritos", "convocatorias", "publicacion-bases", "alegaciones"]);
 const recursosVistas = new Map();
 const cargasRecursosVistas = new Map();
 const erroresRecursosVistas = new Set();
@@ -1561,8 +1565,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
-    && !vistaBolsaPendienteNoCompuesta(estado.vista);
+  const necesitaBolsaBase = estado.vista !== "portal" && vistaNecesitaBolsa(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
   }
@@ -2029,7 +2032,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "publicacion-bases", "alegaciones"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!VISTAS_BOLSA_SIN_BASE.includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 // La publicación oficial de las bases se ofrece en el menú según responda su
