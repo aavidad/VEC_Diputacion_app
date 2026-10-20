@@ -39,7 +39,7 @@ BEGIN
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
     OR position('registrar_y_consumir_resolucion_manual_ct_v3_atestada' in p.prosrc)=0
     OR position('verificar_aceptacion_nativa_ct_para_ct_v1' in p.prosrc)=0
-    OR position('origen_financiero_o6_ct249_v1' in p.prosrc)=0
+    OR position('origen_seleccion_o6_ct249_v1' in p.prosrc)=0
     OR position('vec_bolsa_llamamientos.respuesta_portal_llamamiento' in p.prosrc)<>0 THEN
   RAISE EXCEPTION 'CT249 prueba: autorización o frontera Bolsa divergente'; END IF;
  IF has_function_privilege('vec_contratacion_temporal_consultor_rrhh',p.oid,'EXECUTE')
@@ -50,16 +50,16 @@ BEGIN
  IF NOT FOUND OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       <> 'fa0fbc6a2069d79af474aa1bc0f6eb7aa3f1f4c6dfb16e9b2661d288126f7968'
+       <> 'a27e9e849cae6debafb3f1ea060a33d9f670aecca031bbb6d1da6bfebc69d799'
     OR position('origen_ct_confirmado' in p.prosrc)=0
     OR position('resolucion_portal_disponible' in p.prosrc)=0
-    OR position('origen_financiero_o6_ct249_v1' in p.prosrc)=0
+    OR position('origen_seleccion_o6_ct249_v1' in p.prosrc)=0
     OR position('r.resolucion_ref IS NULL' in p.prosrc)=0
     OR position('resolucion_ct' in p.prosrc)<>0
     OR position('registrar_y_consumir_resolucion_manual_ct_v3_atestada' in p.prosrc)<>0 THEN
   RAISE EXCEPTION 'CT249 prueba: proyección nominal divergente'; END IF;
  SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
-  'vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)');
+  'vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(jsonb,jsonb,text)');
  IF NOT FOUND OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
     OR p.prosecdef IS NOT FALSE OR p.provolatile<>'i'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
@@ -70,7 +70,7 @@ BEGIN
   RAISE EXCEPTION 'CT249 prueba: ayuda O6 financiera divergente'; END IF;
  IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
    WHERE e.tipo_seleccion='llamamiento' AND e.situacion='confirmada'
-     AND vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+     AND vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(
       e.solicitud_json,e.recibo_json,e.artefacto_canonico) IS NOT TRUE) THEN
   RAISE EXCEPTION 'CT249 prueba: selección O6 confirmada sin prueba financiera original'; END IF;
 END $prueba_ct249$;
@@ -191,7 +191,7 @@ BEGIN
  canon:=vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(artefacto,false);
  IF canon IS NULL OR vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
    artefacto,canon,recibo,vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(recibo)) IS NOT TRUE
-   OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,recibo,canon) IS NOT TRUE THEN
+   OR vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(solicitud,recibo,canon) IS NOT TRUE THEN
   RAISE EXCEPTION 'CT249 prueba: rama neutra canónica rechazada'; END IF;
  valido_neutro:=artefacto; recibo_neutro:=recibo;
  -- Rama ordinaria: retención positiva original, sin marca de no retención.
@@ -211,21 +211,21 @@ BEGIN
  canon:=vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(artefacto,false);
  IF canon IS NULL OR vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
    artefacto,canon,recibo,vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(recibo)) IS NOT TRUE
-   OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,recibo,canon) IS NOT TRUE THEN
+   OR vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(solicitud,recibo,canon) IS NOT TRUE THEN
   RAISE EXCEPTION 'CT249 prueba: rama con retención canónica rechazada'; END IF;
  valido_positivo:=artefacto; recibo_positivo:=recibo;
- IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,
+ IF vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(solicitud,
     jsonb_set(recibo_neutro,'{retencion_seleccion}',ref),
     vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(valido_neutro,false)) IS TRUE
- OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,
+ OR vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(solicitud,
     jsonb_set(recibo_positivo,'{retencion_seleccion}',neutra),canon) IS TRUE
- OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+ OR vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(
     jsonb_set(solicitud,'{necesidad,referencia}','"necesidad:ajena"'::jsonb),recibo_positivo,canon) IS TRUE
  THEN RAISE EXCEPTION 'CT249 prueba: retención o solicitud divergente admitida'; END IF;
  falso:=jsonb_set(valido_positivo,'{huella_artefacto_sha256}',to_jsonb(repeat('f',64)));
- IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,recibo_positivo,
+ IF vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(solicitud,recibo_positivo,
     vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(falso,false)) IS TRUE
- OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,
+ OR vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(solicitud,
     jsonb_set(recibo_positivo,'{llamamiento_ref}','"llamamiento:ajeno"'::jsonb),canon) IS TRUE
  THEN RAISE EXCEPTION 'CT249 prueba: huella o vínculo de recibo divergente admitido'; END IF;
 END $ct249_finanzas$;

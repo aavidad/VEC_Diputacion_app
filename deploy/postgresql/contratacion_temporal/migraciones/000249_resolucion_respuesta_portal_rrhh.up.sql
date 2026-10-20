@@ -19,7 +19,7 @@ BEGIN
  IF NOT FOUND OR t.relowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
     OR t.relrowsecurity IS NOT TRUE OR t.relforcerowsecurity IS NOT TRUE
     OR to_regprocedure('vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
-    OR to_regprocedure('vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(jsonb,jsonb,text)') IS NOT NULL
     OR NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attname='comunicacion_ref' AND a.attnotnull)
     OR EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attname='fuente_respuesta' AND NOT a.attisdropped) THEN
   RAISE EXCEPTION 'CT249: tabla o fuente incompatible' USING ERRCODE='55000'; END IF;
@@ -126,7 +126,7 @@ ALTER TABLE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh
 
 -- Comprueba la cadena original de material/huellas O6 y su rama financiera.
 -- El consumidor aún debe unir la versión O6 al agregado histórico del expediente.
-CREATE FUNCTION vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+CREATE FUNCTION vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(
  p_solicitud jsonb,p_recibo jsonb,p_artefacto text)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER
 SET search_path=pg_catalog,pg_temp AS $f$
@@ -178,7 +178,7 @@ BEGIN
         (p_recibo#>>'{procedencia,evidencia,valida_hasta}')::timestamptz;
 EXCEPTION WHEN data_exception THEN RETURN false;
 END $f$;
-REVOKE ALL ON FUNCTION vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(jsonb,jsonb,text)
  FROM PUBLIC;
 
 CREATE FUNCTION vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(
@@ -314,7 +314,7 @@ BEGIN
     OR agregado#>>'{asignacion,unidad_ref}' IS NULL
     OR e.recibo_json#>>'{necesidad,referencia}' IS NULL THEN
   RAISE EXCEPTION 'CT249: selección nativa divergente' USING ERRCODE='P2492'; END IF;
- IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+ IF vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(
   e.solicitud_json,e.recibo_json,e.artefacto_canonico) IS NOT TRUE THEN
   RAISE EXCEPTION 'CT249: procedencia financiera O6 divergente' USING ERRCODE='P2492'; END IF;
  selector:=jsonb_build_object('organizacion_ref',s->>'OrganizacionRef','expediente_ref',s->>'ExpedienteRef',
@@ -469,7 +469,7 @@ BEGIN
    e.recibo_json->>'organizacion_ref' AS organizacion_recibo,
    e.recibo_json->>'expediente_ref' AS expediente_recibo,
    (e.tipo_seleccion='llamamiento' AND
-    vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+    vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(
      e.solicitud_json,e.recibo_json,e.artefacto_canonico) IS TRUE) AS financiera
   FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
   WHERE e.situacion='confirmada'
@@ -593,7 +593,7 @@ BEGIN
    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       IS DISTINCT FROM 'fa0fbc6a2069d79af474aa1bc0f6eb7aa3f1f4c6dfb16e9b2661d288126f7968' THEN
+       IS DISTINCT FROM 'a27e9e849cae6debafb3f1ea060a33d9f670aecca031bbb6d1da6bfebc69d799' THEN
   RAISE EXCEPTION 'CT249: lector final divergente' USING ERRCODE='55000'; END IF;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex')
      FROM pg_proc q WHERE q.oid=to_regprocedure(
@@ -608,7 +608,7 @@ BEGIN
   AND q.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}') THEN
   RAISE EXCEPTION 'CT249: función portal sin propietario o ACL previstos' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_proc q WHERE q.oid=to_regprocedure(
-  'vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)')
+  'vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(jsonb,jsonb,text)')
   AND q.proowner='vec_contratacion_temporal_propietario'::regrole
   AND q.prosecdef IS FALSE AND q.provolatile='i'
   AND q.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
