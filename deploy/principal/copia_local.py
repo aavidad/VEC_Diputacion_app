@@ -500,6 +500,17 @@ class Copia:
         self.parar()
         self.arrancar()
 
+    def rol_aspirante(self):
+        """Publica el rol del aspirante v3 por actos de Administración (F1-115)."""
+        from copia_local_rol_aspirante import publicar
+        estado = self.leer()
+        verificar_fuente(estado['revision'])
+        memoria()
+        go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
+        entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+        publicar(self, repo=REPO, go=go, entorno_go=entorno_go)
+
     def comprobar(self, comprobar_admin=True, comprobar_modulos=True):
         estado = self.leer()
         contexto = ssl.create_default_context(cafile=str(self.material / 'ca/ca.crt'))
@@ -612,7 +623,8 @@ def migraciones(listas):
 def main():
     os.umask(0o077)
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon', 'firma', 'personal', 'organizacion-historica'])
+    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon', 'firma',
+                                     'personal', 'organizacion-historica', 'rol-aspirante'])
     p.add_argument('--equipo', required=True)
     p.add_argument('--instancia', required=True)
     p.add_argument('--puerto-pg', type=int, default=55481)
@@ -692,6 +704,8 @@ def main():
             if not args.manifiesto_firma or not args.manifiesto_firma.is_absolute():
                 p.error('firma requiere --manifiesto-firma con ruta absoluta')
             copia.firma(args.manifiesto_firma)
+        elif args.orden == 'rol-aspirante':
+            copia.rol_aspirante()
         elif args.orden == 'exportar-clon':
             if not args.archivo_clon:
                 p.error('exportar-clon requiere --archivo-clon absoluto y nuevo')

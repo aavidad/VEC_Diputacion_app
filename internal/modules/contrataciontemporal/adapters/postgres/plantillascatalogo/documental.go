@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	app "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -40,7 +41,7 @@ type ProveedorDocumental struct {
 }
 
 func NuevoProveedorDocumental(pool *pgxpool.Pool, resolver ResolverActor, proveedor ProveedorAutorizacionDocumental, inicial *vecdomain.CatalogoConfigurable, organizacionRef string) (*ProveedorDocumental, error) {
-	if pool == nil || resolver == nil || proveedor == nil || inicial == nil || organizacionRef != organizacionCatalogoCT {
+	if pool == nil || resolver == nil || proveedor == nil || inicial == nil || !domain.ReferenciaOpacaValida(organizacionRef) {
 		return nil, app.ErrNoDisponible
 	}
 	c, err := inicial.ClonarCanonico()
