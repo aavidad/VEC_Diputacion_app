@@ -15,7 +15,7 @@ cada tarea está en el [tablero](TABLERO_TAREAS.md).
 
 Este documento reúne en un solo sitio las reglas de cómo se ven y se usan las pantallas,
 los textos visibles, los PDF y los correos de VEC. Lo leen las personas de RRHH que
-quieran saber cómo se decide el aspecto de la aplicación y los agentes (Claude y Codex)
+quieran saber cómo se decide el aspecto de la aplicación y quienes modifiquen el producto
 antes de tocar `web/static/` o un texto que vaya a leer alguien.
 
 Sustituye a la dirección de diseño del 29/09/2026, a la parte de pantallas del diseño del
@@ -37,7 +37,7 @@ Documentos hermanos de `docs/producto/`, que no se repiten aquí:
 
 Cuando dos reglas chocan:
 
-1. Las órdenes de Alberto más recientes mandan sobre las antiguas. Si una regla de aquí
+1. Las reglas vigentes más recientes prevalecen sobre las anteriores. Si una regla de aquí
    contradice una orden posterior, se aplica la orden y se corrige este documento.
 2. Dentro de este documento, lo que viene de la normativa y del lenguaje claro (secciones
    2, 9 y 13) manda sobre el aspecto (secciones 3 a 7), y el aspecto manda sobre los
@@ -257,7 +257,7 @@ revisan al menos Portal, Bolsa, Personal, Cronos y Dietas en escritorio y móvil
 preferencias las guarda el servidor; no se usa almacenamiento del navegador. Los documentos
 generados tienen plantillas propias y no siguen el tema de la web.
 
-Alberto (30/09): los temas son instalables, no fijos, como los de Joomla. Por ahora solo
+Los temas son instalables y no quedan fijados en el código. Por ahora solo
 hay temas de color elegibles en Preferencias. El instalador llegará con la administración:
 paquete con manifiesto versionado, tokens claro y oscuro, nombres en cada idioma,
 comprobación de contraste WCAG AA y auditoría; un tema en uso solo se desactiva.
@@ -375,7 +375,7 @@ Mientras tanto, todo dato de un PDF debe estar también en la ficha de la pantal
 
 ## 9. Idiomas
 
-Regla de Alberto (29/09/2026): ningún texto ni idioma dentro del código.
+Los textos y los idiomas se mantienen en catálogos para permitir su traducción sin cambiar el código.
 
 - Todo texto visible, validación, estado, ayuda, documento y notificación sale de los
   catálogos de datos por idioma: `web/static/textos/<idioma>/<modulo>.json` (hoy `es` y
@@ -842,8 +842,8 @@ remitiendo aquí.
   regla, la skill remite a este documento y no la redacta de nuevo.
 - La sección 17 se repasa al cerrar cada tanda de pantallas: se quitan los huecos
   resueltos y se añaden los nuevos, con su fichero.
-- Las decisiones nuevas de Alberto sobre pantallas se añaden con su fecha en la sección 2
+- Las decisiones de diseño se añaden con su fecha de vigencia en la sección 2
   o en la que corresponda, y la orden antigua que contradigan pasa a la tabla de
   contradicciones de la sección 17.
-- El texto se repasa con `humanizer` antes de fusionar. Dirección (Claude) comprueba que
+- El texto se repasa con `humanizer` antes de fusionar. La revisión de integración comprueba que
   no contradiga a `PRD.md` ni a `FLUJO_APP.md`.
