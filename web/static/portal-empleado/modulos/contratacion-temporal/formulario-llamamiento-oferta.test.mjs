@@ -122,6 +122,32 @@ test("GET singular primero espera a comunicaciones; error permite recarga y dene
   }
 });
 
+test("un llamamiento anterior elegido no deja visible Reanudar llamamiento", async () => {
+  const raiz = raizPrueba(); let post = 0;
+  const fila = { organizacion_ref: "organizacion:sintetica:001", expediente_ref: EXPEDIENTE,
+    llamamiento_ref: "llamamiento:anterior:001", comunicacion_ref: "comunicacion:anterior:001",
+    version: 2, estado: "registrada_localmente", registrada_en: "2026-10-15T09:00:00Z",
+    recibo_comunicacion_ref: "recibo:comunicacion:anterior:001",
+    antecedente_tipo: "seleccion_confirmada", recibo_antecedente_ref: "recibo:seleccion:anterior:001",
+    estado_respuesta: "sin_respuesta" };
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => intencionSingular(),
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila] }),
+    consultarReciboRespuesta: async () => { throw Object.assign(new Error("ausente"), {
+      estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+    }); },
+    seleccionarLlamamiento: async () => { post++; return reciboSingular; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+  await asentarse();
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+  await click(raiz, "data-ct-comunicacion-indice");
+  await asentarse();
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"|Reanudar llamamiento/u);
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(post, 0);
+  cerrar();
+});
+
 test("la intención singular congelada conserva clave tras error y doble pulsación", async () => {
   const raiz = raizPrueba(), escritas = []; let liberar;
   const cerrar = montar(raiz, {
