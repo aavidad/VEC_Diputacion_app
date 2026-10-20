@@ -754,6 +754,11 @@ export async function montarModuloContratacionTemporal({
       filtroLista,
     });
     if (soloFirmante) {
+      const tarjetaDocumentos = raiz.querySelector(".ct-exp-ficha-documentos");
+      if (tarjetaDocumentos) {
+        tarjetaDocumentos.dataset.ctSoloFirmante = "";
+        tarjetaDocumentos.hidden = true;
+      }
       for (const vista of ["alta", "documentos"]) {
         const control = raiz.querySelector(`[data-ct-exp-vista="${vista}"]`);
         if (control) control.hidden = true;
