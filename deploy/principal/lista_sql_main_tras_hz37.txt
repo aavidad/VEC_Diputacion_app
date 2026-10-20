@@ -230,4 +230,4 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000303_revalidacion_lectu
 deploy/postgresql/contratacion_temporal/migraciones/000248_comunicaciones_carrera_serializable.up.sql 69db0ef6a606738382c3656a5e9aa931454da35fdaa926086bea23b577eb2fc7
 
 # F1-125, primer corte — CT250: origen O6 acreditado de la aceptación firme en la ficha; tras CT201 vigente.
-deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql 4ba743fba6f9b6db7fb71102658bf672e5c3af552470cd401732c3f13716d4ea
+deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql d8267e88e39aa1d32ca6441e8753967c6601d74ce8095c167322d5649cb69b5a
