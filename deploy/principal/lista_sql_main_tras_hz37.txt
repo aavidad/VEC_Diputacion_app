@@ -198,3 +198,5 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sq
 deploy/postgresql/bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879
 # F1-47 — CT242: metadatos actuales de la lectura exacta para segunda revisión de no incorporación; tras CT241.
 deploy/postgresql/contratacion_temporal/migraciones/000242_lectura_revision_no_incorporacion.up.sql 30bae173a84fcd4955e221fe8357b6e00301347928c896d7060f8b36e81208d9
+# F1-98 — CT244: el análisis compara también la fecha civil de la RC declarada por el centro; tras CT242.
+deploy/postgresql/contratacion_temporal/migraciones/000244_fecha_rc_declarada_analisis.up.sql 943e5009eefb8b329d6b871dabdced664c6a175ff5f0b0486ffa6b49b4e3d13f
