@@ -75,6 +75,10 @@ Si se pierde la respuesta de una aplicación, el conductor invoca
 configuración y el mismo plan. La recuperación exige una respuesta marcada
 como repetición y el mismo recibo, con un intento de auditoría nuevo. No se
 debe volver a preparar la fase para recuperar una respuesta incierta.
+La recuperación solo se admite mientras sigan vigentes el plan técnico y la
+configuración del LOGIN. Si vencen antes de aclarar la respuesta, se detiene
+la etapa, se conservan los acuses y se consulta el estado por las lecturas
+autorizadas; dirección decide la continuación por los actos del producto.
 
 ## Límites de este corte
 

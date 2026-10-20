@@ -237,6 +237,39 @@ class ArranqueAdminTest(unittest.TestCase):
                 with self.assertRaisesRegex(arranque.Paro, 'aprobacion_externa_divergente'):
                     arranque.aprobacion(c, 'fuentes', plan)
 
+    def test_aprobacion_rechaza_cualquier_clave_json_duplicada(self):
+        plan = 'a' * 64
+        aprobacion_ref = 'aprobacion:ensayo'
+        backup_ref = 'backup:ensayo'
+        c = {'dba': {'fuentes': {'aprobacion_ref': aprobacion_ref,
+                                'aprobacion_externa': str(self.root / 'externa.json')}},
+             'backup': {'ref': backup_ref}}
+        casos = {
+            'plan_ajeno_antes': [('huella_plan_sha256', 'b' * 64),
+                                 ('huella_plan_sha256', plan),
+                                 ('aprobacion_ref', aprobacion_ref), ('backup_ref', backup_ref)],
+            'plan_ajeno_despues': [('huella_plan_sha256', plan),
+                                   ('huella_plan_sha256', 'b' * 64),
+                                   ('aprobacion_ref', aprobacion_ref), ('backup_ref', backup_ref)],
+            'respaldo': [('huella_plan_sha256', plan),
+                         ('aprobacion_ref', aprobacion_ref), ('backup_ref', 'otro'),
+                         ('backup_ref', backup_ref)],
+            'referencia': [('huella_plan_sha256', plan),
+                           ('aprobacion_ref', 'otra'),
+                           ('aprobacion_ref', aprobacion_ref), ('backup_ref', backup_ref)]}
+        with patch.object(arranque, 'sql') as sql, patch.object(arranque, 'cli') as cli:
+            for nombre, pares in casos.items():
+                with self.subTest(nombre=nombre):
+                    raw = ('{' + ','.join(json.dumps(clave) + ':' + json.dumps(valor)
+                                        for clave, valor in pares) + '}').encode()
+                    path = self.privado('externa.json', raw)
+                    with self.assertRaisesRegex(arranque.Paro, 'json_clave_duplicada'):
+                        arranque.aprobacion(c, 'fuentes', plan)
+                    with self.assertRaisesRegex(arranque.Paro, 'json_clave_duplicada'):
+                        arranque.json_privado(path)
+            sql.assert_not_called()
+            cli.assert_not_called()
+
     def test_preimagen_ya_comprometida_no_se_sustituye(self):
         fase = self.root / 'fuentes'
         fase.mkdir(mode=0o700)
