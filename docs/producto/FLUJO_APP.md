@@ -1232,8 +1232,13 @@ El historial nombra la propuesta, la confirmación y el rechazo.
 3. RRHH cierra el expediente cuando constan cese y GINPIX (`cierres-expediente`),
    o lo cierra sin cese desde seguimiento.
 
-Con la bolsa constituida real el recorrido completo, también tras reiniciar,
-falta acreditarlo (CT213 y B115, equipo K). El justificante del cese aún no se
+Con la bolsa constituida, el cese nativo ya enlaza el cierre de relación y
+ocupación en Personal con Bolsa (CT213 y B115). Reutiliza el anclaje de la
+aceptación y los recibos originales; si queda pendiente, se recupera el mismo
+cese. Falta acreditar el retorno del caso 4.0 y sus consultas tras reiniciar
+(F1-122, equipos S y P). La secuencia y sus límites están en
+[el guion de comprobación](../../deploy/principal/retorno_bolsa_f1_122.md).
+El justificante del cese aún no se
 guarda en Documentos. La variante de cese recibido antes de vincular al
 candidato se ha comprobado en copia local: «Mi Bolsa» muestra «No disponible»
 sin fecha de vuelta y conserva las fechas tras reiniciar. El relevo procesa
