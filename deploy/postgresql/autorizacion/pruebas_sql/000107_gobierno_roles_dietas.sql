@@ -8,11 +8,11 @@ SET LOCAL timezone='UTC';
 SET LOCAL statement_timeout='30s';
 CREATE TEMP TABLE aut107_catalogo (documento jsonb NOT NULL);
 GRANT SELECT ON pg_temp.aut107_catalogo TO vec_autorizacion_propietario;
-CREATE OR REPLACE FUNCTION vec_autorizacion.resolver_catalogo_acciones_administracion_v1(text,integer,text)
+CREATE OR REPLACE FUNCTION vec_autorizacion.resolver_catalogo_acciones_administracion_v1(p_ref text,p_version integer,p_sha text)
 RETURNS bytea LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT convert_to(documento::text,'UTF8') FROM pg_temp.aut107_catalogo
 $f$;
-CREATE OR REPLACE FUNCTION vec_autorizacion.resolver_catalogo_acciones_administracion_v2(text,integer,text)
+CREATE OR REPLACE FUNCTION vec_autorizacion.resolver_catalogo_acciones_administracion_v2(p_ref text,p_version integer,p_sha text)
 RETURNS TABLE(catalogo_canon bytea,paquete_canon bytea)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT convert_to(documento::text,'UTF8'),NULL::bytea FROM pg_temp.aut107_catalogo
