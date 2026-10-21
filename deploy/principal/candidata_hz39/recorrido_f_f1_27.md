@@ -53,7 +53,7 @@ Cada copia genera sus propias claves y recibos desde los formularios.
 | Propuesta, resolución, documentos y tres firmas (12–15) | Pendiente |
 | Reinicio y recuperación de las mismas lecturas y recibos | Pendiente |
 
-E conserva su evidencia hasta el paso 8 y sigue parada. Este ensayo continúa
+La evidencia de E hasta el paso 8 está integrada. Este ensayo continúa
 el caso único de FLUJO_APP.md, apartado 4.0, con la persona y la bolsa de F.
 
 Antes de abrir Chrome, se prepara la confianza local de los cuatro firmantes
@@ -93,3 +93,8 @@ Coincide con la huella del documento firmado del segundo recibo. La instantánea
 privada conserva la versión 6, los dos recibos, sus fechas y los recuentos.
 Esto acredita la lectura anterior a la parada; aún no se ha hecho el reinicio
 de aceptación de F.
+
+E se retiró después de integrar su evidencia y al bajar la memoria disponible
+a 39 GiB. Se usó el gestor público desde su revisión original; sus recibos,
+capturas y documentos privados se conservan. La memoria disponible volvió a
+40 GiB. F permanece intacta y parada.
