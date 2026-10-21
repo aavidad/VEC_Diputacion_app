@@ -258,3 +258,6 @@ deploy/postgresql/contratacion_temporal/migraciones/000260_canon_fecha_historica
 
 # F1-118 — AUT106: normaliza solo el instante cero omitido en roles publicados de cargos de firma; tras AUT105. Conserva documentos, huellas y ACL.
 deploy/postgresql/autorizacion/migraciones/000106_canon_retirada_cargos_firma.up.sql b2722a38c911dc86d9e9af55c569c6e22459e3ee53954cb23671229289e02fe3
+
+# F4-DIETAS-COPIA: AUT107, roles nominales de comisión propia e itinerario.
+deploy/postgresql/autorizacion/migraciones/000107_gobierno_roles_dietas.up.sql 8348e9a0f586d19b42c04afd28a6086048c7ae04ade3cae59d644c975a0e6314

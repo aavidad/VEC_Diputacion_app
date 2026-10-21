@@ -894,6 +894,12 @@ No publica claves, modifica asientos ni repite un acto de administración.
 Con la referencia, el grupo lector puede leer cualquier tramo histórico de
 gobierno, no solo el último; es el mismo dato y el mismo rol técnico.
 
+AUT107 añade dos contratos cerrados al gobierno de roles nuevos: comisión
+propia (relación de Personal, alta y consulta) e itinerarios (catálogo y cálculo).
+Cada uno conserva sus dimensiones de ámbito; requiere propuesta y aprobación
+por personas distintas. La migración no publica ni asigna perfiles, ni abre
+el alta de asignación de Dietas, pendiente del catálogo de validadores.
+
 ### 8.6 ContextoActor (`vec_contexto_actor_v1`)
 
 Resuelve, a partir de la cuenta (`cta_…`) y el perfil (`prf_…`) que ya acreditó la
