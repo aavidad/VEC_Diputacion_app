@@ -23,8 +23,8 @@ BEGIN
     OR (length(definicion)-length(replace(definicion,'-- CT259_GUARD_FECHA_END','')))
       /length('-- CT259_GUARD_FECHA_END')<>1
  THEN RAISE EXCEPTION 'CT259: guarda instalada ausente o duplicada' USING ERRCODE='55000'; END IF;
- guarda:=btrim(split_part(split_part(definicion,'-- CT259_GUARD_FECHA_BEGIN',2),
-   '-- CT259_GUARD_FECHA_END',1));
+ guarda:=btrim(regexp_replace(split_part(split_part(definicion,'-- CT259_GUARD_FECHA_BEGIN',2),
+   '-- CT259_GUARD_FECHA_END',1),'[[:space:]]+',' ','g'));
  IF regexp_replace(guarda,'[[:space:]]+',' ','g') IS DISTINCT FROM
    'OR (canon->>''fecha_historica'')::timestamptz IS DISTINCT FROM (descriptor->>''fecha_historica'')::timestamptz'
  THEN RAISE EXCEPTION 'CT259: guarda instalada inesperada' USING ERRCODE='55000'; END IF;
