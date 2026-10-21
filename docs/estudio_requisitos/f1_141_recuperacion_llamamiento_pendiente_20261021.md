@@ -98,3 +98,37 @@ La copia quedó parada y Chrome cerrado. Falta comprobar en Chrome la selección
 singular nueva desde la candidata corregida y la CI final. No se afirma una
 recuperación singular con autorización real sin configuración de ofertas.
 La candidata todavía no está lista para fusionar.
+
+## Ensayo final con la receta nativa y Go corregido
+
+La candidata `a5d78c211` incorpora main con Go 1.26.10 y la receta de carga
+nativa. La copia completa arrancó en 292,20 segundos. Chrome del sistema,
+a 1440 y 390 píxeles, comprobó el 404 catalogado real de la ruta ausente,
+la selección singular habilitada y ausencia de desbordamiento horizontal.
+
+Los expedientes fiscalizados del volcado son del lote antiguo; el elegido
+rechazó el envío con 409 antes de crear una intención. Se preparó un expediente
+nativo por las pantallas con los perfiles propios de la copia, reutilizando
+solo el código del guion cedido por el equipo que recorre el caso completo.
+
+El primer informe se firmó con el manejador instalado 0.0.105. Su segunda firma
+fue rechazada: el apartado 11 de la receta documenta que esa versión impide
+cofirmar. Se conservó sin alteraciones y se creó otro expediente, `2026/95042`,
+con el manejador cedido y declarado por su huella
+`89a7ecb8bcddd1501873a5debb4fb777f535ca7a62f0cc73be62c927a0403b36`.
+No se acredita una distribución pública ni un compilador actualizado de ese
+manejador; se usó únicamente para las identidades ficticias del ensayo.
+
+El segundo expediente completó petición, ratificación, alta, análisis, vía,
+asignación e informe. Las dos firmas nativas devolvieron 201 y verificación
+técnica válida; ambas conservan `firma_eficaz: false`. La fiscalización
+favorable devolvió 201 y versión 6.
+
+La selección singular real devolvió 503 y dejó la intención en estado
+`indeterminada`, con efecto `solicitar_llamamiento` y ambas ventanas abiertas.
+Un único reintento por la pantalla devolvió también 503. La solicitud original
+se conserva en la pantalla y en el registro privado previo al envío; no se ha
+recargado ni creado otra clave. Se detienen los intentos y se comunica el
+bloqueo a dirección. No se modificaron permisos, firmas, recibos ni datos para
+forzar la selección. No hay comprobación positiva de recibo o reinicio de esta
+operación; la candidata sigue sin estar lista para fusionar.
