@@ -86,3 +86,10 @@ El contenedor se eliminó al terminar. Sin nueva copia ni arranque de aplicació
 
 La PR permanece en borrador hasta las revisiones independientes de autorización;
 dirección organiza la segunda.
+
+La primera revisión detectó que los dos retornos tempranos nuevos usaban texto
+plano. Se corrigieron reutilizando el sobre de error de catálogo existente
+(`servicio_no_disponible`, JSON y cabeceras sin caché); la prueba focal comprueba
+su contrato. Se conserva como deuda anterior la secuencia A–B–A: la caché de
+instantáneas por solicitud puede recuperar una versión antigua después de otra
+operación. La guarda sigue rechazándola; este corte resuelve el solapamiento.

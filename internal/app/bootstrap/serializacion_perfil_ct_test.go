@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -123,5 +124,13 @@ func TestSerializacionPerfilCTFronteraCanceladaNoEjecutaHandler(t *testing.T) {
 	h.ServeHTTP(w, peticionSerializadaPrueba(ctx))
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("estado: %d", w.Code)
+	}
+	var sobre map[string]map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &sobre); err != nil {
+		t.Fatal(err)
+	}
+	if sobre["error"]["codigo"] != "servicio_no_disponible" || sobre["error"]["clave_i18n"] != "api.contratacion_temporal.catalogos_alta.error.servicio_no_disponible" ||
+		w.Header().Get("Content-Type") != "application/json; charset=utf-8" || w.Header().Get("Cache-Control") != "no-store, no-transform" {
+		t.Fatalf("error sin catálogo o cabeceras: %s", w.Body.String())
 	}
 }

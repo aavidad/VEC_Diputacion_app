@@ -246,13 +246,15 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		if principalSinteticoContratacionTemporalDesarrolloValido(principal) {
 			ctxPerfil, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, time.Now().UTC().Truncate(time.Microsecond))
 			if err != nil {
-				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+				prepararCabecerasCatalogosAltaContratacionTemporalDesarrollo(w)
+				responderErrorCatalogosAltaContratacionTemporalDesarrollo(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 				return
 			}
 			var liberar func()
 			ctx, liberar, err = m.autoridad.serializacionPerfiles.adquirir(ctx, ctxPerfil.Resultado.Contexto.PerfilActivoRef)
 			if err != nil {
-				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+				prepararCabecerasCatalogosAltaContratacionTemporalDesarrollo(w)
+				responderErrorCatalogosAltaContratacionTemporalDesarrollo(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 				return
 			}
 			defer liberar()
