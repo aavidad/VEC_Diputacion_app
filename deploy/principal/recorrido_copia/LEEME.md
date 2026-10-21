@@ -65,6 +65,14 @@ Personal usa las referencias
 de la identidad propia y la unidad confirmada. Los empleados de los cuatro
 firmantes se preparan con el guion de datos versionado existente.
 
+Antes del primer arranque, retira de la copia el lote ficticio de Administrativo
+de septiembre que ya contiene el mismo XLS versionado. La limpieza exige la
+huella fijada de HZ37, el identificador de PostgreSQL y una copia nueva; elimina
+solo ese lote y su historia ficticia. Conserva la bolsa vigente y sus entradas.
+Las guardas de inmutabilidad de las tablas afectadas se restauran en la misma
+transacción; las claves foráneas siguen activas. Este guion es preparación de
+datos de desarrollo y no se instala en otra base.
+
 Al terminar los actos, carga por la API normal el XLS de Administrativo de
 `data/demo/bolsa/convoca/administrativo/resumen.xls`. La confirmación sustituye
 la bolsa anterior sin borrar su historia. Después prepara la identidad y el
