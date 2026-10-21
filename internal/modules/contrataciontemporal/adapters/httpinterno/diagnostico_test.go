@@ -132,6 +132,38 @@ func TestDiagnosticoSeleccionReconoceEnvoltorioConIsYCadenaProfunda(t *testing.T
 	}
 }
 
+func TestDiagnosticoSeleccionDescartaMarcadorPublicoYReconoceCriterios(t *testing.T) {
+	anterior := slog.Default()
+	defer slog.SetDefault(anterior)
+	privada := &causaPrivadaSeleccionDiagnosticoPrueba{}
+	for _, caso := range []struct {
+		nombre, esperado string
+		causa            error
+	}{
+		{"privada antes de marcador profundo", "*httpinterno.causaPrivadaSeleccionDiagnosticoPrueba",
+			errors.Join(privada, fmt.Errorf("CONTENIDO_PRIVADO: %w",
+				application.ErrEjecucionSeleccionLlamamientoIndeterminada))},
+		{"solo marcador", "*errors.errorString",
+			fmt.Errorf("%w", application.ErrEjecucionSeleccionLlamamientoIndeterminada)},
+		{"criterios pendientes", "criterios_ofrecimiento_pendientes_rrhh",
+			errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada,
+				ports.ErrCriteriosOfrecimientoPendientesRRHH)},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var registro bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+			registrarFalloContratacion(httptest.NewRequest(http.MethodPost, RutaSeleccionLlamamiento, nil),
+				http.StatusServiceUnavailable, "servicio_no_disponible", "corr_prueba", caso.causa)
+			var entrada map[string]any
+			if err := json.Unmarshal(registro.Bytes(), &entrada); err != nil ||
+				entrada["causa_interna"] != caso.esperado ||
+				strings.Contains(registro.String(), "CONTENIDO_PRIVADO") {
+				t.Fatalf("causa interna incorrecta o dato expuesto: %s %v", registro.String(), err)
+			}
+		})
+	}
+}
+
 func TestDiagnosticoSeleccionIndeterminadaUsaCausaInternaSegura(t *testing.T) {
 	anterior := slog.Default()
 	defer slog.SetDefault(anterior)

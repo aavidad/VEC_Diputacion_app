@@ -141,6 +141,7 @@ func causaInternaSeleccionIndeterminada(causa error) string {
 		{ports.ErrEstadoExpedienteNoSeleccionable, "expediente_no_seleccionable"},
 		{ports.ErrLimiteIntegracionBolsaExcedido, "limite_integracion_bolsa_excedido"},
 		{ports.ErrEvidenciaBolsaNoAutenticada, "evidencia_bolsa_no_autenticada"},
+		{ports.ErrCriteriosOfrecimientoPendientesRRHH, "criterios_ofrecimiento_pendientes_rrhh"},
 		{ports.ErrAutorizacionDenegada, "autorizacion_denegada"},
 		{ports.ErrEjecucionSeleccionLlamamientoInvalida, "ejecucion_seleccion_invalida"},
 		{ports.ErrEjecucionSeleccionLlamamientoPendiente, "ejecucion_seleccion_pendiente"},
@@ -153,7 +154,9 @@ func causaInternaSeleccionIndeterminada(causa error) string {
 	}
 	mejor, profundidadConocida := "", -1
 	var interno error
+	var marcadorPublico error
 	profundidadInterna := -1
+	profundidadMarcador := -1
 	var visitar func(error, int)
 	visitar = func(actual error, profundidad int) {
 		if actual == nil {
@@ -174,11 +177,14 @@ func causaInternaSeleccionIndeterminada(causa error) string {
 				visitar(siguiente, profundidad+1)
 			}
 		}
-		if !descendio && (profundidad > profundidadInterna ||
-			(profundidad == profundidadInterna &&
-				errors.Is(interno, application.ErrEjecucionSeleccionLlamamientoIndeterminada) &&
-				!errors.Is(actual, application.ErrEjecucionSeleccionLlamamientoIndeterminada))) {
-			interno, profundidadInterna = actual, profundidad
+		if !descendio {
+			if errors.Is(actual, application.ErrEjecucionSeleccionLlamamientoIndeterminada) {
+				if profundidad > profundidadMarcador {
+					marcadorPublico, profundidadMarcador = actual, profundidad
+				}
+			} else if profundidad > profundidadInterna {
+				interno, profundidadInterna = actual, profundidad
+			}
 		}
 		if profundidad > profundidadConocida {
 			for _, conocido := range conocidos {
@@ -192,6 +198,9 @@ func causaInternaSeleccionIndeterminada(causa error) string {
 	visitar(causa, 0)
 	if mejor != "" {
 		return mejor
+	}
+	if interno == nil {
+		interno = marcadorPublico
 	}
 	return fmt.Sprintf("%T", interno)
 }
