@@ -6,6 +6,8 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import Mock
+import subprocess
+import sys
 from urllib.parse import parse_qs, urlsplit
 
 from recorrido_copia import dietas
@@ -78,6 +80,26 @@ class ConexionesDietasTest(unittest.TestCase):
             dietas.conexiones(self.c)
         self.c.sql.assert_not_called()
         self.assertFalse((self.c.carpeta / 'dietas').exists())
+
+    def test_preparar_no_activa_ni_anuncia_un_recorrido(self):
+        resultado = dietas.preparar(self.c)
+        self.assertFalse(resultado['activada'])
+        self.assertEqual(resultado['conexiones_entorno'], 4)
+        self.assertEqual(resultado['conexiones_manifiesto'], 7)
+        self.assertIn('perfil_gobernado', resultado['pendiente'])
+        self.c.copia.arrancar.assert_not_called()
+        self.c.copia.parar.assert_not_called()
+        self.assertFalse((self.c.material / 'identidad/dietas-comisiones.json').exists())
+
+    def test_selector_fuera_de_crear_completo_se_rechaza_antes_de_efectos(self):
+        for orden in ('crear', 'reiniciar'):
+            with self.subTest(orden=orden):
+                resultado = subprocess.run([sys.executable,
+                    str(Path(__file__).with_name('copia_local.py')), orden,
+                    '--equipo', 's', '--instancia', 'invalida', '--dietas'],
+                    capture_output=True, check=False)
+                self.assertEqual(resultado.returncode, 2)
+                self.assertIn(b'--dietas requiere crear --recorrido-completo', resultado.stderr)
 
 
 if __name__ == '__main__':

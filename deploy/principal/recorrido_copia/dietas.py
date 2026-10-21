@@ -27,6 +27,20 @@ MANIFIESTO = {
 }
 
 
+def preparar(c):
+    """Guarda las conexiones sin atribuirles activación ni autoridad funcional."""
+    conexiones(c)
+    resultado = {'version': 1, 'copia_ref': c.copia.nombre,
+                 'sid_copia': c.copia.leer()['sid_copia'],
+                 'conexiones_entorno': len(ENTORNO),
+                 'conexiones_manifiesto': len(MANIFIESTO),
+                 'activada': False,
+                 'pendiente': ['perfil_gobernado', 'asignacion_personal',
+                               'manifiesto', 'cartografia', 'recorrido_web']}
+    c.guardar(c.carpeta / 'etapa-dietas.json', resultado)
+    return resultado
+
+
 def conexiones(c):
     """Crea una vez los LOGIN propios o coteja los datos privados conservados.
 
