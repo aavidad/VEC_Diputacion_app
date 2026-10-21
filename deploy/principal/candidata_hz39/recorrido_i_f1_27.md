@@ -92,3 +92,8 @@ de estado, el registro y las capturas a 1440 y 390 px quedan en el material
 privado del ensayo. A 390 px el contenido mide 375 px y no desborda.
 I conserva el estado y la clave originales. Los pasos 10–21 y el reinicio
 final siguen pendientes. No se han registrado aviso, contacto ni respuesta.
+
+Dirección integró el registro seguro de selección en main `5abbbcaae` y
+ordenó a las 09:37 ensayarlo en una copia nueva. I se ha parado con su gestor
+y se conserva íntegra, sin repetir la selección ni alterar revisión o huellas.
+El nuevo ensayo se recoge en la [hoja de J](recorrido_j_f1_27.md).
