@@ -44,6 +44,7 @@ type proveedorSesionConsultaRRHHDesarrollo struct {
 	// La copia del GET histórico elige un perfil publicado de esta misma cuenta.
 	organizacionHistoricaPorCuenta map[string]seleccionPerfilOrganizacionHistorica
 	anclajePropuesta               *perfilesNominalesIncorporacion
+	identidadDocumental            *proveedorIdentidadDocumentalCT
 	superficie                     httpseguridad.Superficie
 	clave                          [sha256.Size]byte
 }
@@ -403,6 +404,18 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) perfilActivoSeleccionado(ctx con
 		return "", false
 	}
 	canal, valido := p.capacidadCanalSesion(ctx)
+	if marca, existe := ctx.Value(claveSesionIdentidadDocumentalCT{}).(*marcaSesionIdentidadDocumentalCT); existe {
+		frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
+		if p.identidadDocumental == nil || marca == nil || marca.propietario != p.identidadDocumental ||
+			!valido || !rutaIdentidadDocumentalCT(canal.ruta, canal.metodo) ||
+			!adicional || !p.fronteras.mismaInstancia(frontera.catalogo) ||
+			frontera.ruta != canal.ruta || frontera.metodo != canal.metodo ||
+			!fronteraIdentidadDocumentalCTValida(frontera) ||
+			marca.perfilRef != p.identidadDocumental.config.PerfilActivoRef || marca.version == 0 {
+			return "", false
+		}
+		return marca.perfilRef, true
+	}
 	if p.canalIntervencion != nil {
 		return p.base.Contexto.PerfilActivoRef, valido
 	}
@@ -454,6 +467,18 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) seleccionOrganizacionHistorica(c
 }
 
 func (p *proveedorSesionConsultaRRHHDesarrollo) mismaIdentidadSesionParaPerfil(ctx context.Context, actual dominiovec.ResultadoContextoActorRegistradoV2, perfil string) bool {
+	if marca, existe := ctx.Value(claveSesionIdentidadDocumentalCT{}).(*marcaSesionIdentidadDocumentalCT); existe {
+		base, actor := p.base.Contexto, actual.Contexto
+		return marca != nil && p.identidadDocumental != nil && marca.propietario == p.identidadDocumental &&
+			marca.perfilRef == perfil && marca.version == actor.Instantanea.PerfilVersion &&
+			actual.Validar() == nil && actual.AutoridadEfectiva == p.base.AutoridadEfectiva &&
+			actor.PerfilActivoRef == perfil && actor.Instantanea.PerfilActivoRef == perfil &&
+			actor.Instantanea.CuentaRef == base.Instantanea.CuentaRef && actor.PersonaRef == base.PersonaRef &&
+			actor.Instantanea.PersonaRef == base.Instantanea.PersonaRef && actor.Principal.ID == base.Principal.ID &&
+			actor.Principal.AuthMethod == dominiovec.AuthMethodCertificate &&
+			actor.Principal.AuthAssurance == dominiovec.AuthAssuranceHigh &&
+			actor.Instantanea.VigenteEn(actual.ResueltoEnAutoritativo)
+	}
 	if seleccion, ok := p.seleccionOrganizacionHistorica(ctx); ok {
 		base, actor := p.base.Contexto, actual.Contexto
 		return seleccion.perfil == perfil && seleccion.version == actor.Instantanea.PerfilVersion &&
