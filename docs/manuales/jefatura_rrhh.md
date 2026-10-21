@@ -431,7 +431,7 @@ Para consultar, abra Bolsas → Auditoría y control → Auditoría y trazabilid
 
 **Para qué sirve.** Comisiones de servicio, kilometraje, manutención y alojamiento: solicitud, justificantes, autorización y liquidación.
 
-**Hoy.** Se está rehaciendo y está oculto en el menú. Habrá una sola tabla de tarifas publicada, y la liquidación la aprobará un perfil fijo. El alojamiento espera a que RRHH fije la regla.
+**Hoy.** La pantalla existe, pero en la copia comprobada aún no permite registrar una comisión porque falta completar su configuración y los permisos. Está programada una etapa opcional de preparación de la copia; siguen pendientes su ensayo y la solicitud desde la web. La liquidación económica y la confirmación del pago también están pendientes. El alojamiento espera a que RRHH fije la regla.
 
 **Al final.** La persona abre la comisión y VEC calcula la manutención por tramos, el alojamiento y el kilometraje por la ruta. Muestra de dónde sale cada tarifa, recoge los justificantes, pasa por autorización, liquidación y fiscalización, y solo marca «pagado» cuando Tesorería lo confirma. Sigue el Real Decreto 462/2002 y las bases de ejecución del presupuesto.
 

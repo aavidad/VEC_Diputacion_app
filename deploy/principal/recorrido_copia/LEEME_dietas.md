@@ -39,3 +39,15 @@ usan dobles en esas pruebas: no acreditan publicación ni recibos PostgreSQL.
 Semgrep local comprueba TLS, ejecución por shell y deserialización en cuatro
 archivos Python. El ensayo de esta etapa y el recorrido web siguen pendientes.
 No se crea una copia para repetir el bloqueo ya identificado.
+
+## Motor de rutas comprobado por separado
+
+El 21 de octubre se consultó la ruta pública del README con OSRM 5.26.0,
+imagen oficial fijada por `sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409`.
+El PBF local coincide con la huella publicada y el grafo existente se montó
+solo para lectura. El contenedor propio, usuario 65534, memoria máxima 1 GiB,
+sin capacidades y con puerto ligado a loopback, respondió `Ok`: 9.661 metros
+y 923 segundos. Se retiró al terminar. La consulta no usó datos de personas.
+
+Esto acredita el motor local y sus artefactos; no acredita cálculo autorizado,
+tarifas, comisión ni recibo de Dietas. Su gestión desde la receta sigue pendiente.
