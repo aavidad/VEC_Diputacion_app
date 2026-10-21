@@ -263,3 +263,6 @@ deploy/postgresql/autorizacion/migraciones/000106_canon_retirada_cargos_firma.up
 deploy/postgresql/autorizacion/migraciones/000107_gobierno_roles_dietas.up.sql 8348e9a0f586d19b42c04afd28a6086048c7ae04ade3cae59d644c975a0e6314
 # F3-01 C1 — CRN18: catálogo sintético de motivos de Cronos v1; solo datos por el publicador V2 instalado en HZ37.
 deploy/postgresql/cronos_v1/migraciones/000018_catalogo_motivos_cronos_v1.up.sql d6b9a1ce9deb2dd64f7f3d8f770fcac01be4041b16f8d8c7c78b28e202f9da2c
+
+# F1-27 A0 — CT261: acto de resolución conservado tras avanzar el expediente; no reabre la preparación de registro.
+deploy/postgresql/contratacion_temporal/migraciones/000261_lector_acto_historico_resolucion.up.sql 1e2679b15c559f8fd5102aed6309f7f1342681f677bb0c8aecf66b2d1b711979

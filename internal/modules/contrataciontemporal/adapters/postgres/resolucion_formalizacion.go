@@ -160,21 +160,27 @@ func errorResolucionFormalizacion(ctx context.Context, e error) error {
 	return ports.ErrResolucionFormalizacionNoDisponible
 }
 
-func (s *SesionConsultaRRHHPostgreSQL) ConsultarPreparacionYRegistrarAcceso(ctx context.Context, orden ports.OrdenConsultaDetalleRRHH) (ports.DetalleExpedienteRRHH, ports.PreparacionResolucionFormalizacion, error) {
-	dz, pz := ports.DetalleExpedienteRRHH{}, ports.PreparacionResolucionFormalizacion{}
+type resultadoLecturaResolucion struct {
+	detalle     ports.DetalleExpedienteRRHH
+	preparacion ports.PreparacionResolucionFormalizacion
+	acto        ports.ResultadoResolucionFormalizacion
+}
+
+func (s *SesionConsultaRRHHPostgreSQL) consultarDetalleYReciboResolucion(ctx context.Context, orden ports.OrdenConsultaDetalleRRHH, acto bool) (resultadoLecturaResolucion, error) {
+	z := resultadoLecturaResolucion{}
 	if err := s.validarContexto(ctx); err != nil {
-		return dz, pz, err
+		return z, err
 	}
 	if orden.Solicitud().VersionObservada() != 0 {
-		return dz, pz, ports.ErrSolicitudResolucionFormalizacionInvalida
+		return z, ports.ErrSolicitudResolucionFormalizacionInvalida
 	}
 	m, err := orden.ExportacionParaSQL()
 	if err != nil || m.ValidarEstructura() != nil {
-		return dz, pz, ports.ErrConsultaRRHHNoDisponible
+		return z, ports.ErrConsultaRRHHNoDisponible
 	}
 	args, err := nuevosArgumentosMaterialConsultaRRHH(m)
 	if err != nil {
-		return dz, pz, err
+		return z, err
 	}
 	defer args.limpiar()
 	c, cap, q := orden.Contexto(), orden.Capacidad(), orden.Solicitud()
@@ -185,14 +191,10 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarPreparacionYRegistrarAcceso(ctx 
 	// en servidor a la misma instantánea nominal. No usa el pool de efectos.
 	consulta := consultaPreparacionResolucionRRHHPostgreSQL
 	destinos := append(destinosDetalleConsultaRRHH(&salida), &raw)
-	type resultado struct {
-		detalle     ports.DetalleExpedienteRRHH
-		preparacion ports.PreparacionResolucionFormalizacion
-	}
 	r, err := ejecutarConsultaRRHHEnTransaccion(ctx, s.pool, consulta,
 		argumentosSQLDetalleConsultaRRHH(c.OrganizacionRef(), string(cap.ClaseAmbito()), cap.AmbitoRef(), q, args), destinos,
-		func() (resultado, error) {
-			z := resultado{}
+		func() (resultadoLecturaResolucion, error) {
+			z := resultadoLecturaResolucion{}
 			if ctx.Err() != nil {
 				return z, ctx.Err()
 			}
@@ -213,19 +215,42 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarPreparacionYRegistrarAcceso(ctx 
 			if e != nil || d.ValidarParaEjecucionInterna(orden) != nil {
 				return z, ports.ErrResultadoConsultaRRHHNoConfiable
 			}
-			p, e := decodificarPreparacionResolucion(raw, q.ExpedienteRef(), version)
+			if acto {
+				recibo, e := decodificarActoResolucion(raw, q.ExpedienteRef(), version)
+				if e != nil {
+					return z, e
+				}
+				return resultadoLecturaResolucion{detalle: d, acto: recibo}, nil
+			}
+			preparacion, e := decodificarPreparacionResolucion(raw, q.ExpedienteRef(), version)
 			if e != nil {
 				return z, e
 			}
-			return resultado{d, p}, nil
+			return resultadoLecturaResolucion{detalle: d, preparacion: preparacion}, nil
 		})
 	if ctx.Err() != nil {
-		return dz, pz, ctx.Err()
+		return z, ctx.Err()
 	}
 	if err != nil {
-		return dz, pz, err
+		return z, err
+	}
+	return r, nil
+}
+
+func (s *SesionConsultaRRHHPostgreSQL) ConsultarPreparacionYRegistrarAcceso(ctx context.Context, orden ports.OrdenConsultaDetalleRRHH) (ports.DetalleExpedienteRRHH, ports.PreparacionResolucionFormalizacion, error) {
+	r, err := s.consultarDetalleYReciboResolucion(ctx, orden, false)
+	if err != nil {
+		return ports.DetalleExpedienteRRHH{}, ports.PreparacionResolucionFormalizacion{}, err
 	}
 	return r.detalle, r.preparacion.Clonar(), nil
+}
+
+func (s *SesionConsultaRRHHPostgreSQL) ConsultarActoYRegistrarAcceso(ctx context.Context, orden ports.OrdenConsultaDetalleRRHH) (ports.DetalleExpedienteRRHH, ports.ResultadoResolucionFormalizacion, error) {
+	r, err := s.consultarDetalleYReciboResolucion(ctx, orden, true)
+	if err != nil {
+		return ports.DetalleExpedienteRRHH{}, ports.ResultadoResolucionFormalizacion{}, err
+	}
+	return r.detalle, r.acto, nil
 }
 
 // consultaPreparacionResolucionRRHHPostgreSQL lee de CT69 el cierre del
@@ -280,4 +305,17 @@ func decodificarPreparacionResolucion(raw, expediente string, version uint64) (p
 		return z, ports.ErrResultadoResolucionFormalizacionNoConfiable
 	}
 	return p, nil
+}
+
+func decodificarActoResolucion(raw, expediente string, version uint64) (ports.ResultadoResolucionFormalizacion, error) {
+	z := ports.ResultadoResolucionFormalizacion{}
+	var p ports.PreparacionResolucionFormalizacion
+	if len(raw) == 0 || len(raw) > 16384 || decodificarJSONEstricto([]byte(raw), &p) != nil ||
+		p.ExpedienteRef != expediente || p.VersionEsperada != 7 || p.VersionActual != version ||
+		version < 8 || p.Recibo == nil || p.Recibo.Estado != "registrada" ||
+		p.Recibo.Solicitud.ExpedienteRef != expediente || p.Recibo.Solicitud.PropuestaRef != p.PropuestaRef ||
+		p.Recibo.ValidarPara(p.Recibo.Solicitud) != nil {
+		return z, ports.ErrResultadoResolucionFormalizacionNoConfiable
+	}
+	return *p.Recibo, nil
 }
