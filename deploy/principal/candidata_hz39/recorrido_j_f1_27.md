@@ -23,7 +23,8 @@ no se reintentó. No se añaden ramas.
 | Documentos (14) | Diez archivos descargados y abiertos; contenido incompleto |
 | Tres firmas de resolución (15) | Bloqueado antes de preparar el original; ninguna firma registrada |
 | Incorporación, Personal, GINPIX, cese, vuelta a Bolsa y cierre (17–21) | Pendiente |
-| Reinicio y recuperación de lecturas y recibos | Pendiente |
+| Recuperación por nueva lectura | Resolución v8 y recibo del paso 13 recuperados en Chrome |
+| Reinicio final de aplicación y PostgreSQL | Pendiente |
 
 La causa del 503 de I sigue sin identificarse. El diagnóstico integrado solo
 amplía el registro con errores fijos reconocidos; conserva los desconocidos
@@ -227,9 +228,11 @@ otros antecedentes para repetir el trámite.
 A las 13:29:18 de Madrid se envió una única resolución, tras revisar el
 borrador y confirmar las dos comprobaciones del formulario. Respondió 201,
 versión 8, con recibo `recibo:6f28c32c-33d1-4ade-a645-5e374c643d46`.
-La resolución conserva el número `2026/95034` y la fecha `2026-10-21`.
+El acto registrado conserva el número `2026/95034` y la fecha `2026-10-21`.
 La pantalla indica validación manual, sin firma oficial ni eficacia
-administrativa. No se ha repetido este acto.
+administrativa. Una nueva lectura con Gestión recuperó la versión 8 y el
+mismo recibo, mostrado como registro histórico. No se ha repetido este acto.
+Esta lectura no sustituye el reinicio final de aplicación y PostgreSQL.
 
 El perfil técnico recibe 403 en el panel de Documentos general. Dirección
 indicó a las 13:26 continuar por las rutas y el permiso documental propios
@@ -267,7 +270,11 @@ El acto del paso 13 conserva `DocumentoVersion=7` y la huella del original
 `2bd134ba36db69c099f9423af4b04f4d5129166abe8725b621a7375c2cc8a571`.
 Cambiar sus bytes bajo esa misma referencia rompería el vínculo del acto.
 Contratación ya conserva número y fecha, pero su incorporación al documento
-requiere resolver ese vínculo. La etiqueta del centro procede del catálogo.
+requiere resolver ese vínculo. La ficha resuelve `centro-520` en Organización, mientras el etiquetador
+documental busca en el catálogo de alta, que usa `centro:rpt:520`. El catálogo
+de centros históricos exige referencias `centro:segmento:segmento`, por lo
+que añadir allí un alias `centro-520` tampoco es un ajuste de datos válido.
+No se han cambiado sus validaciones.
 
 El inventario no encontró una lectura nominal autorizada para formalizar o
 descargar documentos de Contratación. La consulta B113 de Persona devuelve
