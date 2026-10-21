@@ -17,7 +17,7 @@ class ConductorTest(unittest.TestCase):
     def test_documentos_y_borradores_se_activan_antes_del_arranque_de_firma(self):
         from recorrido_copia import (catalogo, roles_admin, corporativo, certificados_base,
             firmantes, montajes_firma, actos, plan, admisiones, configuracion_firma,
-            documentos_base, documentos, personal, caso_bolsa)
+            documentos_base, documentos, personal, caso_bolsa, dietas)
         from contextlib import ExitStack
         with tempfile.TemporaryDirectory() as temporal, ExitStack() as pila:
             raiz = Path(temporal)
@@ -26,6 +26,8 @@ class ConductorTest(unittest.TestCase):
             copia.leer.return_value = {'revision': 'candidata', 'sid_copia': '12345678901234567'}
             contexto = Mock(carpeta=raiz)
             contexto.leer.return_value = {'version': 1}
+            preparar_dietas = pila.enter_context(patch.object(dietas, 'preparar',
+                return_value={'activada': False}))
             pila.enter_context(patch.object(conductor, 'Contexto', return_value=contexto))
             for funcion in ('_parametros', '_organizacion', '_verificador', 'provisionar_perfiles'):
                 pila.enter_context(patch.object(conductor, funcion))
@@ -46,6 +48,9 @@ class ConductorTest(unittest.TestCase):
             copia.firma.side_effect = comprobar
             conductor.preparar(copia, argparse.Namespace(puerto_verificador=19881))
             copia.firma.assert_called_once()
+            preparar_dietas.assert_not_called()
+            conductor.preparar(copia, argparse.Namespace(puerto_verificador=19881, dietas=True))
+            preparar_dietas.assert_called_once_with(contexto)
 
     def test_fallo_en_acto_detiene_plan_firma_y_provision(self):
         eventos = []

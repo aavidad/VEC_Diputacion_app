@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "roles": [
+    {
+      "rol_id": "persona_dietas_comisiones",
+      "nombre": "Comisiones propias",
+      "acciones": [
+        "personal.relacion.propia.consultar_dietas",
+        "dietas.borrador.propio.crear",
+        "dietas.borrador.propio.consultar"
+      ]
+    },
+    {
+      "rol_id": "persona_dietas_rutas",
+      "nombre": "Itinerarios de comisiones",
+      "acciones": [
+        "dietas.ruta.catalogo.consultar",
+        "dietas.ruta.calculo.solicitar"
+      ]
+    }
+  ]
+}

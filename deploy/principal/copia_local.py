@@ -748,6 +748,7 @@ def main():
     p.add_argument('--puerto-smtp', type=int, default=11081)
     p.add_argument('--lista-sql', action='append', default=[])
     p.add_argument('--recorrido-completo', action='store_true', help='Crear el recorrido completo con productores versionados')
+    p.add_argument('--dietas', action='store_true', help='Preparar las conexiones opcionales de Dietas; no activa el módulo')
     p.add_argument('--puerto-verificador', type=int, default=19881)
     p.add_argument('--binario-verificador', type=Path,
                    help='Ejecutable GrxFirma declarado para el recorrido completo')
@@ -766,6 +767,8 @@ def main():
     p.add_argument('--manifiesto-firma', type=Path, help='Manifiesto privado de la orden firma (etapas y verificador)')
     p.add_argument('--config-personal', type=Path, help='Configuración B2 aprobada de referencia; solo se conservan referencias y motivos')
     args = p.parse_args()
+    if args.dietas and (args.orden != 'crear' or not args.recorrido_completo):
+        p.error('--dietas requiere crear --recorrido-completo')
     if args.recorrido_completo:
         if args.orden != 'crear' or args.rrhh_original:
             p.error('--recorrido-completo requiere crear con material nuevo')

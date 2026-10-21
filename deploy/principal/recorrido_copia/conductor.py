@@ -138,6 +138,9 @@ def preparar(copia, args):
     copia.personal(personal.preparar(c))
     from . import caso_bolsa
     resultados['bolsa_del_caso'] = caso_bolsa.preparar(c)
+    if getattr(args, 'dietas', False):
+        from . import dietas
+        resultados['dietas'] = dietas.preparar(c)
     c.comprobar_fuente()
     c.guardar(c.carpeta / 'recibo-fabrica.json', {
         'version': 1, 'tarea_ref': 'F1-131', 'copia_ref': copia.nombre,

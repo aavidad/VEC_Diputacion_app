@@ -198,3 +198,38 @@ class CatalogoRecorridoTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'replay AUT58 cambió'):
             catalogo.preparar(c)
         self.assertFalse((c.carpeta / 'catalogo/admisiones.json').exists())
+
+
+    def test_dietas_admite_solo_fuentes_opcionales_y_conserva_admisiones_base(self):
+        c = ContextoFalso(self.root, self.repo)
+        base = catalogo.preparar(c)
+        antes = (c.carpeta / 'catalogo/admisiones.json').read_bytes()
+        nuevas = catalogo.preparar_dietas(c)
+        self.assertEqual([x['nombre'] for x in nuevas['actos']], ['personal_dietas', 'dietas'])
+        self.assertEqual([x['catalogo_version'] for x in nuevas['actos']], [4, 5])
+        self.assertEqual((c.carpeta / 'catalogo/admisiones.json').read_bytes(), antes)
+        self.assertEqual(base['recibos_reales'], 2)
+        self.assertEqual(len(c.sql_calls), 4)
+        for acto in nuevas['actos']:
+            carpeta = c.carpeta / 'catalogo' / acto['nombre']
+            self.assertEqual(c.leer(carpeta / 'acuse-primero.json')['recibo'],
+                             c.leer(carpeta / 'acuse-replay.json')['recibo'])
+
+    def test_fuentes_dietas_canonicas_cinco_acciones_y_vigencia_de_90_dias(self):
+        from admin_copia.catalogo_acciones import fuente_nueva
+        from datetime import datetime
+        acciones = []
+        for _, _, nombre, huella in catalogo.ACTOS_DIETAS:
+            ruta = self.repo / 'deploy/principal/fuentes'
+            fuente_nueva(ruta, nombre, huella)
+            documento = json.loads((ruta / nombre).read_bytes())
+            for entrada in documento['entradas']:
+                acciones.append(entrada['concesion']['accion'])
+                inicio = datetime.fromisoformat(entrada['vigente_desde'])
+                fin = datetime.fromisoformat(entrada['vigente_hasta'])
+                self.assertEqual((fin - inicio).days, 90)
+                self.assertEqual(entrada['clase_control'], 'ordinario')
+                self.assertEqual(entrada['concesion']['modulo_id'], documento['modulo_id'])
+        self.assertEqual(acciones, ['personal.relacion.propia.consultar_dietas',
+            'dietas.borrador.propio.crear', 'dietas.borrador.propio.consultar',
+            'dietas.ruta.catalogo.consultar', 'dietas.ruta.calculo.solicitar'])

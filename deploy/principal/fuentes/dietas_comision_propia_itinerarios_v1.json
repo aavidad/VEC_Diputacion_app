@@ -1,0 +1,140 @@
+{
+  "modulo_id": "dietas",
+  "referencia": "fuente:dietas:comision_propia_itinerarios",
+  "version": 1,
+  "huella_sha256": "b0741a74b6018bf73a0a616100e70d68d94b214378d8a3a7656344de76af37ac",
+  "entradas_canon": "[{\"referencia\":\"accion:dietas.borrador.propio.crear\",\"version\":1,\"fuente_ref\":\"fuente:dietas:comision_propia_itinerarios\",\"fuente_version\":1,\"concesion\":{\"accion\":\"dietas.borrador.propio.crear\",\"modulo_id\":\"dietas\",\"tipo_recurso\":\"comision_borrador\",\"finalidades\":[\"crear_borrador_propio\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"comision.calculo\",\"comision.codigos_ruta\",\"comision.estado\",\"comision.fecha_fin\",\"comision.fecha_inicio\",\"comision.motivo\",\"comision.referencia\",\"comision.relacion_ref\",\"recibo.referencia\",\"recibo.registrado_en\",\"recibo.repeticion\",\"recibo.version\"]},\"dimensiones_ambito\":[\"empleado_ref\",\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-21T00:00:00Z\",\"vigente_hasta\":\"2027-01-19T00:00:00Z\"},{\"referencia\":\"accion:dietas.borrador.propio.consultar\",\"version\":1,\"fuente_ref\":\"fuente:dietas:comision_propia_itinerarios\",\"fuente_version\":1,\"concesion\":{\"accion\":\"dietas.borrador.propio.consultar\",\"modulo_id\":\"dietas\",\"tipo_recurso\":\"comision_borrador\",\"finalidades\":[\"consultar_borrador_propio\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"comision.calculo\",\"comision.codigos_ruta\",\"comision.estado\",\"comision.fecha_fin\",\"comision.fecha_inicio\",\"comision.motivo\",\"comision.referencia\",\"comision.relacion_ref\",\"items.comision.calculo\",\"items.comision.codigos_ruta\",\"items.comision.estado\",\"items.comision.fecha_fin\",\"items.comision.fecha_inicio\",\"items.comision.motivo\",\"items.comision.referencia\",\"items.comision.relacion_ref\",\"items.recibo.referencia\",\"items.recibo.registrado_en\",\"items.recibo.repeticion\",\"items.recibo.version\",\"recibo.referencia\",\"recibo.registrado_en\",\"recibo.repeticion\",\"recibo.version\",\"siguiente_cursor\"]},\"dimensiones_ambito\":[\"empleado_ref\",\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-21T00:00:00Z\",\"vigente_hasta\":\"2027-01-19T00:00:00Z\"},{\"referencia\":\"accion:dietas.ruta.catalogo.consultar\",\"version\":1,\"fuente_ref\":\"fuente:dietas:comision_propia_itinerarios\",\"fuente_version\":1,\"concesion\":{\"accion\":\"dietas.ruta.catalogo.consultar\",\"modulo_id\":\"dietas\",\"tipo_recurso\":\"catalogo_rutas_dietas\",\"finalidades\":[\"consultar_itinerario_dietas\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-21T00:00:00Z\",\"vigente_hasta\":\"2027-01-19T00:00:00Z\"},{\"referencia\":\"accion:dietas.ruta.calculo.solicitar\",\"version\":1,\"fuente_ref\":\"fuente:dietas:comision_propia_itinerarios\",\"fuente_version\":1,\"concesion\":{\"accion\":\"dietas.ruta.calculo.solicitar\",\"modulo_id\":\"dietas\",\"tipo_recurso\":\"calculo_rutas_dietas\",\"finalidades\":[\"consultar_itinerario_dietas\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-21T00:00:00Z\",\"vigente_hasta\":\"2027-01-19T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:dietas.borrador.propio.crear",
+      "version": 1,
+      "fuente_ref": "fuente:dietas:comision_propia_itinerarios",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "b0741a74b6018bf73a0a616100e70d68d94b214378d8a3a7656344de76af37ac",
+      "concesion": {
+        "accion": "dietas.borrador.propio.crear",
+        "modulo_id": "dietas",
+        "tipo_recurso": "comision_borrador",
+        "finalidades": [
+          "crear_borrador_propio"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "comision.calculo",
+          "comision.codigos_ruta",
+          "comision.estado",
+          "comision.fecha_fin",
+          "comision.fecha_inicio",
+          "comision.motivo",
+          "comision.referencia",
+          "comision.relacion_ref",
+          "recibo.referencia",
+          "recibo.registrado_en",
+          "recibo.repeticion",
+          "recibo.version"
+        ]
+      },
+      "dimensiones_ambito": [
+        "empleado_ref",
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-21T00:00:00Z",
+      "vigente_hasta": "2027-01-19T00:00:00Z"
+    },
+    {
+      "referencia": "accion:dietas.borrador.propio.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:dietas:comision_propia_itinerarios",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "b0741a74b6018bf73a0a616100e70d68d94b214378d8a3a7656344de76af37ac",
+      "concesion": {
+        "accion": "dietas.borrador.propio.consultar",
+        "modulo_id": "dietas",
+        "tipo_recurso": "comision_borrador",
+        "finalidades": [
+          "consultar_borrador_propio"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "comision.calculo",
+          "comision.codigos_ruta",
+          "comision.estado",
+          "comision.fecha_fin",
+          "comision.fecha_inicio",
+          "comision.motivo",
+          "comision.referencia",
+          "comision.relacion_ref",
+          "items.comision.calculo",
+          "items.comision.codigos_ruta",
+          "items.comision.estado",
+          "items.comision.fecha_fin",
+          "items.comision.fecha_inicio",
+          "items.comision.motivo",
+          "items.comision.referencia",
+          "items.comision.relacion_ref",
+          "items.recibo.referencia",
+          "items.recibo.registrado_en",
+          "items.recibo.repeticion",
+          "items.recibo.version",
+          "recibo.referencia",
+          "recibo.registrado_en",
+          "recibo.repeticion",
+          "recibo.version",
+          "siguiente_cursor"
+        ]
+      },
+      "dimensiones_ambito": [
+        "empleado_ref",
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-21T00:00:00Z",
+      "vigente_hasta": "2027-01-19T00:00:00Z"
+    },
+    {
+      "referencia": "accion:dietas.ruta.catalogo.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:dietas:comision_propia_itinerarios",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "b0741a74b6018bf73a0a616100e70d68d94b214378d8a3a7656344de76af37ac",
+      "concesion": {
+        "accion": "dietas.ruta.catalogo.consultar",
+        "modulo_id": "dietas",
+        "tipo_recurso": "catalogo_rutas_dietas",
+        "finalidades": [
+          "consultar_itinerario_dietas"
+        ],
+        "garantia_minima": "alto"
+      },
+      "dimensiones_ambito": [
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-21T00:00:00Z",
+      "vigente_hasta": "2027-01-19T00:00:00Z"
+    },
+    {
+      "referencia": "accion:dietas.ruta.calculo.solicitar",
+      "version": 1,
+      "fuente_ref": "fuente:dietas:comision_propia_itinerarios",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "b0741a74b6018bf73a0a616100e70d68d94b214378d8a3a7656344de76af37ac",
+      "concesion": {
+        "accion": "dietas.ruta.calculo.solicitar",
+        "modulo_id": "dietas",
+        "tipo_recurso": "calculo_rutas_dietas",
+        "finalidades": [
+          "consultar_itinerario_dietas"
+        ],
+        "garantia_minima": "alto"
+      },
+      "dimensiones_ambito": [
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-21T00:00:00Z",
+      "vigente_hasta": "2027-01-19T00:00:00Z"
+    }
+  ]
+}
