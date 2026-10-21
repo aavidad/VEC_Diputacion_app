@@ -52,7 +52,7 @@ func (s *ServicioPreparacionResolucionFormalizacion) ConsultarPreparacionResoluc
 	}
 	p := captor.preparacion
 	if p.ValidarPara(expediente) != nil || d.Resumen.Version != p.VersionActual ||
-		len(d.Hitos) != int(p.VersionActual) || d.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
+		uint64(len(d.Hitos)) != p.VersionActual || d.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
 		(p.VersionActual == 8 && (d.Hitos[7].AccionClave != "registrar_resolucion_formalizacion" ||
 			!d.Hitos[7].RealizadaEn.Equal(p.Recibo.RegistradaEn))) {
 		return z, ports.ErrResultadoResolucionFormalizacionNoConfiable
@@ -90,7 +90,7 @@ func (s *ServicioPreparacionResolucionFormalizacion) ConsultarActoResolucionForm
 	r := captor.acto
 	if r.ValidarPara(r.Solicitud) != nil || r.Estado != "registrada" ||
 		r.Solicitud.ExpedienteRef != expediente || d.Resumen.Version < 8 ||
-		len(d.Hitos) != int(d.Resumen.Version) ||
+		uint64(len(d.Hitos)) != d.Resumen.Version ||
 		d.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
 		d.Hitos[7].AccionClave != "registrar_resolucion_formalizacion" ||
 		!d.Hitos[7].RealizadaEn.Equal(r.RegistradaEn) {
