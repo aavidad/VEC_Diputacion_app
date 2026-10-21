@@ -431,7 +431,7 @@ Para consultar, abra Bolsas → Auditoría y control → Auditoría y trazabilid
 
 **Para qué sirve.** Fichajes, jornada y calendario, saldo de horas, permisos y vacaciones, teletrabajo, incidencias e informes del equipo.
 
-**Hoy.** Se está rehaciendo y está oculto en el menú. Hay partes programadas pendientes de instalar. Si falla, el resto de la aplicación sigue funcionando.
+**Hoy.** Se está rehaciendo. Aparece en el menú solo a quien tiene permiso de Cronos; los demás no lo ven. Las pestañas de servicios que aún no están encendidos no se muestran. Hay partes programadas pendientes de instalar. Si falla, el resto de la aplicación sigue funcionando.
 
 **Al final.** El fichaje original no se modifica: las correcciones se añaden aparte. El saldo se ve como una lista de movimientos explicados. La solicitud de un permiso, el visto bueno de la jefatura y la resolución de RRHH son pasos distintos, y nadie resuelve su propia solicitud. Sigue el Estatuto Básico, el Convenio y la normativa de jornada de la Diputación. RRHH tiene que confirmar el catálogo de permisos.
 

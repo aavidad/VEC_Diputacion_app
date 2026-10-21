@@ -25,7 +25,7 @@
   "ui.permission.usuarios.contacto_consultar": "View an authorised contact email address",
   "ui.vec.module.personal.description": "Personal details, posts, employment statuses and service history",
   "ui.vec.module.cronos.name": "Cronos",
-  "ui.vec.module.cronos.description": "Clock-in records, working hours, leave, holidays, shifts and the working calendar",
+  "ui.vec.module.cronos.description": "Your working day, hours balance, leave and holidays",
   "ui.vec.module.dietas.name": "Travel and subsistence",
   "ui.vec.module.dietas.description": "Official travel, mileage, expenses, reviews and settlements",
   "modules.documentos.name": "Documents",
