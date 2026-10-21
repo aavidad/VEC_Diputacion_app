@@ -98,3 +98,10 @@ E se retiró después de integrar su evidencia y al bajar la memoria disponible
 a 39 GiB. Se usó el gestor público desde su revisión original; sus recibos,
 capturas y documentos privados se conservan. La memoria disponible volvió a
 40 GiB. F permanece intacta y parada.
+
+El contacto efectivo de CT y el contacto telefónico de Bolsa son actuaciones
+distintas. La respuesta de Mi Bolsa exige un contacto efectivo de Bolsa
+posterior a la emisión del llamamiento; el evento de CT no basta. En la ficha
+de la persona, «Registrar contacto» con teléfono y el último llamamiento usa
+la hora del servidor y aplica la misma franja que «Registrar intento telefónico».
+Se comunicó este segundo límite a dirección antes de continuar el ensayo.
