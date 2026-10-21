@@ -173,3 +173,18 @@ de CT257; ahora contienen 27 pruebas. La línea base usa las 1388 líneas reales
 del formulario. Pasan cinco casos web focales de ambos recorridos y la prueba
 del listado. No se ha vuelto a ejecutar la operación nativa: la copia conservada
 sigue en `c8ef0d2c2` y el bloqueo 503 permanece abierto.
+
+
+Dirección pidió cotejar la hipótesis de una fila inexistente. El delta Go no
+añade `QueryRow`, `Scan`, `errors.New` ni `fmt.Errorf` en el POST de selección;
+la decodificación modificada pertenece al GET que respondió 404 de ruta ausente.
+No se ha demostrado la causa con una prueba roja y no se ha cambiado el
+tratamiento de ausencias ni la lógica de negocio. Las solicitudes guardadas
+del control 200 y del intento 503 tienen los mismos nombres de campos y versión
+esperada 6; no incluyen una acción de recuperación adicional.
+
+El diagnóstico reconoce ahora `pgx.ErrNoRows`, cancelación y plazo agotado con
+códigos cerrados. La prueba focal verifica errores envueltos y que sus mensajes
+no aparezcan en el registro; pasa con un límite de memoria de 2 GiB. Esta mejora
+no identifica por sí sola la causa del 503 ya registrado. La copia conserva la
+intención original y no se ha ejecutado otra selección.
