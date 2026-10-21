@@ -255,3 +255,6 @@ deploy/postgresql/contratacion_temporal/migraciones/000259_canon_fecha_historica
 
 # F1-149 — CT260: canon temporal de firma v2; tras CT259 y el resto de main.
 deploy/postgresql/contratacion_temporal/migraciones/000260_canon_fecha_historica_firma_v2.up.sql 9a57d95bce3ba5d554918937085212c94457b9beb60ae6b89ccbe96b8c3ec057
+
+# F3-01 C1 — CRN18: catálogo sintético de motivos de Cronos v1; solo datos por el publicador V2 instalado en HZ37.
+deploy/postgresql/cronos_v1/migraciones/000018_catalogo_motivos_cronos_v1.up.sql d6b9a1ce9deb2dd64f7f3d8f770fcac01be4041b16f8d8c7c78b28e202f9da2c
