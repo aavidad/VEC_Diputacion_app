@@ -16,6 +16,10 @@ func PrepararPlanGobiernoRolNuevoDesdeCatalogo(c CatalogoAccionesAdministracionV
 	if s.Publicacion != nil && s.Publicacion.RolPropuesto.RolID == RolIDPersonaMeritosCartera {
 		return prepararPlanGobiernoRolMeritosCartera(c, s, ahora, actorPersonaRef)
 	}
+	if s.Publicacion != nil && (s.Publicacion.RolPropuesto.RolID == RolIDPersonaDietasComisiones ||
+		s.Publicacion.RolPropuesto.RolID == RolIDPersonaDietasRutas) {
+		return prepararPlanGobiernoRolDietas(c, s, ahora, actorPersonaRef)
+	}
 	var vacio PlanGobiernoPerfil
 	if c.Validar() != nil || !instanteAutorizacionCanonico(ahora) ||
 		s.Operacion != OperacionCrearPerfilGobernado || s.Publicacion == nil ||

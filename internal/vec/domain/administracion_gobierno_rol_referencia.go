@@ -41,8 +41,8 @@ func (s SolicitudCierreGobiernoRolPorReferencia) CompletarCierreGobiernoRolConMa
 	if s.Validar() != nil || err != nil || h != s.PropuestaHuellaSHA256 ||
 		m.OperacionRef != s.PropuestaRef || m.Plan.Operacion != OperacionCrearPerfilGobernado ||
 		m.Plan.Base != nil || m.Plan.DefinicionNueva == nil ||
-		m.Plan.DefinicionNueva.Version != 1 || len(m.Plan.DefinicionNueva.Concesiones) != 1 ||
-		len(m.Plan.Selecciones) != 1 || m.Plan.Motivo != s.Motivo ||
+		m.Plan.DefinicionNueva.Version != 1 || !cierreGobiernoRolNuevoAdmitido(m.Plan) ||
+		m.Plan.Motivo != s.Motivo ||
 		m.ProponentePersonaRef == s.Aprobador.PersonaRef {
 		return vacia, ErrPlanGobiernoPerfilInvalido
 	}
@@ -55,4 +55,16 @@ func (s SolicitudCierreGobiernoRolPorReferencia) CompletarCierreGobiernoRolConMa
 		return vacia, ErrPlanGobiernoPerfilInvalido
 	}
 	return completa, nil
+}
+
+func cierreGobiernoRolNuevoAdmitido(p PlanGobiernoPerfil) bool {
+	if p.DefinicionNueva == nil {
+		return false
+	}
+	switch p.DefinicionNueva.RolID {
+	case RolIDPersonaDietasComisiones, RolIDPersonaDietasRutas:
+		return planRolDietasExacto(p)
+	default:
+		return len(p.DefinicionNueva.Concesiones) == 1 && len(p.Selecciones) == 1
+	}
 }
