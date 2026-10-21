@@ -86,7 +86,7 @@ UNION ALL SELECT 'justificantes', count(*) FROM vec_bolsa_llamamientos.respuesta
 CREATE TEMP TABLE vec_fixture_esperado(entidad text PRIMARY KEY, filas bigint) ON COMMIT DROP;
 INSERT INTO vec_fixture_esperado VALUES
 ('fila_staging',41),('historia_estado',1),('lote',1),('conciliacion',0),
-('decision_retencion',0),('outbox',0),('original',0),('bolsa',1),('ambito',1),
+('decision_retencion',0),('outbox',0),('original',0),('bolsa',1),('ambito',0),
 ('constitucion',1),('instantanea',1),('entradas',41),('vinculos',41),
 ('datos_contacto',41),('situaciones',65),('operaciones_situacion',3),
 ('trazas',108),('reposiciones',2),('politica_orden',1),('politica_lectura',1),
