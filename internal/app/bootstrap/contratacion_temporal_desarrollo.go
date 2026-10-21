@@ -72,6 +72,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
+	serializacionPerfiles                            serializacionPerfilesCT
 	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
 	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
 	poolDocumentosBolsa                              *pgxpool.Pool
@@ -1126,10 +1127,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		autoridadSubsanacion = subsanacionReal.autoridad
 		ejecutorSubsanacion = subsanacionReal.servicio
 	}
-	var consultorEstadoSeleccionOferta httpinterno.ConsultorEstadoSeleccionOferta
-	if consulta, ok := seleccionReal.(httpinterno.ConsultorEstadoSeleccionOferta); ok {
-		consultorEstadoSeleccionOferta = consulta
-	}
+	consultorEstadoSeleccionOferta := consultorEstadoSeleccionOfertaMontadoCT(seleccionReal)
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
@@ -1668,6 +1666,22 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarFronteraAuditoriaPendiente = false
 	cerrarAutoridadesPlantillasPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
+}
+
+// La selección singular existe aunque la consulta de estado optativa no se
+// haya compuesto. Publicar esa ruta en tal caso daría un 503 permanente.
+func consultorEstadoSeleccionOfertaMontadoCT(
+	ejecutor httpinterno.EjecutorSeleccionLlamamiento,
+) httpinterno.ConsultorEstadoSeleccionOferta {
+	seleccion, ok := ejecutor.(*ejecutorSeleccionLlamamientoDesarrollo)
+	if ok {
+		if seleccion == nil || seleccion.estadoOfertas == nil {
+			return nil
+		}
+		return seleccion
+	}
+	consulta, _ := ejecutor.(httpinterno.ConsultorEstadoSeleccionOferta)
+	return consulta
 }
 
 func advertirSeleccionConstituidaCT(etapa string, err error) {

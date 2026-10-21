@@ -539,6 +539,9 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 				return falloPostgreSQLCTDesarrollo(nil)
 			}
 		} else if !yaPublicada && !siguienteExacta {
+			// La misma instantánea ya publicada por otra petición es replay
+			// (yaPublicada). Aquí llega otra distinta (p. ej. de otra ruta del
+			// mismo perfil dinámico) o una versión superada: se rechaza siempre.
 			return falloPostgreSQLCTDesarrollo(nil)
 		}
 	} else if instantanea.AsignacionPerfil.Version != 1 {

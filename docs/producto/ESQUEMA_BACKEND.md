@@ -894,6 +894,12 @@ No publica claves, modifica asientos ni repite un acto de administración.
 Con la referencia, el grupo lector puede leer cualquier tramo histórico de
 gobierno, no solo el último; es el mismo dato y el mismo rol técnico.
 
+AUT107 añade dos contratos cerrados al gobierno de roles nuevos: comisión
+propia (relación de Personal, alta y consulta) e itinerarios (catálogo y cálculo).
+Cada uno conserva sus dimensiones de ámbito; requiere propuesta y aprobación
+por personas distintas. La migración no publica ni asigna perfiles, ni abre
+el alta de asignación de Dietas, pendiente del catálogo de validadores.
+
 ### 8.6 ContextoActor (`vec_contexto_actor_v1`)
 
 Resuelve, a partir de la cuenta (`cta_…`) y el perfil (`prf_…`) que ya acreditó la
@@ -1113,6 +1119,14 @@ no concede permiso. La consulta de modalidades necesita además AUT104, B138 y
 la API de preferencias. No se reconstruye el consumidor central. Orden: AD295, AD296
 y AD291. Activación en `deploy/principal/proyecciones_preferencias_f1_13_20261018.md`.
 
+F1-118 adapta el normalizador del censo de roles (AUT106). Cuando un rol
+publicado omite `retirada_en`, el cotejo añade el instante cero que serializa
+Go. Conserva los valores explícitos y los roles retirados. No modifica los
+documentos publicados, sus huellas, las concesiones ni el control de vigencia.
+El cambio sirve a las admisiones de catálogo AUT58 y AUT61 y a los consumidores
+existentes del normalizador. Activación y comprobaciones en
+[`f1_118_censo_cargos_firma.md`](../../deploy/principal/f1_118_censo_cargos_firma.md).
+
 ### 9.7 Rendimiento
 
 Lecturas por debajo de 300 ms p95 con volumen real y sin N+1: listas con una
@@ -1166,6 +1180,19 @@ opcional no concede permisos; ausente o incorrecta deja solo esta consulta en
 Falta completar el ensayo de lectura y reinicio de esta candidata.
 
 ### 11.2 Reglas de frontera
+
+F1-141 amplía `GET /api/vec/contratacion-temporal/llamamientos/seleccion/estado`
+para recuperar también la intención de un llamamiento singular pendiente.
+Conserva la autorización, la sesión y la auditoría de la consulta existente.
+La respuesta singular añade `tipo_seleccion: llamamiento`, la clave y la versión
+originales, el efecto pendiente y si queda una ventana abierta. La consulta no
+reanuda el acto; el formulario debe enviar expresamente la solicitud original
+por la ruta de selección existente. El contrato de las ofertas plurales se conserva.
+El GET solo se monta cuando existe su servicio. Para una persona, el 404
+`api.vec.ruta_exacta.error.recurso_no_encontrado` del enrutador conserva la
+selección anterior; un 404 de expediente, un 503 o una intención ya recuperada
+siguen bloqueando. Sin configuración de ofertas no hay recuperación después
+de recargar; F1-142 abordará esa lectura sin ampliar permisos en F1-141.
 
 - Rutas exactas registradas en una autoridad (`internal/vec/adapters/httpapi/rutas_exactas.go`
   y las composiciones de `internal/app/bootstrap/`); una ruta no registrada da 404.

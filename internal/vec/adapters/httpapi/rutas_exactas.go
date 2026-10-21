@@ -215,6 +215,12 @@ func peticionRutaExactaCanonica(peticion *http.Request) bool {
 	return escapada == peticion.URL.Path && !strings.Contains(escapada, "%")
 }
 
+// ResponderIndisponibilidadRutaExacta conserva el contrato común cuando una
+// frontera de composición no puede entregar la petición al despachador.
+func ResponderIndisponibilidadRutaExacta(respuesta http.ResponseWriter) {
+	responderAutorizacionRutaExacta(respuesta, ErrAutoridadRutaExactaNoDisponible)
+}
+
 func responderAutorizacionRutaExacta(
 	respuesta http.ResponseWriter,
 	err error,

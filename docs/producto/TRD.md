@@ -569,6 +569,12 @@ nueva, con plan y aprobación ligados a una huella (AUT45, AUT48, AUT64 en
 asignado por Administración, no un acto por persona. El gobierno de perfiles está
 en `docs/plan_modulos/administracion.md`.
 
+En la composición de desarrollo de un solo proceso, las peticiones de una misma
+identidad sintética esperan turno por su perfil canónico hasta que termina el
+manejador HTTP. Así una publicación dinámica no sustituye la asignación de otra
+petición antes del consumo. La espera es cancelable y dura como máximo 30 segundos;
+la autorización y sus revalidaciones siguen en PostgreSQL (F1-150b).
+
 La administración de sistema (cuentas, claves, conectores, despliegue) y el
 gobierno funcional de RRHH (catálogos, reglas, plantillas) son
 responsabilidades distintas. Operar la plataforma no da acceso a expedientes ni a
@@ -681,6 +687,14 @@ necesita además su propia fila técnica de origen AD172, distinta de la
 descarga y sin permiso humano nuevo. El cotejo del núcleo, la activación y
 los límites del ensayo se describen en
 [`firma_por_cargos_f1_58_20261020.md`](../../deploy/principal/firma_por_cargos_f1_58_20261020.md).
+
+F1-126 añade a la lista nominal de auditoría únicamente la pareja de ruta de
+descarga R5 v2 y acción de consulta que ya utiliza el manejador. Una descarga
+sin paso del cargo sigue cerrada antes de consultar el registro o leer el PDF:
+devuelve 404 solo después de un apunte válido; un fallo de orden, registro o
+acuse conserva el 503. No cambia el selector ni añade una concesión humana.
+La activación y el cotejo tras reiniciar se describen en
+[`descarga_denegada_f1_126_20261020.md`](../../deploy/principal/descarga_denegada_f1_126_20261020.md).
 
 ## 8. Protección de datos
 

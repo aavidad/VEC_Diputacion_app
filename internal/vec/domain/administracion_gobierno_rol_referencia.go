@@ -41,8 +41,8 @@ func (s SolicitudCierreGobiernoRolPorReferencia) CompletarCierreGobiernoRolConMa
 	if s.Validar() != nil || err != nil || h != s.PropuestaHuellaSHA256 ||
 		m.OperacionRef != s.PropuestaRef || m.Plan.Operacion != OperacionCrearPerfilGobernado ||
 		m.Plan.Base != nil || m.Plan.DefinicionNueva == nil ||
-		m.Plan.DefinicionNueva.Version != 1 || len(m.Plan.DefinicionNueva.Concesiones) != 1 ||
-		len(m.Plan.Selecciones) != 1 || m.Plan.Motivo != s.Motivo ||
+		m.Plan.DefinicionNueva.Version != 1 || !PlanGobiernoRolNuevoAdmitido(m.Plan) ||
+		m.Plan.Motivo != s.Motivo ||
 		m.ProponentePersonaRef == s.Aprobador.PersonaRef {
 		return vacia, ErrPlanGobiernoPerfilInvalido
 	}
@@ -55,4 +55,37 @@ func (s SolicitudCierreGobiernoRolPorReferencia) CompletarCierreGobiernoRolConMa
 		return vacia, ErrPlanGobiernoPerfilInvalido
 	}
 	return completa, nil
+}
+
+// PlanGobiernoRolNuevoAdmitido conserva la concesión ordinaria única y solo
+// admite planes compuestos para los dos contratos exactos de Dietas.
+func PlanGobiernoRolNuevoAdmitido(p PlanGobiernoPerfil) bool {
+	if p.DefinicionNueva == nil {
+		return false
+	}
+	switch p.DefinicionNueva.RolID {
+	case RolIDPersonaDietasComisiones, RolIDPersonaDietasRutas:
+		return planRolDietasExacto(p)
+	default:
+		return len(p.DefinicionNueva.Concesiones) == 1 && len(p.Selecciones) == 1
+	}
+}
+
+// IntencionGobiernoRolNuevoAdmitida acota la intención antes de leer el
+// catálogo: una única concesión ordinaria o el número exacto de concesiones de
+// uno de los dos contratos de Dietas. El contenido lo coteja después
+// PlanGobiernoRolNuevoAdmitido sobre el plan preparado.
+func IntencionGobiernoRolNuevoAdmitida(s SolicitudPlanGobiernoPerfil) bool {
+	if s.Publicacion == nil {
+		return false
+	}
+	esperadas := 1
+	switch s.Publicacion.RolPropuesto.RolID {
+	case RolIDPersonaDietasComisiones:
+		esperadas = len(accionesRolDietasComisiones)
+	case RolIDPersonaDietasRutas:
+		esperadas = len(accionesRolDietasRutas)
+	}
+	return len(s.Publicacion.Selecciones) == esperadas &&
+		len(s.Publicacion.RolPropuesto.Concesiones) == esperadas
 }

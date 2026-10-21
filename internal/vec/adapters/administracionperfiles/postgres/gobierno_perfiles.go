@@ -99,7 +99,7 @@ func (a *AutoridadGobiernoRolNuevo) ResolverCatalogoGobiernoPerfil(ctx context.C
 	}
 	if s.Validar() != nil || s.Intencion.Operacion != domain.OperacionCrearPerfilGobernado ||
 		s.Intencion.Publicacion == nil || s.Intencion.Deshabilitacion != nil ||
-		len(s.Intencion.Publicacion.Selecciones) != 1 || len(s.Intencion.Publicacion.RolPropuesto.Concesiones) != 1 {
+		!domain.IntencionGobiernoRolNuevoAdmitida(s.Intencion) {
 		return vacio, domain.ErrPlanGobiernoPerfilInvalido
 	}
 	p := s.Intencion.Publicacion
@@ -110,7 +110,7 @@ func (a *AutoridadGobiernoRolNuevo) ResolverCatalogoGobiernoPerfil(ctx context.C
 	plan, _, err := domain.PrepararPlanGobiernoRolNuevoDesdeCatalogo(c, s.Intencion,
 		a.reloj.Ahora(), s.Actor.PersonaRef)
 	if err != nil || plan.Operacion != domain.OperacionCrearPerfilGobernado || plan.Base != nil ||
-		plan.DefinicionNueva == nil || len(plan.DefinicionNueva.Concesiones) != 1 {
+		!domain.PlanGobiernoRolNuevoAdmitido(plan) {
 		return vacio, domain.ErrPlanGobiernoPerfilInvalido
 	}
 	h, err := plan.HuellaSHA256()

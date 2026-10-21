@@ -44,8 +44,7 @@ type cierreGobiernoRolEnvelope struct {
 func materialPropuestaGobiernoRol(o domain.OrdenPropuestaGobiernoPerfil) (Efecto, error) {
 	if o.Validar() != nil || o.Material.Plan.Operacion != domain.OperacionCrearPerfilGobernado ||
 		o.Material.Plan.Base != nil || o.Material.Plan.DefinicionNueva == nil ||
-		o.Material.Plan.DefinicionNueva.Version != 1 || len(o.Material.Plan.DefinicionNueva.Concesiones) != 1 ||
-		len(o.Material.Plan.Selecciones) != 1 {
+		o.Material.Plan.DefinicionNueva.Version != 1 || !domain.PlanGobiernoRolNuevoAdmitido(o.Material.Plan) {
 		return Efecto{}, domain.ErrPlanGobiernoPerfilInvalido
 	}
 	planSHA, err := o.Material.Plan.HuellaSHA256()
@@ -130,7 +129,7 @@ func RecursoGobiernoRolNuevo(e Efecto, asignacion domain.AsignacionPerfil) (doma
 		var m domain.MaterialPropuestaGobiernoPerfil
 		if decodificarGobiernoRol([]byte(p.MaterialCanon), &m) != nil || m.Plan.Operacion != domain.OperacionCrearPerfilGobernado ||
 			m.Plan.DefinicionNueva == nil || m.Plan.DefinicionNueva.Version != 1 || m.Plan.Base != nil ||
-			len(m.Plan.Selecciones) != 1 || len(m.Plan.DefinicionNueva.Concesiones) != 1 ||
+			!domain.PlanGobiernoRolNuevoAdmitido(m.Plan) ||
 			m.Plan.VersionRolObjetivoRef != e.Referencia {
 			return domain.RecursoAutorizable{}, errNoDisponible
 		}

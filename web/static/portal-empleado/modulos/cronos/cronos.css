@@ -458,6 +458,13 @@
   white-space: nowrap;
 }
 
+/* El nombre de la fila (p. ej. un permiso largo) parte en líneas para que las
+   columnas de cifras y la acción quepan sin desplazamiento a 1440 px. */
+.cronos-tabla tbody th[scope="row"] {
+  min-width: 12rem;
+  white-space: normal;
+}
+
 .cronos-tabla thead th {
   position: sticky;
   z-index: 1;

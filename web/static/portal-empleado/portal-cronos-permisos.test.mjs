@@ -38,10 +38,20 @@ function raizFalsa() {
   };
 }
 
+const SALDO_HOY = Object.freeze({
+  periodo: { tipo: "hoy", desde: "2026-10-21", hasta: "2026-10-21" },
+  resumen: { previstos_minutos: null, trabajados_minutos: 0, saldo_minutos: null, estado: "sin_datos" },
+  detalle: [],
+});
+
 function crearCoordinador(catalogo, consultas) {
   return crearCoordinadorModulosPortal({
     escaparHTML: (texto) => String(texto).replaceAll("&", "&amp;").replaceAll("<", "&lt;"),
+    // El saldo del día responde 200 (la sesión puede usar Cronos); el resto, 404.
     entorno: { fetch: async (ruta) => { consultas.push(String(ruta).split("?")[0]);
+      if (String(ruta) === "/api/interna/cronos/saldos/propio?periodo=hoy") {
+        return new Response(JSON.stringify(SALDO_HOY), { status: 200, headers: { "content-type": "application/json" } });
+      }
       return new Response("{}", { status: 404, headers: { "content-type": "application/json" } }); } },
     cargarCatalogoInterno: async () => catalogo,
     cargadoresInternos: {
@@ -80,8 +90,9 @@ test("Permisos monta los permisos propios; con la API en 404 muestra su estado y
   const consultas = [];
   const coordinador = crearCoordinador([{ clave: "cronos" }], consultas);
   await coordinador.cargarInterno();
-  // Cronos no tiene entrada en el portal: se carga al pedir su vista.
-  await coordinador.prepararVista("cronos-permisos");
+  // Cronos se carga al arrancar y comprueba el acceso con el saldo del día.
+  assert.deepEqual(consultas, ["/api/interna/cronos/saldos/propio"]);
+  consultas.length = 0;
   assert.equal(coordinador.resolverAcceso("cronos").disponible, true);
   assert.equal(coordinador.vistaDisponible("cronos-permisos"), true);
   const raiz = raizFalsa();

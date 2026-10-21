@@ -243,3 +243,23 @@ deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respu
 
 # F1-127: CT256; tras CT249.
 deploy/postgresql/contratacion_temporal/migraciones/000256_resolucion_portal_detalle_rrhh.up.sql 8a600c2f711104790d28cc48a9934974be6775bb41253166f3921b60f814944c
+
+# F1-134 — CT255: después de CT249/CT253/CT256 en esta composición.
+deploy/postgresql/contratacion_temporal/migraciones/000255_antecedente_b2_respuesta_portal.up.sql f13aea2d7c914de14981ba47e0bb72da020ae677cb9bac78e27e5848f5922b0e
+
+# F1-141 — CT257: lectura de intención singular pendiente con la autorización y auditoría de CT225; tras CT241.
+deploy/postgresql/contratacion_temporal/migraciones/000257_recuperar_intencion_singular_pendiente.up.sql b8834e208a4bd0d42c77d6086bd9eec7077a76121bb8fb783beeb39333437654
+
+# F1-148 — CT259: canon temporal de firma; después de todas las migraciones de main.
+deploy/postgresql/contratacion_temporal/migraciones/000259_canon_fecha_historica_firma.up.sql 63800c0004cd69ec199715bddf569654ee4ca1ab9ccd7af32f0b3bfd85f69d2c
+
+# F1-149 — CT260: canon temporal de firma v2; tras CT259 y el resto de main.
+deploy/postgresql/contratacion_temporal/migraciones/000260_canon_fecha_historica_firma_v2.up.sql 9a57d95bce3ba5d554918937085212c94457b9beb60ae6b89ccbe96b8c3ec057
+
+# F1-118 — AUT106: normaliza solo el instante cero omitido en roles publicados de cargos de firma; tras AUT105. Conserva documentos, huellas y ACL.
+deploy/postgresql/autorizacion/migraciones/000106_canon_retirada_cargos_firma.up.sql b2722a38c911dc86d9e9af55c569c6e22459e3ee53954cb23671229289e02fe3
+
+# F4-DIETAS-COPIA: AUT107, roles nominales de comisión propia e itinerario.
+deploy/postgresql/autorizacion/migraciones/000107_gobierno_roles_dietas.up.sql 8348e9a0f586d19b42c04afd28a6086048c7ae04ade3cae59d644c975a0e6314
+# F3-01 C1 — CRN18: catálogo sintético de motivos de Cronos v1; solo datos por el publicador V2 instalado en HZ37.
+deploy/postgresql/cronos_v1/migraciones/000018_catalogo_motivos_cronos_v1.up.sql d6b9a1ce9deb2dd64f7f3d8f770fcac01be4041b16f8d8c7c78b28e202f9da2c

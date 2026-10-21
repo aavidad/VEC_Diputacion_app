@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -177,6 +178,9 @@ func configurarSesionesNominalesIncorporacion(ctx context.Context, p *perfilesNo
 		if !ok || proveedor == nil {
 			return ct.ErrComposicionIncorporacionAplicacion
 		}
+		if bolsa := p.b2[bp.AccionConsultaAnclajeAceptacionNativaCT]; bolsa != nil && perfil == bolsa {
+			proveedor.anclajePropuesta = p
+		}
 		perfil.contextoEsperadoRegistrado, perfil.sesionOperativa = esperado, &sesionNominalIncorporacion{proveedor: proveedor}
 	}
 	return nil
@@ -208,7 +212,10 @@ func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *p
 	if ajeno {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
-	contexto, err := resolverContextoPerfilNominalCT(ctx, p.soporte, perfil, &holder.capturaPerfilesNominalesCT, p)
+	sesion := context.WithValue(ctx, claveSeleccionSesionNominalIncorporacion{}, seleccionSesionNominalIncorporacion{
+		propietario: p, perfil: perfil, captura: holder,
+	})
+	contexto, err := resolverContextoPerfilNominalCT(sesion, p.soporte, perfil, &holder.capturaPerfilesNominalesCT, p)
 	if err != nil {
 		return vacio, err
 	}

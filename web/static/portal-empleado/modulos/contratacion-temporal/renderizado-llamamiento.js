@@ -390,10 +390,12 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
         </fieldset>
         <div class="ct-acciones">
         ${!paso.recibo && !paso.bloqueado
-          && !(operacion === "seleccion" && estado.estadoOferta?.estado === "pendiente")
+          && !(operacion === "seleccion" && estado.estadoOferta?.estado === "pendiente"
+            && estado.estadoOferta?.tipoSeleccion !== "llamamiento")
           && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
-            ? esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
+            ? operacion === "seleccion" && estado.estadoOferta?.tipoSeleccion === "llamamiento"
+              ? "llamamiento_reanudar" : esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
               : esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
             : operacion === "seleccion" ? estado.numeroPersonasSolicitadas > 1 ? "llamamiento_publicar_oferta"
               : estado.numeroPersonasSolicitadas === 1 ? "llamamiento_seleccionar" : "llamamiento_iniciar_seleccion"
@@ -455,6 +457,9 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
     && !bloqueaFlujo && !bloqueaLista && !estado.comunicaciones?.intentoNoConfirmado;
   const seleccionRestauradaPendiente = consultaOferta === "pendiente"
     && estado.seleccion.solicitud !== null && estado.seleccion.recibo === null;
+  const mostrarSeleccionRestaurada = seleccionRestauradaPendiente
+    && (estado.estadoOferta?.tipoSeleccion !== "llamamiento"
+      || (!restaurada && !bloqueaLista && !bloqueaFlujo && !estado.comunicaciones?.intentoNoConfirmado));
   if (descarte && !estado.seleccion.recibo) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div><h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2></div></header>
     ${listaComunicaciones()}${consultaRespuesta()}
@@ -468,7 +473,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
     ${estado.enlazado ? "" : `<p class="ct-exp-mensaje ct-tono-informacion" role="status"
       data-ct-llamamiento-sin-expediente>${e(t("llamamiento_sin_expediente"))}</p>`}
     ${avisoOferta}
-    ${seleccionRestauradaPendiente ? formulario("seleccion", CAMPOS_SELECCION) : ""}
+    ${mostrarSeleccionRestaurada ? formulario("seleccion", CAMPOS_SELECCION) : ""}
     ${seleccionOferta ? "" : listaComunicaciones()}
     ${seleccionOferta ? "" : consultaRespuesta()}
     ${!estado.enlazado || (esperaOferta && !restaurada) || (!seleccionOferta && (bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado)) ? "</section>" : `
@@ -507,6 +512,6 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
-    ${propuesta()}
+    ${estado.propuesta.portal ? "" : propuesta()}
   </section>`}`}`;
 }

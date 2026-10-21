@@ -84,8 +84,18 @@ func (h *Handler) postGobiernoRolProponer(w http.ResponseWriter, r *http.Request
 		return
 	}
 	selecciones := dto.Selecciones
-	if dto.RolID == domain.RolIDPersonaMeritosCartera {
-		if (len(selecciones) != 2 && len(selecciones) != 3) || dto.EntradaRef != "" || dto.EntradaVersion != 0 || dto.EntradaHuellaSHA256 != "" {
+	compuesto := false
+	switch dto.RolID {
+	case domain.RolIDPersonaMeritosCartera:
+		compuesto = len(selecciones) == 2 || len(selecciones) == 3
+	case domain.RolIDPersonaDietasComisiones:
+		compuesto = len(selecciones) == 3
+	case domain.RolIDPersonaDietasRutas:
+		compuesto = len(selecciones) == 2
+	}
+	if dto.RolID == domain.RolIDPersonaMeritosCartera ||
+		dto.RolID == domain.RolIDPersonaDietasComisiones || dto.RolID == domain.RolIDPersonaDietasRutas {
+		if !compuesto || dto.EntradaRef != "" || dto.EntradaVersion != 0 || dto.EntradaHuellaSHA256 != "" {
 			h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
 			return
 		}

@@ -527,6 +527,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 				s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		case ruta == httpinterno.RutaConsultaCircuitoRRHH:
 			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos)
+		case ruta == httpinterno.RutaConsultaComunicacionesExpediente:
+			valida = solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos)
 		case ruta == httpinterno.RutaVinculosEmisionBolsa:
 			valida = solicitudVinculoEmisionBolsaCTValida(datos)
 		case rutaFirmasR5V2CTDesarrollo(ruta):
