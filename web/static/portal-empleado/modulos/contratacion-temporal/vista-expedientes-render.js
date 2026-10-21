@@ -142,6 +142,8 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
   return Object.freeze({
     expediente_ref: expediente.expediente_ref,
     version_esperada: expediente.version,
+    ...(typeof expediente.numero_visible === "string" && expediente.numero_visible.trim()
+      ? { numero_visible: expediente.numero_visible } : {}),
     ...(Number.isSafeInteger(expediente.numero_personas) && expediente.numero_personas > 0
       ? { numero_personas: expediente.numero_personas } : {}),
     ...(expediente.resultado_bolsa ? { resultado_bolsa: expediente.resultado_bolsa } : {}),

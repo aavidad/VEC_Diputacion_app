@@ -247,5 +247,8 @@ deploy/postgresql/contratacion_temporal/migraciones/000256_resolucion_portal_det
 # F1-134 — CT255: después de CT249/CT253/CT256 en esta composición.
 deploy/postgresql/contratacion_temporal/migraciones/000255_antecedente_b2_respuesta_portal.up.sql f13aea2d7c914de14981ba47e0bb72da020ae677cb9bac78e27e5848f5922b0e
 
+# F1-141 — CT257: lectura de intención singular pendiente con la autorización y auditoría de CT225; tras CT241.
+deploy/postgresql/contratacion_temporal/migraciones/000257_recuperar_intencion_singular_pendiente.up.sql b8834e208a4bd0d42c77d6086bd9eec7077a76121bb8fb783beeb39333437654
+
 # F1-148 — CT259: canon temporal de firma; después de todas las migraciones de main.
 deploy/postgresql/contratacion_temporal/migraciones/000259_canon_fecha_historica_firma.up.sql 63800c0004cd69ec199715bddf569654ee4ca1ab9ccd7af32f0b3bfd85f69d2c
