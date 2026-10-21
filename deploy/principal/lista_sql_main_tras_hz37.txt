@@ -246,3 +246,6 @@ deploy/postgresql/contratacion_temporal/migraciones/000256_resolucion_portal_det
 
 # F1-134 — CT255: después de CT249/CT253/CT256 en esta composición.
 deploy/postgresql/contratacion_temporal/migraciones/000255_antecedente_b2_respuesta_portal.up.sql f13aea2d7c914de14981ba47e0bb72da020ae677cb9bac78e27e5848f5922b0e
+
+# F4-DIETAS-COPIA: AUT107, roles nominales de comisión propia e itinerario.
+deploy/postgresql/autorizacion/migraciones/000107_gobierno_roles_dietas.up.sql 8348e9a0f586d19b42c04afd28a6086048c7ae04ade3cae59d644c975a0e6314
