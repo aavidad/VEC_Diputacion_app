@@ -16,10 +16,11 @@ documento, incluida la segunda firma del informe.
    `8f58548d20ef55314fa78e631cec10d0dd3a918e46e45de5b5b527758b6afb1a`.
 3. Aplicar CT259 una sola vez, con su comprobación de postimagen y los mismos
    permisos y configuración. No necesita variables, concesiones ni datos nuevos.
-4. Ejecutar la prueba SQL de regresión y repetirla tras reiniciar PostgreSQL.
+4. Ejecutar `deploy/postgresql/contratacion_temporal/pruebas_sql/ct259_canon_fecha_historica_firma.sql`
+   y repetirla tras reiniciar PostgreSQL.
    Dirección organiza el ensayo y las dos revisiones independientes.
 5. Arrancar la aplicación con la configuración existente y comprobar la firma
-   desde su pantalla. El caso anterior de P se conserva sin reintentar; el nuevo
+   desde su pantalla. El expediente del ensayo anterior se conserva sin reintentar la firma; el nuevo
    recorrido se hará en otra copia, tras la integración.
 
 Este documento describe la activación preparada. Todavía no acredita la
@@ -41,3 +42,8 @@ mismo patrón en `registrar_firma_verificada_v2`, SHA256
 Se comunica a dirección para otro corte; no se reconstruye en esta entrega.
 Los antecedentes de código están en CT172 y CT209; CT219 contiene la función
 actual de la versión 3.
+
+Postimagen prevista de la función: SHA256
+`1bafd6a56b78830d97f41e746cfde20da54e68eff07117a19cf01a62ac0e3607`.
+El otro llamador instalado que conserva el patrón es
+`registrar_firma_con_plan_v2`, que invoca la función anterior.
