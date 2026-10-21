@@ -73,6 +73,7 @@ func TestAltaDiagnosticaLecturaOriginalSinPublicarCausa(t *testing.T) {
 			}
 			if w.Code != http.StatusServiceUnavailable || cuerpo.Error.Codigo != "servicio_no_disponible" ||
 				log["etapa"] != caso.etapa || log["sqlstate"] != caso.sqlstate ||
+				log["centinela"] != "fuente_necesidades_no_disponible" ||
 				log["correlacion_ref"] != cuerpo.Error.CorrelacionRef ||
 				strings.Contains(registro.String()+w.Body.String(), "privado") ||
 				strings.Contains(registro.String()+w.Body.String(), "secreto") {

@@ -282,6 +282,7 @@ func TestEmisorMaterialAutorizacionAtestadaV3DenegacionExplicitaNoAtesta(t *test
 		context.Background(), e.base.solicitud, e.base.resultado,
 	)
 	if decision.Validar() == nil || confirmacion.Validar() == nil || material != nil ||
+		!errors.Is(err, domain.ErrAutorizacionDenegada) ||
 		!errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
 		!errors.Is(err, errEmisionMaterialAutorizacionAtestadaV3NoDisponible) ||
 		e.atestador.invocaciones != 0 ||
@@ -357,6 +358,7 @@ func TestEmisorMaterialAutorizacionAtestadaV3NoAceptaCentinelaSinPrueba(t *testi
 				ctx, e.base.solicitud, e.base.resultado,
 			)
 			if decision.Validar() == nil || confirmacion.Validar() == nil || material != nil ||
+				errors.Is(err, domain.ErrAutorizacionDenegada) ||
 				errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
 				(caso.causa != nil && !errors.Is(err, caso.causa)) ||
 				e.atestador.invocaciones != 0 {

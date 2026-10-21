@@ -137,6 +137,8 @@ func centinelaSeguroContratacion(causa error) string {
 		return "contexto_canal_no_disponible"
 	case errors.Is(causa, ports.ErrPersistenciaNoDisponible):
 		return "persistencia_no_disponible"
+	case errors.Is(causa, ports.ErrFuenteNecesidadesAltaNoDisponible):
+		return "fuente_necesidades_no_disponible"
 	case errors.Is(causa, ports.ErrFlujoNoDisponible):
 		return "flujo_no_disponible"
 	case errors.Is(causa, ports.ErrMotivoAutorizacionNoDisponible):
