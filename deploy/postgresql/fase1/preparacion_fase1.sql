@@ -3,7 +3,8 @@
 -- AD278 (orígenes), contexto_actor_v1/roles_up.sql (migrador de CTX45)
 -- y documentos/migraciones/000009_custodia_documento_firmado.up.sql
 -- (tipo documental reservado que D19 espera en la copia).
--- CTX15 y CTX2 aportan las filas iniciales de sus dos controles técnicos.
+-- CTX15 y CTX2 aportan las filas iniciales de sus dos controles técnicos;
+-- autorizacion/000003 aporta la del punto de control de motivos V2.
 -- Sólo prepara procedencia y catálogo técnicos: no publica permisos de negocio, actos,
 -- personas, firmas, recibos ni material criptográfico.
 -- Ejecutar una vez como superusuario local tras restaurar esquema_hz37.sql.gz
@@ -173,6 +174,40 @@ BEGIN
     USING ERRCODE = '55000';
   END IF;
 END $catalogo_d14$;
+
+-- autorizacion/000003 crea el punto de control de los motivos V2
+-- con su fila (true, 0); el volcado sin datos la omite y su disparador impide
+-- insertarla después. Sin ella ningún catálogo de motivos se publica (CRN18).
+-- Se repone como superusuario sin disparadores de réplica, tras comprobar las
+-- 662 tablas vacías, y se vuelve enseguida al modo normal.
+DO $checkpoint_motivos_v2_pre$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'vec_autorizacion'
+      AND c.relname = 'motivo_v2_checkpoint_origen'
+      AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity
+      AND c.relowner = 'vec_autorizacion_propietario'::regrole
+  ) OR EXISTS (SELECT 1 FROM vec_autorizacion.motivo_v2_checkpoint_origen)
+  THEN RAISE EXCEPTION 'F0-29: punto de control de motivos V2 incompatible'
+    USING ERRCODE = '55000';
+  END IF;
+END $checkpoint_motivos_v2_pre$;
+SET LOCAL session_replication_role = replica;
+INSERT INTO vec_autorizacion.motivo_v2_checkpoint_origen
+  (control_id, ultima_secuencia, actualizado_en) VALUES (true, 0, clock_timestamp());
+SET LOCAL session_replication_role = origin;
+DO $checkpoint_motivos_v2_post$
+BEGIN
+  IF (SELECT count(*) FROM vec_autorizacion.motivo_v2_checkpoint_origen) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_autorizacion.motivo_v2_checkpoint_origen
+       WHERE control_id AND ultima_secuencia = 0
+         AND ultimo_evento_ref IS NULL AND ultima_huella_evento_sha256 IS NULL)
+  THEN RAISE EXCEPTION 'F0-29: fila técnica de motivos V2 divergente'
+    USING ERRCODE = '55000';
+  END IF;
+END $checkpoint_motivos_v2_post$;
 
 -- El extractor de roles del DDL no ve este grupo: CTX45 le concede EXECUTE.
 CREATE ROLE vec_contexto_actor_v1_migrador NOLOGIN NOSUPERUSER
