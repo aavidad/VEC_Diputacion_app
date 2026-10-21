@@ -17,7 +17,7 @@ class ConductorTest(unittest.TestCase):
     def test_documentos_y_borradores_se_activan_antes_del_arranque_de_firma(self):
         from recorrido_copia import (catalogo, roles_admin, corporativo, certificados_base,
             firmantes, montajes_firma, actos, plan, admisiones, configuracion_firma,
-            documentos_base, documentos, personal)
+            documentos_base, documentos, personal, caso_bolsa)
         from contextlib import ExitStack
         with tempfile.TemporaryDirectory() as temporal, ExitStack() as pila:
             raiz = Path(temporal)
@@ -31,7 +31,7 @@ class ConductorTest(unittest.TestCase):
                 pila.enter_context(patch.object(conductor, funcion))
             for modulo, funcion in [(m, 'preparar') for m in (catalogo, roles_admin,
                     corporativo, certificados_base, firmantes, montajes_firma, admisiones,
-                    configuracion_firma, documentos_base, personal)] + [
+                    configuracion_firma, documentos_base, personal, caso_bolsa)] + [
                     (actos, 'preparar_actos'), (plan, 'preparar_plan'),
                     (documentos, 'preparar_documentos')]:
                 pila.enter_context(patch.object(modulo, funcion, return_value={}))
