@@ -136,6 +136,16 @@ type ConsultorPreparacionResolucionFormalizacion interface {
 	ConsultarPreparacionResolucionFormalizacion(context.Context, string) (PreparacionResolucionFormalizacion, error)
 }
 
+// Relee el recibo original del acto bajo una lectura nominal del expediente.
+// No reabre la preparación de registro, que permanece limitada a v7/v8.
+type ConsultorActoResolucionFormalizacion interface {
+	ConsultarActoResolucionFormalizacion(context.Context, string) (ResultadoResolucionFormalizacion, error)
+}
+
 type SesionPreparacionResolucionFormalizacion interface {
 	ConsultarPreparacionYRegistrarAcceso(context.Context, OrdenConsultaDetalleRRHH) (DetalleExpedienteRRHH, PreparacionResolucionFormalizacion, error)
+}
+
+type SesionActoResolucionFormalizacion interface {
+	ConsultarActoYRegistrarAcceso(context.Context, OrdenConsultaDetalleRRHH) (DetalleExpedienteRRHH, ResultadoResolucionFormalizacion, error)
 }
