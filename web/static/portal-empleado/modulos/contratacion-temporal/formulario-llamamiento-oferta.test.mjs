@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
 import { ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   validarSolicitudRecuperacionOferta, validarReciboSeleccion, validarReciboSeleccionOferta,
   validarReciboDescarteOferta, validarEstadoSeleccionOferta } from "./contrato-llamamiento.js";
@@ -39,6 +40,183 @@ const estadoOferta = (estado, extras = {}) => ({ esquema: "vec.contratacion-temp
   estado, expediente_ref: EXPEDIENTE,
   ...(estado === "ausente" ? {} : { version_esperada: 6, clave_idempotencia: seleccion().clave_idempotencia }),
   ...extras });
+const intencionSingular = (extras = {}) => estadoOferta("pendiente", {
+  tipo_seleccion: "llamamiento", ...extras,
+});
+
+test("la intención singular se reanuda tras remontar sin crear clave ni POST automático", async () => {
+  const escritas = [], originales = [];
+  const cliente = {
+    consultarEstadoSeleccionOferta: async () => intencionSingular({ efecto: "preparar_orden", ventana_abierta: true }),
+    seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    recuperarOferta: async () => { throw new Error("la recuperación de oferta no corresponde"); },
+  };
+  for (const versionContexto of [6, 9]) {
+    const raiz = raizPrueba();
+    const cerrar = montar(raiz, cliente, { contexto: { expediente_ref: EXPEDIENTE,
+      version_esperada: versionContexto, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no se debe generar otra clave"); } });
+    await asentarse();
+    assert.equal(escritas.length, originales.length);
+    assert.match(raiz.innerHTML, /Reanudar llamamiento/u);
+    assert.doesNotMatch(raiz.innerHTML, /123e4567-e89b-42d3-a456-426614174000|Recuperar operación/u);
+    await raiz.enviar("seleccion", { ...seleccion(), clave_idempotencia: "clave:falsa", version_esperada: "99" });
+    originales.push(escritas.at(-1));
+    assert.deepEqual(escritas.at(-1), { expediente_ref: EXPEDIENTE, version_esperada: 6,
+      clave_idempotencia: seleccion().clave_idempotencia });
+    assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u);
+    cerrar();
+  }
+});
+
+test("la reserva singular sin efecto ni ventana también reanuda el POST original", async () => {
+  const raiz = raizPrueba(), escritas = [];
+  const lectura = intencionSingular();
+  assert.deepEqual(validarEstadoSeleccionOferta(lectura, EXPEDIENTE), lectura);
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => lectura,
+    seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 9, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no debe generarse otra clave"); } });
+  await asentarse();
+  assert.equal(escritas.length, 0);
+  assert.match(raiz.innerHTML, /Reanudar llamamiento/u);
+  await raiz.enviar("seleccion", seleccion());
+  assert.deepEqual(escritas, [{ expediente_ref: EXPEDIENTE, version_esperada: 6,
+    clave_idempotencia: seleccion().clave_idempotencia }]);
+  cerrar();
+});
+
+test("Reanudar muestra el número del expediente y conserva el POST original", async () => {
+  for (const [numero_visible, referenciaVisible] of [
+    ["2026/CT-0042", "2026/CT-0042"],
+    [undefined, "Sin número asignado"],
+    ["2026/CT-abcdef123456", "Sin número asignado"],
+  ]) {
+    const raiz = raizPrueba(), confirmaciones = [], escritas = [];
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: async () => intencionSingular(),
+      seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 9, numero_personas: 1,
+      ...(numero_visible === undefined ? {} : { numero_visible }) },
+    confirmarOperacion: (descriptor) => { confirmaciones.push(descriptor); return true; },
+    generarClaveIdempotencia: () => { throw new Error("no debe generarse otra clave"); } });
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(confirmaciones.length, 1);
+    assert.equal(confirmaciones[0].referencia, referenciaVisible);
+    assert.equal(confirmaciones[0].datos.expediente_ref, EXPEDIENTE);
+    assert.deepEqual(escritas, [{ expediente_ref: EXPEDIENTE, version_esperada: 6,
+      clave_idempotencia: seleccion().clave_idempotencia }]);
+    cerrar();
+  }
+});
+
+test("GET singular primero espera a comunicaciones; error permite recarga y denegación explica el bloqueo", async () => {
+  for (const fallo of ["error", "denegado"]) {
+    const raiz = raizPrueba(); let resolverLista, consultas = 0, post = 0;
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: async () => intencionSingular(),
+      consultarComunicacionesExpediente: async () => {
+        consultas++;
+        if (consultas === 1) return new Promise((resolve) => { resolverLista = resolve; });
+        return { expediente_ref: EXPEDIENTE, comunicaciones: [] };
+      },
+      seleccionarLlamamiento: async () => { post++; return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+    await asentarse();
+    assert.match(raiz.innerHTML, /Cargando los llamamientos/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(post, 0);
+    resolverLista(fallo === "denegado"
+      ? Promise.reject(Object.assign(new Error("denegado"), { estado: 403, envelopeValido: true }))
+      : Promise.reject(new Error("sin conexión")));
+    await asentarse();
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+    if (fallo === "denegado") {
+      assert.match(raiz.innerHTML, /No tiene permiso para ver estos llamamientos/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-comunicaciones-reintentar/u);
+    } else {
+      assert.match(raiz.innerHTML, /data-ct-comunicaciones-reintentar/u);
+      await click(raiz, "data-ct-comunicaciones-reintentar");
+      await asentarse();
+      assert.match(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+      assert.match(raiz.innerHTML, /Reanudar llamamiento/u);
+    }
+    cerrar();
+  }
+});
+
+test("un llamamiento anterior elegido no deja visible Reanudar llamamiento", async () => {
+  const raiz = raizPrueba(); let post = 0;
+  const fila = { organizacion_ref: "organizacion:sintetica:001", expediente_ref: EXPEDIENTE,
+    llamamiento_ref: "llamamiento:anterior:001", comunicacion_ref: "comunicacion:anterior:001",
+    version: 2, estado: "registrada_localmente", registrada_en: "2026-10-15T09:00:00Z",
+    recibo_comunicacion_ref: "recibo:comunicacion:anterior:001",
+    antecedente_tipo: "seleccion_confirmada", recibo_antecedente_ref: "recibo:seleccion:anterior:001",
+    estado_respuesta: "sin_respuesta" };
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => intencionSingular(),
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila] }),
+    consultarReciboRespuesta: async () => { throw Object.assign(new Error("ausente"), {
+      estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+    }); },
+    seleccionarLlamamiento: async () => { post++; return reciboSingular; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+  await asentarse();
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/u);
+  await click(raiz, "data-ct-comunicacion-indice");
+  await asentarse();
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"|Reanudar llamamiento/u);
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(post, 0);
+  cerrar();
+});
+
+test("la intención singular congelada conserva clave tras error y doble pulsación", async () => {
+  const raiz = raizPrueba(), escritas = []; let liberar;
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => intencionSingular(),
+    seleccionarLlamamiento: (solicitud) => {
+      escritas.push(solicitud);
+      if (escritas.length === 1) return Promise.reject(new Error("sin respuesta"));
+      return new Promise((resolve) => { liberar = resolve; });
+    },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 8, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no se debe generar otra clave"); } });
+  await asentarse();
+  await raiz.enviar("seleccion", seleccion());
+  assert.match(raiz.innerHTML, /Volver a intentar/u);
+  const vuelo = raiz.enviar("seleccion", { ...seleccion(), version_esperada: "99" });
+  await asentarse();
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(escritas.length, 2);
+  assert.deepEqual(escritas[0], escritas[1]);
+  liberar(reciboSingular);
+  await vuelo;
+  cerrar();
+});
+
+test("el estado singular rechaza formas ambiguas y no habilita otro POST", async () => {
+  const invalidas = [
+    intencionSingular({ efecto: "preparar_orden" }),
+    intencionSingular({ ventana_abierta: true }),
+    intencionSingular({ efecto: "otro", ventana_abierta: true }),
+    intencionSingular({ tipo_seleccion: "otro" }),
+    estadoOferta("confirmada", { tipo_seleccion: "llamamiento", oferta: reciboOferta }),
+    intencionSingular({ version_esperada: 0 }),
+  ];
+  for (const lectura of invalidas) {
+    assert.throws(() => validarEstadoSeleccionOferta(lectura, EXPEDIENTE));
+    const raiz = raizPrueba(); let post = 0;
+    const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => lectura,
+      seleccionarLlamamiento: async () => { post++; return reciboSingular; } },
+    { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(post, 0);
+    cerrar();
+  }
+});
 
 test("GET de estado usa consulta codificada y valida la identidad de la respuesta", async () => {
   const comandos = [];
@@ -93,17 +271,87 @@ test("GET fallido bloquea la selección; reintento ausente la vuelve a permitir"
   cerrar();
 });
 
-test("N singular sin configuración S2 no consulta GET y conserva el envío", async () => {
+test("N singular con GET fallido bloquea el envío", async () => {
   const raiz = raizPrueba();
   let consultas = 0, post = 0;
   const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => { consultas++; throw new Error("S2 sin configurar"); },
     seleccionarLlamamiento: async () => { post++; return reciboSingular; } },
   { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
   await asentarse();
-  assert.equal(consultas, 0);
+  assert.equal(consultas, 1);
   await raiz.enviar("seleccion", seleccion());
-  assert.equal(post, 1);
+  assert.equal(post, 0);
   cerrar();
+});
+
+test("solo el 404 catalogado de ruta ausente conserva la selección singular nueva", async () => {
+  for (const [numero_personas, fallo, permitido] of [
+    [1, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+      claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" }, true],
+    [2, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+      claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" }, false],
+    [1, { estado: 503, codigo: "servicio_no_disponible", envelopeValido: true,
+      claveI18n: "api.vec.ruta_exacta.error.servicio_no_disponible" }, false],
+    [1, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+      claveI18n: "api.contratacion_temporal.llamamiento.error.recurso_no_encontrado" }, false],
+    [1, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: false,
+      claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" }, false],
+  ]) {
+    const raiz = raizPrueba(), escritas = [];
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: async () => { throw Object.assign(new Error("consulta fallida"), fallo); },
+      seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas } });
+    await asentarse();
+    assert.equal(escritas.length, 0);
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(escritas.length, permitido ? 1 : 0);
+    cerrar();
+  }
+});
+
+test("la desaparición de la ruta no permite sustituir una intención singular ya recuperada", async () => {
+  const raiz = raizPrueba(), escritas = [];
+  let consultas = 0;
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => {
+      if (++consultas === 1) return intencionSingular();
+      throw Object.assign(new Error("ruta ausente"), { estado: 404, codigo: "recurso_no_encontrado",
+        envelopeValido: true, claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" });
+    },
+    seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no generar clave nueva"); } });
+  await asentarse();
+  await click(raiz, "data-ct-llamamiento-estado-oferta-reintentar");
+  await asentarse();
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(consultas, 2);
+  assert.deepEqual(escritas, []);
+  cerrar();
+});
+
+test("el cliente real distingue el 404 catalogado del cuerpo antiguo y del 404 del expediente", async () => {
+  for (const [cuerpo, permitido] of [
+    [{ error: { codigo: "recurso_no_encontrado", clave_i18n: "api.vec.ruta_exacta.error.recurso_no_encontrado",
+      correlacion_ref: "corr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }, true],
+    [{ error: "vec route not found" }, false],
+    [{ error: { codigo: "recurso_no_encontrado",
+      clave_i18n: "api.contratacion_temporal.seleccion_llamamiento.error.recurso_no_encontrado",
+      correlacion_ref: "corr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }, false],
+  ]) {
+    const raiz = raizPrueba(), escritas = [];
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => new Response(
+      JSON.stringify(cuerpo), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: cliente.consultarEstadoSeleccionOferta,
+      seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+    await asentarse();
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(escritas.length, permitido ? 1 : 0);
+    cerrar();
+  }
 });
 
 test("N plural con S2 sin configurar bloquea POST hasta consulta válida", async () => {
@@ -119,15 +367,15 @@ test("N plural con S2 sin configurar bloquea POST hasta consulta válida", async
   cerrar();
 });
 
-test("N plural sin método GET bloquea selección; N singular conserva el POST", async () => {
+test("sin método GET bloquea selección singular y plural", async () => {
   for (const numeroPersonas of [1, 2]) {
     const raiz = raizPrueba(); let post = 0;
     const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: null,
       seleccionarLlamamiento: async () => { post++; return numeroPersonas === 1 ? reciboSingular : reciboOferta; } },
       { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: numeroPersonas } });
     await raiz.enviar("seleccion", seleccion());
-    assert.equal(post, numeroPersonas === 1 ? 1 : 0);
-    if (numeroPersonas === 2) assert.match(raiz.innerHTML, /No se ha podido preparar el envío/);
+    assert.equal(post, 0);
+    assert.match(raiz.innerHTML, /No se ha podido preparar el envío/);
     cerrar();
   }
 });

@@ -164,6 +164,8 @@ const CLAVES_ADICIONALES = Object.freeze({
   // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
   // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
   "i18n-llamamiento.js": [
+    // F1-141: recuperación de la intención singular al volver a abrir la ficha.
+    "llamamiento_reanudar", "llamamiento_reanudar_pendiente",
     "llamamiento_estado_oferta_cargando", "llamamiento_estado_oferta_error",
     "llamamiento_estado_oferta_denegado", "llamamiento_estado_oferta_reintentar",
     "llamamiento_cantidad_no_disponible",

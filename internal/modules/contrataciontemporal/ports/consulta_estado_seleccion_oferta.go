@@ -98,6 +98,31 @@ type EstadoSeleccionOfertaPorExpedienteCT struct {
 	Encontrada bool
 	Intencion  IntencionSeleccionOfertaCT
 	Estado     EstadoSeleccionOfertaCT
+	Singular   *IntencionSingularPendienteCT
+}
+
+// La intención singular se descubre con la misma lectura nominal del
+// expediente. No contiene una capacidad para ejecutar efectos de Bolsa.
+type IntencionSingularPendienteCT struct {
+	OrganizacionRef   string
+	ExpedienteRef     string
+	VersionExpediente uint64
+	ClaveIdempotencia string
+	Efecto            EfectoSeleccionLlamamiento
+	VentanaAbierta    bool
+}
+
+func (i IntencionSingularPendienteCT) Validar() error {
+	if !domain.ReferenciaOpacaValida(i.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(i.ExpedienteRef) ||
+		i.VersionExpediente == 0 || i.VersionExpediente > 1<<53-1 ||
+		!ClaveIdempotenciaValida(i.ClaveIdempotencia) ||
+		(i.Efecto != "" && i.Efecto != EfectoPrepararOrdenSeleccionLlamamiento &&
+			i.Efecto != EfectoSolicitarSeleccionLlamamiento) ||
+		(i.VentanaAbierta != (i.Efecto != "")) {
+		return ErrEjecucionSeleccionLlamamientoInvalida
+	}
+	return nil
 }
 
 type RegistroConsultaEstadoSeleccionOfertaCT interface {
