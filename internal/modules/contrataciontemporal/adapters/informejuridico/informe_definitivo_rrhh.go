@@ -74,11 +74,8 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 	if err := r.PDF.ValidarSalida(ctx, contenido); err != nil {
 		return nil, err
 	}
-	if tipo == ports.BorradorResolucion && r.ComprobarHuellaResolucion && resolucion != nil && resolucion.OriginalSHA256 != "" {
-		h := sha256.Sum256(contenido)
-		if hex.EncodeToString(h[:]) != resolucion.OriginalSHA256 {
-			return nil, ports.ErrResultadoResolucionFormalizacionNoConfiable
-		}
+	if err := cotejarOriginalResolucion(tipo, detalle, r.ComprobarHuellaResolucion, resolucion, contenido); err != nil {
+		return nil, err
 	}
 	return contenido, ctx.Err()
 }
@@ -200,17 +197,48 @@ func propuestaAnteriorA(hitos []ports.HitoExpedienteRRHH, accion string) (ports.
 }
 
 // El informe previo no depende de una resolución posterior. Tampoco consulta
-// el recibo cuando la proyección aún no ha alcanzado la propuesta.
+// el recibo cuando la proyección aún no ha alcanzado la propuesta, ni cuando
+// la plantilla publicada no combina el número o la fecha del acto.
+//
+// Solo el original firmable de la resolución (comprobarHuella) lee el acto
+// desde la proyección v7: es la versión histórica que el acto ya fijó. Una
+// descarga de la proyección v7 es la actual previa al acto y no lo consulta.
 func resolucionBorrador(ctx context.Context, tipo ports.TipoBorradorRRHH, d ports.DetalleExpedienteRRHH,
 	fuente ports.FuenteResolucionDocumentoRRHH, plantillas *PlantillasBorrador, comprobarHuella bool,
 ) (*ports.DatosResolucionDocumentoRRHH, error) {
-	if tipo == ports.BorradorInformeDefinitivo || d.Resumen.Version < 7 || d.Resumen.Version > 8 {
+	if tipo == ports.BorradorInformeDefinitivo || d.Resumen.Version < 7 {
 		return nil, nil
 	}
-	if !comprobarHuella && !plantillaUsaResolucion(plantillas, tipo) {
+	original := comprobarHuella && tipo == ports.BorradorResolucion
+	if !original && !plantillaUsaResolucion(plantillas, tipo) {
 		return nil, nil
+	}
+	if d.Resumen.Version == 7 && !original {
+		fuente = nil
 	}
 	return ports.ResolucionParaDocumentoRRHH(ctx, d.Resumen.ExpedienteRef, fuente)
+}
+
+// cotejarOriginalResolucion exige que el original firmable de la resolución
+// sea exactamente el PDF cuya huella conservó el acto. Durante el registro la
+// solicitud en curso no trae huella: el propio acto la calculará con estos bytes.
+func cotejarOriginalResolucion(tipo ports.TipoBorradorRRHH, d ports.DetalleExpedienteRRHH, comprobar bool,
+	resolucion *ports.DatosResolucionDocumentoRRHH, contenido []byte,
+) error {
+	if tipo != ports.BorradorResolucion || !comprobar {
+		return nil
+	}
+	if resolucion == nil {
+		return ports.ErrBorradorRRHHNoDisponible
+	}
+	if resolucion.OriginalSHA256 == "" {
+		return nil
+	}
+	h := sha256.Sum256(contenido)
+	if d.Resumen.Version != 7 || hex.EncodeToString(h[:]) != resolucion.OriginalSHA256 {
+		return ports.ErrResultadoResolucionFormalizacionNoConfiable
+	}
+	return nil
 }
 
 func solicitudDocumento(datos *ports.DatosResolucionDocumentoRRHH) *ports.SolicitudResolucionFormalizacion {
