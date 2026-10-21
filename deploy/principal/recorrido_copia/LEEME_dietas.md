@@ -38,12 +38,11 @@ La aplicación arranca y reinicia con esta preparación y Dietas desactivado. No
   transacción y remite a `dietas-conexiones.log` antes de conciliar. Una pérdida
   de conexión conserva el resultado como incierto; nunca afirma una reversión.
 
-## Primer ensayo y corrección de revisión
+## Ensayo final de la receta
 
-El 21 de octubre, la cabeza `0477a5ab8`, con main `3796cf010` incorporada,
-completó la versión anterior de `crear --recorrido-completo --dietas` en
-**275,82 segundos**, con
-salida 0 y material nuevo. No se reutilizó la copia del intento anterior.
+El 21 de octubre, la cabeza `0e8114260`, con main `3796cf010` incorporada,
+completó `crear --recorrido-completo --dietas` en **216,53 segundos**, con
+salida 0 y material nuevo. La copia anterior se borró antes de crear esta.
 El ejecutable GrxFirma se declaró con su huella mediante las opciones de la
 [receta común](LEEME.md); no se descargó software ni se cambió el instalado.
 
@@ -51,22 +50,32 @@ El ejecutable GrxFirma se declaró con su huella mediante las opciones de la
   y consulta cotejada del catálogo.
 - Dos roles publicados por propuesta y aprobación de administradores distintos,
   con sus contratos de tres y dos concesiones, respectivamente.
-- Once cuentas separadas: las once conexiones respondieron por TLS con
+- Diez cuentas separadas: las diez conexiones respondieron por TLS con
   `verify-full`; `pg_stat_ssl` confirmó el cifrado de cada conexión.
 - `copia_local.py reiniciar` y `comprobar` terminaron con salida 0. Tras el
   reinicio de aplicación y PostgreSQL se repitieron los cotejos de roles y las
-  once conexiones, conservando el resultado y sin nuevas propuestas ni altas.
+  diez conexiones, conservando el resultado y sin nuevas propuestas ni altas.
 - La copia se borró con la fábrica, salida 0. Los recibos y registros quedan
   en la evidencia privada del equipo; no se incorporan conexiones a Git.
 
-Las pruebas Python focales de Dietas, catálogo y conductor pasan.
-La revisión posterior aplaza la conexión de asignación de Personal: quedan
-diez conexiones. Su nuevo ensayo está pendiente.
+Las veintidós pruebas Python focales de Dietas, catálogo y conductor pasan.
+Dirección dio visto bueno al código `0477a5ab8` y al delta `0e8114260`.
+Este último aplaza la conexión de asignación y distingue el error SQL de la
+pérdida de conexión; sus dos pruebas nuevas pasan.
 Cubren conexiones, recuperación, contratos y la parada de actos inciertos,
 aunque una lectura encuentre el rol. Semgrep local: tres reglas sobre los
 cinco archivos Python modificados, sin hallazgos. La revisión focal de
 seguridad conserva separación de cuentas, TLS y actos de dos administradores;
 no se han ampliado permisos ni abierto el catálogo de validadores de Personal.
+El análisis focal de las correcciones también terminó sin hallazgos.
+
+Sin `VEC_DIETAS_PERSONAL_ASIGNACION_DATABASE_URL`, y aportando las otras tres
+conexiones de entorno preparadas, `vec-server comprobar-dietas` con el
+selector activo termina con salida 1: «faltan conexiones PostgreSQL separadas
+para borradores de dietas». Es la comprobación previa de solo lectura: no
+se reinició la aplicación con esa configuración incompleta. El servicio
+habitual sigue disponible con Dietas desactivado; no se afirma un arranque
+con Dietas activado ni una comprobación completa de los manifiestos.
 
 Este ensayo acredita la preparación y su persistencia. Dietas conserva
 `activada: false`; no acredita manifiestos, asignaciones, comisión, cálculo

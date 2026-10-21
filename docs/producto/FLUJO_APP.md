@@ -182,8 +182,8 @@ El lateral se arma así (`web/static/portal-empleado/index.html`,
    `VEC_PORTAL_MODULOS_VISIBLES` limita además qué módulos se cargan en cada
    despliegue; no es un permiso.
    En Dietas, la etapa opcional de copia ya prepara las fuentes, los dos roles
-   aprobados y diez conexiones. El primer ensayo verificó la persistencia tras
-   reinicio; la conexión de asignación de Personal se aplaza. Sigue apagado:
+   aprobados y diez conexiones, comprobados tras reinicio. La conexión de
+   asignación de Personal se aplaza. Sigue apagado:
    faltan la asignación de Personal y los manifiestos; no se ha registrado una
    comisión desde la web. Detalle en `deploy/principal/recorrido_copia/LEEME_dietas.md`.
 3. **Plantillas de documentos**, solo si RRHH tiene permiso y
