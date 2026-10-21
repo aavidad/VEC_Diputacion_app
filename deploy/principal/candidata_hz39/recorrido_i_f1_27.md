@@ -12,17 +12,29 @@ solicitud rechazada y el PDF firmado permanecen guardados. G sigue parada.
 
 | Tramo | Estado |
 | --- | --- |
-| Creación completa y carga nativa de Bolsa | En ejecución |
-| Petición, ratificación y alta (1–3) | Pendiente |
-| Análisis, vía, asignación e informe (4–7) | Pendiente |
-| Dos firmas del informe y fiscalización (7b–8) | Pendiente |
+| Creación completa y carga nativa de Bolsa | Completada en 294,47 segundos; 145 migraciones |
+| Petición, ratificación y alta (1–3) | 200, 200 y 201; expediente 2026/95033 |
+| Análisis, vía, asignación e informe (4–7) | Actuaciones 201 hasta versión 5 |
+| Dos firmas del informe y fiscalización (7b–8) | Dos firmas 201 y fiscalización favorable 201; versión 6 |
 | Llamamiento, contactos y aceptación (9–11) | Desde las 09:00 de Madrid |
 | Propuesta, resolución, documentos y tres firmas (12–15) | Pendiente |
 | Incorporación, Personal, GINPIX, cese, vuelta a Bolsa y cierre (17–21) | Pendiente |
 | Reinicio y recuperación de lecturas y recibos | Pendiente |
 
-La prueba SQL y las revisiones de F1-148 acreditan la corrección del formato
-de la fecha histórica; todavía falta comprobar la firma desde Chrome en I.
+Las dos firmas del informe se confirmaron desde Chrome con GrxFirma y los
+certificados propios de técnico y Jefatura. Hubo un envío de registro por
+firmante; ambos devolvieron 201, verificación técnica válida y
+`firma_eficaz=false`. La cofirma de Jefatura completa el paso 2 de 2 del
+informe. Ese resultado acredita el recorrido técnico de I; no recupera el
+instante interno exacto del envío rechazado en H ni sustituye Firmadoc.
+
+El PDF firmado se descargó desde la ficha: 49.315 bytes, SHA-256
+`4ac25b3327f66738e0901d448a43522dff0e140368b78378db9b611739f9ef1e`.
+Su huella coincide con la devuelta por la segunda firma. Intervención
+registró después el resultado favorable, con recibo y versión resultante 6.
+No se ha seleccionado ni contactado a la persona candidata en I.
+La prueba SQL y las revisiones de F1-148 cubren además las precisiones de
+fecha histórica que provocaban el defecto de contrato.
 La franja de llamadas de 09:00 a 14:00 se conserva. I tendrá referencias,
 actos y recibos propios; no trasladará los de H ni de otras copias.
 Los materiales privados permanecen fuera de Git. Esta hoja no cierra el
