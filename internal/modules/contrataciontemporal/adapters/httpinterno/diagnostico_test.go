@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -159,6 +161,35 @@ func TestDiagnosticoSeleccionDescartaMarcadorPublicoYReconoceCriterios(t *testin
 				entrada["causa_interna"] != caso.esperado ||
 				strings.Contains(registro.String(), "CONTENIDO_PRIVADO") {
 				t.Fatalf("causa interna incorrecta o dato expuesto: %s %v", registro.String(), err)
+			}
+		})
+	}
+}
+
+func TestDiagnosticoSeleccionReconoceAusenciaSQLYContextoSinMensajes(t *testing.T) {
+	anterior := slog.Default()
+	defer slog.SetDefault(anterior)
+	for _, caso := range []struct {
+		nombre, esperado string
+		causa            error
+	}{
+		{"sin fila", "postgres_sin_filas", pgx.ErrNoRows},
+		{"cancelación", "context_canceled", context.Canceled},
+		{"plazo", "deadline_exceeded", context.DeadlineExceeded},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var registro bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+			causa := errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada,
+				fmt.Errorf("CONTENIDO_PRIVADO: %w", caso.causa))
+			registrarFalloContratacion(httptest.NewRequest(http.MethodPost, RutaSeleccionLlamamiento, nil),
+				http.StatusServiceUnavailable, "servicio_no_disponible", "corr_prueba", causa)
+			var entrada map[string]any
+			if err := json.Unmarshal(registro.Bytes(), &entrada); err != nil ||
+				entrada["causa_interna"] != caso.esperado ||
+				strings.Contains(registro.String(), "CONTENIDO_PRIVADO") ||
+				strings.Contains(registro.String(), caso.causa.Error()) {
+				t.Fatalf("causa segura ausente o mensaje expuesto: %s %v", registro.String(), err)
 			}
 		})
 	}
