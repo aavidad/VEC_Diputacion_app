@@ -263,3 +263,9 @@ deploy/postgresql/autorizacion/migraciones/000106_canon_retirada_cargos_firma.up
 deploy/postgresql/autorizacion/migraciones/000107_gobierno_roles_dietas.up.sql 8348e9a0f586d19b42c04afd28a6086048c7ae04ade3cae59d644c975a0e6314
 # F3-01 C1 — CRN18: catálogo sintético de motivos de Cronos v1; solo datos por el publicador V2 instalado en HZ37.
 deploy/postgresql/cronos_v1/migraciones/000018_catalogo_motivos_cronos_v1.up.sql d6b9a1ce9deb2dd64f7f3d8f770fcac01be4041b16f8d8c7c78b28e202f9da2c
+
+# F1-27 B — AD306: consumidor documental propio; antes de AD305 pendiente.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000306_consumidor_identidad_documental_ct.up.sql c57f8d686703c8ae021d4f7b0caa5bf976451bc05ed2b409ac55d627b9143a14
+
+# F1-27 B — B149: lectura nominal de procedencia de identidad; después de AD306.
+deploy/postgresql/bolsa_llamamientos/migraciones/000149_identidad_documental_aceptacion_ct.up.sql df74ce75c1cb39ab4c78bd026475c40876ba275076e6f1076283bd892389cdef
