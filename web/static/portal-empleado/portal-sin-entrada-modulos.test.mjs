@@ -44,7 +44,7 @@ function coordinadorConModulosCargando() {
     temporizadores: sinTemporizador,
     cargadoresInternos: {
       contratacion_temporal: async () => { throw new Error("sin CT"); },
-      personal: nunca, cronos: nunca, dietas: nunca,
+      personal: nunca, cronos_acceso: nunca, cronos: nunca, dietas: nunca,
     },
   });
 }
@@ -165,7 +165,7 @@ test("con el saldo propio en 200, Cronos entra en el menú y en Inicio", async (
 });
 
 for (const [estado, motivo] of [[403, "sin permiso de Cronos"], [401, "sin sesión válida"],
-  [404, "Cronos apagado en el servidor"], [500, "fallo del servidor"]]) {
+  [404, "Cronos apagado en el servidor"]]) {
   test(`con el saldo propio en ${estado} (${motivo}), Cronos no aparece y su URL directa no lo monta`, async () => {
     const { coordinador, pedidas } = coordinadorCronos({ [SALDO]: () => json(estado, { error: "x" }) });
     await coordinador.cargarInterno();
@@ -202,4 +202,51 @@ test("si la comprobación de un servicio falla por otra causa, su pestaña se co
   await coordinador.cargarInterno();
   assert.equal(coordinador.vistaDisponible("cronos-avisos"), true);
   assert.equal(coordinador.vistaDisponible("cronos-notificaciones"), true);
+});
+
+for (const [caso, respuesta] of [["500", () => json(500, { error: "x" })], ["503", () => json(503, { error: "x" })],
+  ["sin red", () => { throw new TypeError("sin red"); }]]) {
+  test(`con el saldo propio en ${caso}, Cronos se ofrece como «No disponible · Reintentar» sin descargar sus vistas`, async () => {
+    const { coordinador, pedidas } = coordinadorCronos({ [SALDO]: respuesta });
+    await coordinador.cargarInterno();
+    assert.deepEqual(pedidas, [SALDO]);
+    assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), ["cronos", "bolsa", "contratacion_temporal"]);
+    const acceso = coordinador.resolverAcceso("cronos");
+    assert.equal(acceso.disponible, false);
+    assert.equal(acceso.recuperable, true);
+    const { menu, inicio } = menuEInicio(coordinador);
+    assert.match(menu, /data-modulo-portal="cronos"[^>]*data-accion="recargar-fuente"/u);
+    assert.match(menu, /no disponible · Reintentar/iu, "mismo texto que los demás módulos");
+    assert.doesNotMatch(menu, /data-modulo-portal="cronos"[^>]*data-vista=/u);
+    assert.doesNotMatch(inicio, /data-vista="cronos/u, "Inicio no lleva a un módulo no disponible");
+    assert.equal(coordinador.vistaDisponible("cronos"), false);
+  });
+}
+
+test("sin permiso solo se descarga el cliente de saldo; con permiso, el resto del módulo", async () => {
+  for (const [estado, esperado] of [[403, ["acceso"]], [401, ["acceso"]], [404, ["acceso"]], [200, ["acceso", "vistas"]]]) {
+    const descargas = [];
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => CATALOGO,
+      entorno: { fetch: async (ruta) => (String(ruta).startsWith(SALDO) ? json(estado, estado === 200 ? SALDO_HOY : { error: "x" })
+        : json(404, { error: "no_encontrado" })) },
+      temporizadores: sinTemporizador,
+      cargadoresInternos: {
+        contratacion_temporal: async () => { throw new Error("sin CT"); },
+        cronos_acceso: async () => { descargas.push("acceso"); return { clienteSaldo: await import("./modulos/cronos/cliente-saldo-http.js") }; },
+        cronos: async () => { descargas.push("vistas"); return recursosCronosReales(); },
+      },
+    });
+    await coordinador.cargarInterno();
+    assert.deepEqual(descargas, esperado, String(estado));
+  }
+});
+
+test("la comprobación predeterminada importa únicamente el cliente de saldo", async () => {
+  const fuente = await readFile(new URL("./portal-modulos-coordinador.js", import.meta.url), "utf8");
+  const inicio = fuente.indexOf("cronos_acceso: async () =>");
+  assert.ok(inicio > 0);
+  const linea = fuente.slice(inicio, fuente.indexOf("\n", inicio));
+  assert.deepEqual([...linea.matchAll(/import\("([^"]+)"\)/gu)].map(([, ruta]) => ruta), ["./modulos/cronos/cliente-saldo-http.js"]);
 });

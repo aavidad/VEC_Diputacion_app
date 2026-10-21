@@ -19,6 +19,21 @@ function clasificarFalloCronos(error) {
 }
 
 /**
+ * Acceso de la sesión a Cronos según el servidor, por la lectura del saldo
+ * propio del día (el servidor deriva la persona del certificado). Solo
+ * necesita el cliente de saldo: el resto del módulo se descarga después y
+ * únicamente con «permitido».
+ */
+export async function comprobarAccesoCronos({ clienteSaldo, entorno, signal } = {}) {
+  if (typeof clienteSaldo?.crearClienteSaldoCronosHTTP !== "function") throw new TypeError("cliente de saldo de Cronos no disponible");
+  const transporte = typeof entorno?.fetch === "function" ? { fetchImpl: entorno.fetch.bind(entorno) } : {};
+  try {
+    await clienteSaldo.crearClienteSaldoCronosHTTP(transporte).consultar({ periodo: "hoy" }, { signal });
+    return "permitido";
+  } catch (error) { return clasificarFalloCronos(error); }
+}
+
+/**
  * Copia de la composición de Cronos sin las subvistas de los servicios que el
  * servidor tiene apagados (`servicios.avisos` o `servicios.notificaciones`
  * igual a «ausente»). Sin comprobación (`null`) devuelve la misma composición.
@@ -95,14 +110,6 @@ export function componerCronosInterno(recursos, entorno) {
     ...(resolucion || notificaciones ? { etiquetas } : {}),
     ...subvistasResolucion,
     ...subvistasNotificaciones,
-    // Acceso de la sesión a Cronos según el servidor, por la lectura del saldo
-    // propio del día (la persona la deriva el servidor del certificado).
-    async comprobarAcceso({ signal } = {}) {
-      try {
-        await cliente.saldo.consultar({ periodo: "hoy" }, { signal });
-        return "permitido";
-      } catch (error) { return clasificarFalloCronos(error); }
-    },
     // Estado de los servicios opcionales por su lectura propia: «activo» o el
     // fallo clasificado. Solo «ausente» (404) retira su pestaña.
     async comprobarServiciosOpcionales({ signal } = {}) {

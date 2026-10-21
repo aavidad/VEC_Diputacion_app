@@ -50,12 +50,13 @@ const recursosCronos = () => ({
   movimientos: { montarVistaMovimientosCronos() {} },
   movimientosPropios: { montarMovimientosPropiosCronos() {} },
   permisosPropios: { montarPermisosPropiosCronos() {} },
-  // La carga de Cronos lee el saldo del día para saber si la sesión puede usarlo.
   clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({ consultar: async () => ({}) }) },
   clienteRemoto: { crearClienteRemotoCronosHTTP: () => ({}) },
   clienteSolicitudes: { crearClienteSolicitudesCronosHTTP: () => ({}) },
   i18n: { crearTraductorCronos: () => (clave) => clave },
 });
+// Acceso a Cronos: el cliente de saldo responde «permitido» sin red.
+const ACCESO_CRONOS = async () => ({ clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({ consultar: async () => ({}) }) } });
 const recursosPersonal = () => ({
   contrato: { CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" },
   cliente: { crearClienteHTTPCategoriasPersonal: () => ({}) },
@@ -77,7 +78,7 @@ test("Mi espacio publica navegación diferida sin consultar módulos propios; Cr
     entorno: { fetch: () => assert.fail("los accesos no deben sondear APIs propias") },
     cargadoresInternos: {
       contratacion_temporal: () => assert.fail("CT no está en el catálogo"),
-      cronos: async () => { cargados.push("cronos"); return recursosCronos(); },
+      cronos_acceso: ACCESO_CRONOS, cronos: async () => { cargados.push("cronos"); return recursosCronos(); },
       personal: () => assert.fail("Personal no se ha abierto"), dietas: () => assert.fail("Dietas no se ha abierto"),
     },
   });
@@ -112,7 +113,7 @@ function coordinadorControlado({ limite = 10_000 } = {}) {
     entorno: { fetch: async () => { throw new Error("sin red"); } },
     cargadoresInternos: {
       contratacion_temporal: cargador("contratacion_temporal"),
-      cronos: cargador("cronos"),
+      cronos_acceso: ACCESO_CRONOS, cronos: cargador("cronos"),
       personal: cargador("personal"),
       dietas: cargador("dietas"),
     },
@@ -313,7 +314,7 @@ test("dos cargas seguidas: los módulos tardíos de la primera no alteran la com
     cargadoresInternos: {
       contratacion_temporal: async () => { throw new Error("sin CT"); },
       // La primera carga recibe módulos tardíos; la segunda, fallos inmediatos.
-      cronos: () => (carga === 1 ? modulosPrimera.cronos.promesa : Promise.reject(new Error("no"))),
+      cronos_acceso: ACCESO_CRONOS, cronos: () => (carga === 1 ? modulosPrimera.cronos.promesa : Promise.reject(new Error("no"))),
       dietas: () => (carga === 1 ? modulosPrimera.dietas.promesa : Promise.reject(new Error("no"))),
       personal: async () => { throw new Error("no"); },
     },
@@ -390,7 +391,7 @@ test("empleado sin contratación temporal en el catálogo: su Inicio en cuanto l
     escaparHTML: String,
     modulosDiferidos: [],
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "cronos" }]),
-    cargadoresInternos: { contratacion_temporal: async () => ({}), cronos: () => pendiente.promesa },
+    cargadoresInternos: { contratacion_temporal: async () => ({}), cronos_acceso: ACCESO_CRONOS, cronos: () => pendiente.promesa },
   });
   const carga = coordinador.cargarInterno();
   await esperarTurnos();
@@ -491,7 +492,7 @@ test("Personal y Dietas no se cargan al arrancar; su vista directa los carga. Cr
     entorno: { fetch: async () => { throw new Error("sin red"); } },
     cargadoresInternos: {
       contratacion_temporal: async () => { iniciados.push("contratacion_temporal"); throw new Error("sin CT"); },
-      cronos: async () => { iniciados.push("cronos"); return recursosCronos(); },
+      cronos_acceso: ACCESO_CRONOS, cronos: async () => { iniciados.push("cronos"); return recursosCronos(); },
       personal: async () => { iniciados.push("personal"); return personal.promesa; },
       personal_catalogos_publicos: async () => { iniciados.push("personal_catalogos_publicos"); throw new Error("no"); },
       dietas: async () => { iniciados.push("dietas"); return recursosDietas(); },

@@ -173,8 +173,9 @@ El lateral se arma así (`web/static/portal-empleado/index.html`,
 2. **Módulos**, desde `GET /api/vec/modules`. Se ofrecen Bolsa y Contratación
    temporal. Cronos aparece en el menú y en Inicio solo cuando el servidor
    responde 200 a la lectura del saldo propio del día
-   (`CLAVES_ENTRADA_SEGUN_ACCESO`); con 401, 403, 404 o cualquier fallo no se
-   ofrece. Sus pestañas de avisos y de comunicaciones a RRHH se quitan cuando su
+   (`CLAVES_ENTRADA_SEGUN_ACCESO`); con 401, 403 o 404 no se ofrece, y con un
+   5xx, un plazo agotado o un fallo de carga sale como «No disponible ·
+   Reintentar». Hasta ese 200 el portal solo descarga el cliente de saldo. Sus pestañas de avisos y de comunicaciones a RRHH se quitan cuando su
    servicio responde 404 (apagado en la configuración). Personal, Dietas y
    Documentos se ocultan del menú (`CLAVES_SIN_ENTRADA_PORTAL`) y se llega a
    ellos por dirección directa o por los accesos de Inicio.

@@ -617,10 +617,12 @@ test("los ocho módulos registrados conservan estado fiel sin inventar vistas", 
   });
   await cargarConDiferidos(coordinador);
   // Sin pantalla en el portal, Administración y Usuarios no entran en su
-  // catálogo; Personal, Cronos y Dietas se cargan pero no se ofrecen.
+  // catálogo; Personal y Dietas se cargan pero no se ofrecen. Sin red, la
+  // comprobación de Cronos falla y se ofrece como «No disponible · Reintentar».
   assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), [
-    "bolsa", "contratacion_temporal",
+    "cronos", "bolsa", "contratacion_temporal",
   ]);
+  assert.equal(coordinador.resolverAcceso("cronos").recuperable, true);
   for (const clave of ["administracion", "usuarios"]) {
     assert.deepEqual(coordinador.resolverAcceso(clave), {
       disponible: false, vista: "", estado: "no_disponible",
@@ -814,6 +816,7 @@ test("Mi ficha ofrece destinos propios diferidos sin cargarlos ni consultar sus 
       cargadoresInternos: {
         contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
         personal_catalogos_publicos: async () => { throw new Error("sin catálogos públicos"); },
+        cronos_acceso: async () => ({ clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({ consultar: async () => ({}) }) } }),
         cronos: async () => { cargadas.push("cronos"); throw new Error("no disponible"); },
         dietas: async () => { cargadas.push("dietas"); throw new Error("no disponible"); },
       },

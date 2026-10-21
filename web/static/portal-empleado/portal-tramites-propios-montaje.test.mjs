@@ -26,7 +26,7 @@ function entorno({ catalogo = ["cronos", "dietas", "personal"], pendienteCronos,
     entorno: { fetch: () => assert.fail("no debe sondear otras APIs") },
     cargarCatalogoInterno: async () => catalogo.map((clave) => ({ clave })),
     cargarTramitesPropios: async () => { cargas.push("hoja"); return pendienteHoja ? pendienteHoja.promesa : recursosHoja; },
-    cargadoresInternos: { contratacion_temporal: () => assert.fail("sin CT"), personal: () => assert.fail("Personal sigue diferido"), cronos: async () => { cargas.push("cronos"); return pendienteCronos ? pendienteCronos.promesa : recursosCronos; }, dietas: async () => { cargas.push("dietas"); return recursosDietas; } },
+    cargadoresInternos: { contratacion_temporal: () => assert.fail("sin CT"), personal: () => assert.fail("Personal sigue diferido"), cronos_acceso: async () => ({ clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({ consultar: async () => ({}) }) } }), cronos: async () => { cargas.push("cronos"); return pendienteCronos ? pendienteCronos.promesa : recursosCronos; }, dietas: async () => { cargas.push("dietas"); return recursosDietas; } },
   });
   return { coordinador, cargas, lecturas, montajes, recursosCronos, recursosHoja, get fuente() { return fuente; }, get desmontajes() { return desmontajes; }, fallar(cronos, dietas) { falloCronos = cronos; falloDietas = dietas; } };
 }
