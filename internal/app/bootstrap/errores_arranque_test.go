@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/shared/telemetria"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
@@ -153,5 +154,40 @@ func TestFuenteOrganizacionConCentroNoAdmitidoPorCTConservaDiagnosticoDeFuente(t
 		strings.Contains(err.Error(), ruta) {
 		t.Fatalf("diagnostico de fuente no conservado: componente=%s clase=%s mensaje=%s",
 			ComponenteFalloArranque(err), telemetria.ClaseErrorArranque(err), telemetria.MensajeErrorArranque(err))
+	}
+}
+
+func TestAvisoFuenteNecesidadesAltaNoConfiguradaUsaErrorCatalogadoSinTumbarArranque(t *testing.T) {
+	for _, caso := range []struct {
+		nombre     string
+		err        error
+		componente string
+		mensaje    string
+	}{
+		{
+			nombre:     "fuente_necesidades",
+			err:        errFuenteNecesidadesAltaNoConfigurada,
+			componente: "fuente_necesidades_alta",
+			mensaje:    mensajeFuenteNecesidadesAltaNoConfigurada,
+		},
+		{
+			nombre:     "catalogo_rpt",
+			err:        errCatalogoRPTNecesidadesAltaNoConfigurado,
+			componente: "catalogo_rpt",
+			mensaje:    mensajeCatalogoRPTNecesidadesAltaNoConfigurado,
+		},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if !errors.Is(caso.err, ports.ErrFuenteNecesidadesAltaNoDisponible) ||
+				ComponenteFalloArranque(caso.err) != caso.componente ||
+				telemetria.ClaseErrorArranque(caso.err) != "configuracion" ||
+				telemetria.MensajeErrorArranque(caso.err) != caso.mensaje ||
+				strings.Contains(telemetria.MensajeErrorArranque(caso.err), "no catalogado") {
+				t.Fatalf("error de arranque no catalogado: componente=%s clase=%s mensaje=%s",
+					ComponenteFalloArranque(caso.err),
+					telemetria.ClaseErrorArranque(caso.err),
+					telemetria.MensajeErrorArranque(caso.err))
+			}
+		})
 	}
 }

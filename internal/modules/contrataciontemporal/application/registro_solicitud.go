@@ -119,6 +119,14 @@ func (s *ServicioRegistroSolicitud) ConfigurarVerificadorPuestoRPTAlta(
 	return nil
 }
 
+func (s *ServicioRegistroSolicitud) FuenteNecesidadesAltaConfigurada() bool {
+	return s != nil && !dependenciaNula(s.fuenteNecesidades)
+}
+
+func (s *ServicioRegistroSolicitud) VerificadorPuestoRPTAltaConfigurado() bool {
+	return s != nil && !dependenciaNula(s.verificadorPuestoRPT)
+}
+
 func (s *ServicioRegistroSolicitud) ConfigurarPoliticaNumeroExpediente(
 	politica domain.PoliticaNumeroExpediente,
 ) error {

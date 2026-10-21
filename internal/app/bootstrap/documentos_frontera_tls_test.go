@@ -182,16 +182,20 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 	if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrAccesoDenegado) || emisor.llamadas != 1 {
 		t.Fatalf("material no ligado aceptado: %v (emisiones=%d)", err, emisor.llamadas)
 	}
-	// El emisor solo conserva el centinela explícito tras confirmar la
-	// denegación. Un fallo al registrarla sigue siendo indisponibilidad.
-	for _, caso := range []struct{ causa, esperado error }{
-		{vecports.ErrDenegacionExplicitaAutorizacionLigadaV3, docports.ErrAccesoDenegado},
-		{vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, docports.ErrCapacidadNoDisponible},
+	incidencias := &incidenciasDocumentosPrueba{}
+	a.incidencias = incidencias
+	for _, errDenegacion := range []error{
+		vecports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+		errors.Join(core.ErrAutorizacionDenegada, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3),
 	} {
-		emisor.err = caso.causa
-		if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, caso.esperado) {
-			t.Fatalf("denegación: causa=%v obtenido=%v esperado=%v", caso.causa, err, caso.esperado)
+		emisor.err = errDenegacion
+		if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrAccesoDenegado) || len(incidencias.emitidas) != 0 {
+			t.Fatalf("denegación explícita V3 clasificada como 503: err=%v incidencias=%d", err, len(incidencias.emitidas))
 		}
+	}
+	emisor.err = vecports.ErrFuenteAutorizacionNoDisponible
+	if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrCapacidadNoDisponible) || len(incidencias.emitidas) != 1 {
+		t.Fatalf("indisponibilidad V3 mal clasificada: err=%v incidencias=%d", err, len(incidencias.emitidas))
 	}
 
 	// Sujeto TLS y cuenta cruzados: 403 sin actor y sin llegar al manejador.

@@ -84,6 +84,7 @@ func TestHTTPPeticionCentroDistingueDenegacionDeIndisponibilidad(t *testing.T) {
 		{"contexto_catalogo", rutaContextoPeticionCentro, http.MethodGet, "catalogo_organizacion_no_disponible", errors.Join(personalports.ErrCambioOrganizacionNoDisponible, errors.New(secreto)), true, false, 503},
 		{"operacion_denegada", rutaOperacionesPeticionCentro, http.MethodPost, "autorizacion_denegada", errors.Join(domain.ErrRatificacionCentroDenegada, errors.New(secreto)), false, false, 403},
 		{"operacion_configuracion", rutaOperacionesPeticionCentro, http.MethodPost, "configuracion_autorizacion_no_disponible", errors.Join(vecdomain.ErrAutorizacionDenegada, vecdomain.ErrConfiguracionAccesoInvalida, errors.New(secreto)), false, false, 503},
+		{"operacion_fuente_necesidades", rutaOperacionesPeticionCentro, http.MethodPost, "fuente_necesidades_no_disponible", errors.Join(ports.ErrFuenteNecesidadesAltaNoDisponible, errors.New(secreto)), false, false, 503},
 	}
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {
