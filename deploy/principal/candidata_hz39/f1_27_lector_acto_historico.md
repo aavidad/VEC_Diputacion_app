@@ -28,3 +28,11 @@ divergentes; no presenta ese rechazo como prueba de anulación. Cuando exista
 un acto de anulación o rectificación, el lector deberá denegar la resolución
 afectada. Esa ligadura queda para la tarea aparte de dichos actos. La copia J
 y sus recibos quedan intactos.
+
+Ensayo local: CT261 se instala con código 0 en PostgreSQL 18.4 restaurado de
+un volcado coherente de J, con sus roles y permisos de base conservados. La
+comprobación SQL del contrato y de las historias presentes también termina
+con código 0. Es una copia privada sin red, limitada a 2 GiB; J sigue intacta.
+Esta prueba no ejecuta una lectura nominal real de versión 9 o posterior.
+Las focales Go cubren ese contrato con dobles; el consumo genuino, el
+recorrido en Chrome y las revisiones independientes siguen pendientes.
