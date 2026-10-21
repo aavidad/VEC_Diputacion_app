@@ -182,6 +182,17 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 	if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrAccesoDenegado) || emisor.llamadas != 1 {
 		t.Fatalf("material no ligado aceptado: %v (emisiones=%d)", err, emisor.llamadas)
 	}
+	// El emisor solo conserva el centinela explícito tras confirmar la
+	// denegación. Un fallo al registrarla sigue siendo indisponibilidad.
+	for _, caso := range []struct{ causa, esperado error }{
+		{vecports.ErrDenegacionExplicitaAutorizacionLigadaV3, docports.ErrAccesoDenegado},
+		{vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, docports.ErrCapacidadNoDisponible},
+	} {
+		emisor.err = caso.causa
+		if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, caso.esperado) {
+			t.Fatalf("denegación: causa=%v obtenido=%v esperado=%v", caso.causa, err, caso.esperado)
+		}
+	}
 
 	// Sujeto TLS y cuenta cruzados: 403 sin actor y sin llegar al manejador.
 	cuenta.Sujeto = "desarrollo:otro-sujeto"
@@ -201,10 +212,14 @@ type emisorDocumentosPrueba struct {
 	t        *testing.T
 	ahora    time.Time
 	llamadas int
+	err      error
 }
 
 func (e *emisorDocumentosPrueba) EmitirMaterialAutorizacionAtestadaV3(_ context.Context, s core.SolicitudAutorizacionLigadaV3, _ core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	e.llamadas++
+	if e.err != nil {
+		return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, e.err
+	}
 	datos, err := s.Datos()
 	if err != nil {
 		e.t.Fatal(err)

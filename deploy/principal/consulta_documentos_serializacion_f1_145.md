@@ -23,6 +23,9 @@ Si no puede registrar, devuelve `ErrFronteraNoDisponible` y falla cerrado.
 El registro común de decisiones denegadas de contexto de actor ya usaba esa
 política. La prueba añadida confirma la recuperación y el agotamiento con la
 misma decisión, motivo y versiones. No se modifica el núcleo de autorización.
+Documentos reconoce ahora el centinela de denegación explícita que entrega
+el emisor tras confirmar su registro: responde 403. Si el registro falla,
+conserva el 503. Antes, esa denegación confirmada se traducía también a 503.
 No se atribuye el 503 observado en la copia de T exclusivamente a los huecos
 documentales: el registro común ya estaba protegido y sigue limitado por el
 contexto de cada petición.
@@ -48,12 +51,17 @@ Se han ejecutado con éxito, también con `-race`, los casos
 40001 en el primer intento se recupera en el segundo. El persistente agota
 los intentos y produce el 503 catalogado, sin cuerpo SQL ni un 500.
 `go vet -p 6` de los tres paquetes afectados termina sin avisos.
+La prueba de sesión documental verificada distingue además la denegación
+auditada de la indisponibilidad del registro, también con `-race`.
 
-Semgrep local: 42 reglas Go, tres archivos de producción cambiados, cero
+Semgrep local: 42 reglas Go, cuatro archivos de producción cambiados, cero
 hallazgos. GoSec del paquete documental: cero hallazgos en los archivos
 cambiados; ocho avisos G115 en archivos ajenos al cambio. No se han añadido
 exclusiones. La revisión focal del cambio comprueba aborto antes de repetir,
 conservación de autoridad, ausencia de detalle SQL y fallo cerrado al agotar.
+GoSec no pudo cargar por completo la composición de arranque; sus errores
+de carga impiden afirmar una revisión completa de ese paquete. Semgrep y
+la revisión de fuente cubren el cambio de traducción de la denegación.
 
 No se ha creado otra copia ni repetido el recorrido completo. Las pruebas
 de PostgreSQL que requieren una base configurada no se han ejecutado en
