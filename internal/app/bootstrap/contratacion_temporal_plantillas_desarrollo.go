@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	plantillaspg "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres/plantillascatalogo"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -717,6 +718,18 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
+	if consultas.identidadDocumental != nil {
+		sesionSelector, ok := consultas.sesion.(ctports.SesionSelectorIdentidadDocumentalRRHH)
+		if ok {
+			selectorDocumental, e := ctapplication.NuevoServicioSelectorIdentidadDocumentalRRHH(autoridadDetalle, emisor, sesionSelector, reloj)
+			if e == nil {
+				consultas.identidadDocumental.selectorDocumental = func(ctx context.Context, expediente string) (bp.SelectorAceptacionNativaCT, error) {
+					selector, e := selectorDocumental.Consultar(ctx, expediente)
+					return bp.SelectorAceptacionNativaCT(selector), e
+				}
+			}
+		}
+	}
 	consultorDetalle, err := ctapplication.NuevoServicioConsultaDetalleRRHH(autoridadDetalle, emisor, consultas.sesion, reloj)
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
@@ -733,7 +746,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	manejador, err := plantillashttp.NuevoManejadorBorradores(consultorDetalle, proveedorDocumental,
-		plantillashttp.GeneradorBorradoresCatalogo{PDF: pdfvec.Renderizador{Membrete: true}, DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas},
+		plantillashttp.GeneradorBorradoresCatalogo{PDF: pdfvec.Renderizador{Membrete: true}, DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, FuenteIdentidad: consultas.identidadDocumental.Consultar},
 		reloj.Ahora)
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible

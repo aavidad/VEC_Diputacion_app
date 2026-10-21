@@ -11,7 +11,8 @@ import (
 // RenderizadorBorradorDOCXDesarrollo representa el mismo detalle ya
 // autorizado que PDF. No añade tipos documentales, autoridad ni persistencia.
 type RenderizadorBorradorDOCXDesarrollo struct {
-	DOCX vecports.RenderizadorDocumento
+	FuenteIdentidad ports.FuenteIdentidadDocumentoRRHH
+	DOCX            vecports.RenderizadorDocumento
 	// OmitirReferencias usa la misma presentación de nombres que la descarga PDF.
 	OmitirReferencias bool
 	// Etiquetas: nombres de catálogo para las referencias; puede ser nil.
@@ -29,7 +30,11 @@ func (r RenderizadorBorradorDOCXDesarrollo) RenderizarBorradorDOCX(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas, r.Plantillas, r.OmitirReferencias)
+	identidad, err := identidadBorrador(ctx, tipo, detalle, r.FuenteIdentidad, r.Plantillas, false)
+	if err != nil {
+		return nil, err
+	}
+	documento, err := contenidoBorradorConIdentidad(tipo, detalle, r.Etiquetas, r.Plantillas, r.OmitirReferencias, identidad)
 	if err != nil {
 		return nil, err
 	}

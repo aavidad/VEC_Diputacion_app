@@ -9,10 +9,10 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-// fuenteCampos reúne sólo lo que ya contiene el detalle autorizado. No hay
-// identidad de la persona: ningún campo la aporta y las plantillas dejan su
-// hueco para completarlo en el circuito competente.
+// fuenteCampos combina el detalle autorizado con la identidad mínima
+// aportada por el módulo propietario para preparar este documento.
 type fuenteCampos struct {
+	identidad         *ports.IdentidadDocumentoRRHH
 	detalle           ports.DetalleExpedienteRRHH
 	propuesta         ports.HitoExpedienteRRHH
 	requerido         *ports.HitoExpedienteRRHH
@@ -26,6 +26,24 @@ type fuenteCampos struct {
 // exige código porque exige un dato nuevo del expediente; cambiar un texto,
 // no.
 var camposBorrador = map[string]func(f *fuenteCampos) string{
+	"persona_nombre": func(f *fuenteCampos) string {
+		if f.identidad == nil {
+			return ""
+		}
+		return f.identidad.Nombre
+	},
+	"persona_apellidos": func(f *fuenteCampos) string {
+		if f.identidad == nil {
+			return ""
+		}
+		return f.identidad.Apellidos
+	},
+	"persona_documento_enmascarado": func(f *fuenteCampos) string {
+		if f.identidad == nil {
+			return ""
+		}
+		return f.identidad.DocumentoEnmascarado
+	},
 	"numero_expediente":  func(f *fuenteCampos) string { return f.detalle.Resumen.NumeroVisible },
 	"expediente_ref":     func(f *fuenteCampos) string { return f.detalle.Resumen.ExpedienteRef },
 	"version_expediente": func(f *fuenteCampos) string { return strconv.FormatUint(f.detalle.Resumen.Version, 10) },

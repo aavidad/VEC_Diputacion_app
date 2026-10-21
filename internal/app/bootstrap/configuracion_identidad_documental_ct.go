@@ -25,17 +25,16 @@ var versionRolIdentidadDocumentalCT = regexp.MustCompile(`^rol:identidad_documen
 // Solo coordenadas de actos ya publicados y nombres de ficheros privados.
 // El catálogo y el PDP vuelven a comprobar rol, asignación y ámbito.
 type archivoIdentidadDocumentalCT struct {
-	Esquema           string                          `json:"esquema"`
-	PerfilActivoRef   string                          `json:"perfil_activo_ref"`
-	VersionRolRef     string                          `json:"version_rol_ref"`
-	ActoAsignacionRef string                          `json:"acto_asignacion_ref"`
-	PrincipalID       string                          `json:"principal_id"`
-	CuentaRef         string                          `json:"cuenta_ref"`
-	CertificadoSHA256 string                          `json:"certificado_sha256"`
-	UnidadRef         string                          `json:"unidad_ref"`
-	Motivo            core.ReferenciaEntradaCatalogo  `json:"motivo"`
-	Capacidad         archivoCapacidadIncorporacionV2 `json:"capacidad"`
-	DSNFiles          map[string]string               `json:"dsn_files"`
+	Esquema           string                         `json:"esquema"`
+	PerfilActivoRef   string                         `json:"perfil_activo_ref"`
+	VersionRolRef     string                         `json:"version_rol_ref"`
+	ActoAsignacionRef string                         `json:"acto_asignacion_ref"`
+	PrincipalID       string                         `json:"principal_id"`
+	CuentaRef         string                         `json:"cuenta_ref"`
+	CertificadoSHA256 string                         `json:"certificado_sha256"`
+	UnidadRef         string                         `json:"unidad_ref"`
+	Motivo            core.ReferenciaEntradaCatalogo `json:"motivo"`
+	DSNFiles          map[string]string              `json:"dsn_files"`
 }
 
 var rolesPoolsIdentidadDocumentalCT = map[string]string{
@@ -51,7 +50,7 @@ func (c archivoIdentidadDocumentalCT) valida() bool {
 		c.ActoAsignacionRef == "" || c.PrincipalID == "" || c.CuentaRef == "" ||
 		!huellaSHA256ValidaContratacionTemporalDesarrollo(c.CertificadoSHA256) ||
 		c.UnidadRef == "" || !core.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) ||
-		c.Capacidad.File == "" || len(c.DSNFiles) != len(rolesPoolsIdentidadDocumentalCT) {
+		len(c.DSNFiles) != len(rolesPoolsIdentidadDocumentalCT) {
 		return false
 	}
 	for clave := range rolesPoolsIdentidadDocumentalCT {

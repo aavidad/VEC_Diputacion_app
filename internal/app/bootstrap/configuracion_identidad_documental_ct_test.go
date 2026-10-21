@@ -13,9 +13,8 @@ func configuracionIdentidadDocumentalCTPrueba() archivoIdentidadDocumentalCT {
 		ActoAsignacionRef: "acto:admin:documental:demo",
 		PrincipalID:       "per_0123456789abcdefghijkl", CuentaRef: "cuenta:gestion:demo",
 		CertificadoSHA256: strings.Repeat("a", 64), UnidadRef: "unidad:demo",
-		Motivo:    motivoOriginalFirmableCTDesarrollo(),
-		Capacidad: archivoCapacidadIncorporacionV2{File: "capacidad.json"},
-		DSNFiles:  map[string]string{"bolsa": "bolsa.dsn", "fuente_autorizacion": "fuente.dsn", "motivos_autorizacion": "motivos.dsn"},
+		Motivo:   motivoOriginalFirmableCTDesarrollo(),
+		DSNFiles: map[string]string{"bolsa": "bolsa.dsn", "fuente_autorizacion": "fuente.dsn", "motivos_autorizacion": "motivos.dsn"},
 	}
 }
 

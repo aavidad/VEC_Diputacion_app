@@ -18,7 +18,7 @@ ACTOS = (
     (12, 'sustituir', 'bolsa_origen_ct_rrhh_v2.json',
      '239b0dd9dab236396f675247f344c91863c839ab56d2d068165bd45cd930bd9b'),
 )
-DIRECTORIOS = {11: 'organizacion', 12: 'origen_ct'}
+DIRECTORIOS = {11: 'organizacion', 12: 'origen_ct', 13: 'identidad_documental'}
 HEX = re.compile(r'[0-9a-f]{64}\Z')
 SID = re.compile(r'[0-9]{15,20}\Z')
 LOGIN = re.compile(r'vec_caa_[0-9a-f]{16}\Z')
@@ -101,12 +101,12 @@ def directorio(c, numero):
     return path
 
 
-def cotejar_preparado(c, base, spec, sid, backup, anterior):
+def cotejar_preparado(c, base, spec, sid, backup, anterior, encargo=ENCARGO):
     numero, modo, nombre, huella = spec
     meta = c.leer(base / 'preparado.json')
     exigir(str(meta.get('acto')) == str(numero) and meta.get('modo') == modo
            and meta.get('sueltas') == [[nombre, huella]]
-           and meta.get('sid_copia') == sid and meta.get('encargo_ref') == ENCARGO
+           and meta.get('sid_copia') == sid and meta.get('encargo_ref') == encargo
            and meta.get('backup_ref') == backup['ref']
            and meta.get('backup_sha256') == backup['sha256']
            and HEX.fullmatch(meta.get('catalogo_sha256', ''))
@@ -123,14 +123,14 @@ def cotejar_preparado(c, base, spec, sid, backup, anterior):
     return meta
 
 
-def aprobacion(c, base, meta, numero):
+def aprobacion(c, base, meta, numero, encargo=ENCARGO):
     body = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
-            'aprobacion_ref': f'aprobacion:F1-131:catalogo:{numero}:{c.copia.nombre}',
+            'aprobacion_ref': f'aprobacion:{encargo}:catalogo:{numero}:{c.copia.nombre}',
             'aprobador_ref': APROBADOR,
             'catalogo_sha256': meta['catalogo_sha256'],
             'paquete_sha256': meta['paquete_sha256'],
             'backup_ref': meta['backup_ref'], 'backup_sha256': meta['backup_sha256'],
-            'encargo_ref': ENCARGO, 'sid_copia': meta['sid_copia'],
+            'encargo_ref': encargo, 'sid_copia': meta['sid_copia'],
             'esperado_version': meta['prev_version'],
             'esperado_sha256': meta['prev_huella'],
             'censo_preparado_sha256': meta['censo_preparado_sha256']}
@@ -140,13 +140,13 @@ def aprobacion(c, base, meta, numero):
     return path, body
 
 
-def cotejar_configuracion(c, base, meta, aprobacion_doc):
+def cotejar_configuracion(c, base, meta, aprobacion_doc, encargo=ENCARGO):
     cfg = c.leer(base / 'configurado.json')
     plan = c.leer(base / 'plan.json')
     exigir(HEX.fullmatch(cfg.get('plan_sha256', ''))
            and cfg['plan_sha256'] == c.sha(base / 'plan.json')
            and cfg.get('sid_copia') == meta['sid_copia']
-           and cfg.get('encargo_ref') == ENCARGO
+           and cfg.get('encargo_ref') == encargo
            and cfg.get('catalogo_sha256') == meta['catalogo_sha256']
            and cfg.get('paquete_sha256') == meta['paquete_sha256']
            and cfg.get('aprobacion_ref') == aprobacion_doc['aprobacion_ref']
@@ -222,18 +222,22 @@ def aplicar(c, cli, base, cfg, plan, meta, numero, replay):
     return doc
 
 
-def acto(c, cli, spec, sid, backup, fuentes, anterior):
+def acto(c, cli, spec, sid, backup, fuentes, anterior, encargo=ENCARGO):
     numero, modo, nombre, huella = spec
+    exigir((spec in ACTOS and encargo == ENCARGO)
+           or (numero == 13 and encargo == 'F1-27' and modo == 'fuentes'
+               and nombre == 'bolsa_identidad_documental_ct_rrhh_v1.json'),
+           'Acto AUT58 fuera del encargo')
     base = directorio(c, numero)
     preparado = base / 'preparado.json'
     if not preparado.exists():
         preparador(c, 'preparar', '--dir', base, '--fuentes', fuentes,
-                  '--modo', modo, '--acto', numero, '--encargo-ref', ENCARGO,
+                  '--modo', modo, '--acto', numero, '--encargo-ref', encargo,
                   '--sid-copia', sid, '--backup-ref', backup['ref'],
                   '--backup-sha', backup['sha256'], '--suelta', f'{nombre}:{huella}',
                   log=f'catalogo-{numero}-preparar.log')
-    meta = cotejar_preparado(c, base, spec, sid, backup, anterior)
-    approval_path, approval = aprobacion(c, base, meta, numero)
+    meta = cotejar_preparado(c, base, spec, sid, backup, anterior, encargo)
+    approval_path, approval = aprobacion(c, base, meta, numero, encargo)
     first_path = base / 'acuse-primero.json'
     if not first_path.exists():
         # Antes de configurar o aplicar, el preparador vuelve a cotejar cabeza y censo.
@@ -247,7 +251,7 @@ def acto(c, cli, spec, sid, backup, fuentes, anterior):
                       '--aprobacion', approval_path, '--pg-ca', c.material / 'ca/ca.crt',
                       '--pg-puerto', estado['puerto_pg'], '--ttl', 120,
                       log=f'catalogo-{numero}-configurar.log')
-    cfg, plan = cotejar_configuracion(c, base, meta, approval)
+    cfg, plan = cotejar_configuracion(c, base, meta, approval, encargo)
     configurar_sql(c, base, cfg, numero)
     if first_path.exists():
         first = c.leer(first_path)

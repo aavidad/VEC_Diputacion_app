@@ -1,0 +1,37 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:identidad_documental_ct_rrhh",
+  "version": 1,
+  "huella_sha256": "92fe478e69d7daf15a16ac32d8ce5e3623aec117cf79f8722e2276cfc1cfbcb3",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.aceptacion_ct.identidad_documento.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:identidad_documental_ct_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.aceptacion_ct.identidad_documento.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"identidad_documento_aceptacion_ct\",\"finalidades\":[\"redactar_documento_ct\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"apellidos\",\"documento_enmascarado\",\"nombre\",\"version_fuente\"]},\"dimensiones_ambito\":[\"unidad_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-21T00:00:00Z\",\"vigente_hasta\":\"2027-10-21T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.aceptacion_ct.identidad_documento.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:identidad_documental_ct_rrhh",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "92fe478e69d7daf15a16ac32d8ce5e3623aec117cf79f8722e2276cfc1cfbcb3",
+      "concesion": {
+        "accion": "bolsa.aceptacion_ct.identidad_documento.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "identidad_documento_aceptacion_ct",
+        "finalidades": [
+          "redactar_documento_ct"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "apellidos",
+          "documento_enmascarado",
+          "nombre",
+          "version_fuente"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-21T00:00:00Z",
+      "vigente_hasta": "2027-10-21T00:00:00Z"
+    }
+  ]
+}

@@ -12,9 +12,12 @@ import (
 )
 
 // RenderizadorBorradorDesarrollo representa la consulta ya autorizada.
-// No consulta más datos, registra propuestas ni sustituye un modelo oficial.
+// Las fuentes opcionales conservan su propia autorización; no registra actos.
 type RenderizadorBorradorDesarrollo struct {
-	PDF vecports.RenderizadorDocumento
+	FuenteIdentidad ports.FuenteIdentidadDocumentoRRHH
+	// ExigirIdentidad impide custodiar originales con huecos de persona.
+	ExigirIdentidad bool
+	PDF             vecports.RenderizadorDocumento
 	// OmitirReferencias muestra sólo el nombre cuando lo hay. Se activa en
 	// descargas; el valor cero conserva los bytes de formalización y custodia.
 	OmitirReferencias bool
@@ -55,7 +58,11 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas, r.Plantillas, r.OmitirReferencias)
+	identidad, err := identidadBorrador(ctx, tipo, detalle, r.FuenteIdentidad, r.Plantillas, r.ExigirIdentidad)
+	if err != nil {
+		return nil, err
+	}
+	documento, err := contenidoBorradorConIdentidad(tipo, detalle, r.Etiquetas, r.Plantillas, r.OmitirReferencias, identidad)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +124,13 @@ func contenidoBorradorDesarrollo(
 	plantillas *PlantillasBorrador,
 	omitirReferencias bool,
 ) (vecdomain.ContenidoDocumento, error) {
+	return contenidoBorradorConIdentidad(tipo, detalle, etiquetar, plantillas, omitirReferencias, nil)
+}
+
+func contenidoBorradorConIdentidad(tipo ports.TipoBorradorRRHH, detalle ports.DetalleExpedienteRRHH,
+	etiquetar EtiquetadorReferencias, plantillas *PlantillasBorrador, omitirReferencias bool,
+	identidad *ports.IdentidadDocumentoRRHH,
+) (vecdomain.ContenidoDocumento, error) {
 	plantilla, ok := plantillas.Plantilla(tipo)
 	if !ok {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
@@ -133,7 +147,7 @@ func contenidoBorradorDesarrollo(
 		!plantillas.tieneEtiqueta("fin.", string(detalle.Analisis.PeriodoCausaFin)) {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
-	fuente := fuenteCampos{detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla, omitirReferencias: omitirReferencias}
+	fuente := fuenteCampos{identidad: identidad, detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla, omitirReferencias: omitirReferencias}
 	if tipo == ports.BorradorInformeDefinitivo && plantilla.RequiereAccion == accionCatalogoInformeJuridico {
 		hito, vigente := ctapplication.HitoInformeVigenteParaOriginalRRHH(detalle)
 		if !vigente {

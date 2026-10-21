@@ -29,6 +29,7 @@ GRUPO_ACTO = 'vec_admin_catalogo_acciones_ejecutor'
 CFG_ACTO = 'config_catalogo_acciones_admin_v1'
 TOPE_VENTANA_MIN = 1440
 ENCARGO_REF = 'F1-131'
+ENCARGOS_ADMITIDOS = frozenset((ENCARGO_REF, 'F1-27'))
 APROBADOR_REF = 'fabrica:copias:desarrollo'
 
 def paro(motivo):
@@ -371,7 +372,7 @@ def cmd_preparar(o):
     if any((Path(o.dir) / n).exists() for n in ('preparado.json', 'paquete.json', 'catalogo.json')):
         paro('acto-ya-preparado')
     sid = exigir_sid(o.sid_copia)
-    if o.encargo_ref != ENCARGO_REF:
+    if o.encargo_ref not in ENCARGOS_ADMITIDOS:
         paro('encargo-ref-invalido')
     specs = especificaciones(o)
     paquete, catalogo, r = preparar_catalogo(o.fuentes, o.modo, specs)
@@ -395,6 +396,8 @@ def cmd_preparar(o):
 
 
 def revisar(o, meta):
+    if meta.get('encargo_ref') not in ENCARGOS_ADMITIDOS:
+        paro('encargo-ref-invalido')
     paquete, catalogo, _ = preparar_catalogo(o.fuentes, meta['modo'], meta['sueltas'])
     if sha(paquete.encode()) != meta['paquete_sha256'] or sha(catalogo.encode()) != meta['catalogo_sha256']:
         paro('cabeza-o-censo-cambiado-desde-preparar')
@@ -426,7 +429,7 @@ def cmd_configurar(o):
     esperado = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
                 'catalogo_sha256': meta['catalogo_sha256'], 'paquete_sha256': meta['paquete_sha256'],
                 'backup_ref': meta['backup_ref'], 'backup_sha256': meta['backup_sha256'],
-                'encargo_ref': ENCARGO_REF, 'sid_copia': exigir_sid(meta['sid_copia']),
+                'encargo_ref': meta['encargo_ref'], 'sid_copia': exigir_sid(meta['sid_copia']),
                 'esperado_version': meta['prev_version'], 'esperado_sha256': meta['prev_huella'],
                 'censo_preparado_sha256': meta['censo_preparado_sha256'],
                 'aprobador_ref': APROBADOR_REF}
@@ -437,7 +440,7 @@ def cmd_configurar(o):
             paro('aprobacion-ref-invalida')
     if aprobacion['aprobacion_ref'].upper().startswith('ENSAYO'):
         paro('aprobacion-ref-invalida')
-    if meta['encargo_ref'] != ENCARGO_REF:
+    if meta['encargo_ref'] not in ENCARGOS_ADMITIDOS:
         paro('encargo-ref-invalido')
     sid_actual = exigir_sid(una_fila(psql(SQL_SID)))
     if sid_actual != meta['sid_copia']:
@@ -521,7 +524,7 @@ def cmd_configurar(o):
         'plan_sha256': plan_sha, 'operacion_ref': plan['operacion_ref'], 'caduca_en': plan['caduca_en'],
         'aprobacion_ref': aprobacion['aprobacion_ref'], 'aprobacion_sha256': sha(raw_aprobacion),
         'aprobador_ref': aprobacion['aprobador_ref'], 'login': login, 'sid_copia': sid_actual,
-        'encargo_ref': ENCARGO_REF,
+        'encargo_ref': meta['encargo_ref'],
         'preimagen': {'catalogo_ref': CATALOGO_REF, 'version': meta['prev_version'],
                       'huella_sha256': meta['prev_huella'],
                       'censo_preparado_sha256': meta['censo_preparado_sha256']},

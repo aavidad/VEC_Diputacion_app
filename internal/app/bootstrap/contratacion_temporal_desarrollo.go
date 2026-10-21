@@ -72,6 +72,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
+	identidadDocumental                              *montajeIdentidadDocumentalCT
 	serializacionPerfiles                            serializacionPerfilesCT
 	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
 	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
@@ -741,6 +742,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var originalPropuestaReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
+	montajeIdentidadDocumental := &montajeIdentidadDocumentalCT{}
 	var borradorRRHH, borradorFormalizacion ports.RenderizadorBorradorRRHH
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	alta.soporte.mu.Lock()
@@ -973,11 +975,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
+
+		sondaIdentidad, cancelarIdentidad := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
+		montajeIdentidadDocumental, err = nuevoMontajeIdentidadDocumentalCT(sondaIdentidad, &alta, consultasRRHH, derivador, reloj)
+		cancelarIdentidad()
+		if err != nil {
+			registrarFalloMontajeCTDesarrollo("identidad_documental_montaje", err)
+		}
+		consultasRRHH.identidadDocumental = montajeIdentidadDocumental
 		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
 		// Descargas con nombre y logotipo; formalización y original firmable conservan sus bytes.
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
-		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true, FuenteIdentidad: montajeIdentidadDocumental.Consultar}
+		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas, FuenteIdentidad: montajeIdentidadDocumental.Consultar, ExigirIdentidad: true}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true, FuenteIdentidad: montajeIdentidadDocumental.Consultar}
 	}
 	// CT201 consume el detalle V3 y lee B98 en la misma transacción antes de
 	// devolverlo. La respuesta firme nativa conserva así su acuse nominal.
@@ -1041,6 +1051,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	detalleReal = coberturaFirmaNominal
 	defer func() {
 		if cerrarAlta {
+			montajeIdentidadDocumental.Cerrar()
 			consultasRRHH.cerrar()
 		}
 	}()
@@ -1589,6 +1600,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
+		identidadDocumental:                              montajeIdentidadDocumental,
 		soporteDocumentosBolsa:                           alta.soporte,
 		poolDocumentosBolsa:                              alta.postgresql.bolsa,
 		sello:                                            sello,
@@ -1654,6 +1666,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarBorrador()
 		cerrarOfertasCT()
 		cerrarIncorporacion()
+		montajeIdentidadDocumental.Cerrar()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
 		alta.cerrar()

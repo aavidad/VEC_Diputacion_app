@@ -391,6 +391,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaLeerPlanNominalB2,
 		ports.AudienciaConfirmarOrigenB2,
 		puertosbolsa.AudienciaConsultaPersonaAceptacionCT,
+		// Documentos CT: capacidad propia; nunca autoriza incorporación.
+		puertosbolsa.AudienciaIdentidadDocumentoAceptacionCT,
 		ports.AudienciaConsultarVinculoCategoriaRPT,
 		ports.AudienciaRegistrarVinculoCategoriaRPT,
 		ports.AudienciaConsultarPublicacionCategoriaRPT,

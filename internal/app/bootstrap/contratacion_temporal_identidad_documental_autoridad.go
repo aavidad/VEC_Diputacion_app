@@ -3,13 +3,9 @@ package bootstrap
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"net/http"
-	"os"
 	"reflect"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	appbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
@@ -51,7 +47,6 @@ type proveedorIdentidadDocumentalCT struct {
 	lector    lectorAsignacionIdentidadDocumentalCT
 	selector  selectorConfiableIdentidadDocumentalCT
 	pdp       vecports.AutorizadorSolicitudLigadaV3
-	emisor    *confianza.EmisorCapacidadesAtestacionAutorizacionV3
 	material  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	poolBolsa *pgxpool.Pool
 	reloj     ct.Reloj
@@ -96,16 +91,16 @@ func fronteraIdentidadDocumentalCTValida(f fronteraSeguridadComunDesarrollo) boo
 
 // Compone una capacidad nueva y el PDP común con fuentes ya gobernadas. No
 // publica roles, asignaciones, claves ni actos al arrancar.
-func nuevoProveedorIdentidadDocumentalCT(raiz *os.Root, c archivoIdentidadDocumentalCT,
+func nuevoProveedorIdentidadDocumentalCT(c archivoIdentidadDocumentalCT,
 	soporte *soporteAltaContratacionTemporalDesarrollo, sesion *proveedorSesionConsultaRRHHDesarrollo,
 	lector lectorAsignacionIdentidadDocumentalCT, selector selectorConfiableIdentidadDocumentalCT,
 	pools map[string]*pgxpool.Pool, registro *pgxpool.Pool,
 	material *proveedorMaterialAltaContratacionTemporalDesarrollo, reloj ct.Reloj,
 ) (*proveedorIdentidadDocumentalCT, error) {
-	if raiz == nil || !c.valida() || soporte == nil || sesion == nil || sesion.soporte != soporte ||
+	if !c.valida() || soporte == nil || sesion == nil || sesion.soporte != soporte ||
 		sesion.canalIntervencion != nil ||
 		lector == nil || selector == nil || registro == nil || material == nil || material.atestador == nil ||
-		material.confianza == nil || reloj == nil || pools["bolsa"] == nil ||
+		material.confianza == nil || material.emisor == nil || reloj == nil || pools["bolsa"] == nil ||
 		pools["fuente_autorizacion"] == nil || pools["motivos_autorizacion"] == nil ||
 		registro.Config().ConnConfig.User == pools["bolsa"].Config().ConnConfig.User ||
 		registro.Config().ConnConfig.User == pools["fuente_autorizacion"].Config().ConnConfig.User ||
@@ -131,28 +126,8 @@ func nuevoProveedorIdentidadDocumentalCT(raiz *os.Root, c archivoIdentidadDocume
 	if err != nil {
 		return nil, errIdentidadDocumentalCTNoDisponible
 	}
-	secreto, err := leerArchivoIncorporacionV2(raiz, c.Capacidad.File, 256)
-	if err != nil {
-		return nil, errIdentidadDocumentalCTNoDisponible
-	}
-	defer borrarBytes(secreto)
-	h := sha256.Sum256(secreto)
-	if hex.EncodeToString(h[:]) != c.Capacidad.SHA256 {
-		return nil, errIdentidadDocumentalCTNoDisponible
-	}
-	clave, err := confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(c.Capacidad.ClaveID,
-		c.Capacidad.Version, secreto, c.Capacidad.EmisorID, bp.AudienciaIdentidadDocumentoAceptacionCT,
-		confianza.EstadoClaveHMACCapacidadAtestacionV3Emision, c.Capacidad.Desde, c.Capacidad.Hasta,
-		time.Time{}, c.Capacidad.RevisionGobierno, c.Capacidad.HuellaGobierno)
-	if err != nil || reloj.Ahora().Before(c.Capacidad.Desde) || !reloj.Ahora().Before(c.Capacidad.Hasta) {
-		return nil, errIdentidadDocumentalCTNoDisponible
-	}
-	emisor, err := confianza.NuevoEmisorCapacidadesAtestacionAutorizacionV3(clave, reloj)
-	if err != nil {
-		return nil, errIdentidadDocumentalCTNoDisponible
-	}
 	a := &proveedorIdentidadDocumentalCT{soporte: soporte, sesion: sesion, config: c, lector: lector,
-		selector: selector, pdp: pdp, emisor: emisor, material: material, poolBolsa: pools["bolsa"], reloj: reloj}
+		selector: selector, pdp: pdp, material: material, poolBolsa: pools["bolsa"], reloj: reloj}
 	sesion.identidadDocumental = a
 	return a, nil
 }
@@ -258,14 +233,14 @@ func (a *proveedorIdentidadDocumentalCT) EmitirMaterialAutorizacionAtestadaV3(ct
 	var d core.DecisionAutorizacionLigadaV3
 	var c vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3
 	marca, ok := a.marcaValida(ctx)
-	if !ok || marca.actor == nil || a.material == nil || a.emisor == nil {
+	if !ok || marca.actor == nil || a.material == nil || a.material.emisor == nil {
 		return d, c, nil, ct.ErrAutorizacionDenegada
 	}
 	confianzaActual, err := a.material.instantaneaConfianza(ctx)
 	if err != nil {
 		return d, c, nil, errors.Join(errIdentidadDocumentalCTNoDisponible, err)
 	}
-	emisor, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(a, a.material.atestador, confianzaActual, a.emisor)
+	emisor, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(a, a.material.atestador, confianzaActual, a.material.emisor)
 	if err != nil {
 		return d, c, nil, errors.Join(errIdentidadDocumentalCTNoDisponible, err)
 	}

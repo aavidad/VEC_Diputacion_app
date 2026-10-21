@@ -18,9 +18,10 @@ import (
 )
 
 type dependenciasConsultasRRHHDesarrollo struct {
-	emisorCuadro    *emisorMaterialRenovableCTDesarrollo
-	materialDetalle *proveedorMaterialAltaContratacionTemporalDesarrollo
-	sesion          ports.SesionConsultaRRHH
+	identidadDocumental *montajeIdentidadDocumentalCT
+	emisorCuadro        *emisorMaterialRenovableCTDesarrollo
+	materialDetalle     *proveedorMaterialAltaContratacionTemporalDesarrollo
+	sesion              ports.SesionConsultaRRHH
 	// La firma VEC reutiliza la fachada histórica v7 con otra sesión nominal.
 	sesionOriginal        ports.SesionConsultaRRHH
 	motivos               ports.ResolutorMotivoConsultaRRHH
