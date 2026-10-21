@@ -1,6 +1,8 @@
 # F1-141: recuperar un llamamiento pendiente
 
-Comprobación del 21 de octubre de 2026 sobre la candidata `2c1a585dd`.
+Comprobación inicial del 21 de octubre de 2026 sobre la candidata `2c1a585dd`.
+El último ensayo nativo, con el diagnóstico ya integrado, sigue bloqueado por
+un 503; se detalla al final.
 La integración y el cierre corresponden a dirección.
 
 ## Cambio preparado
@@ -132,3 +134,33 @@ recargado ni creado otra clave. Se detienen los intentos y se comunica el
 bloqueo a dirección. No se modificaron permisos, firmas, recibos ni datos para
 forzar la selección. No hay comprobación positiva de recibo o reinicio de esta
 operación; la candidata sigue sin estar lista para fusionar.
+
+
+## Ensayo con F1-141 y el diagnóstico integrado
+
+Dirección integró F1-144 y autorizó una copia nueva con F1-141 más ese
+diagnóstico, una sola selección y parada si devolvía 503. La candidata
+`c8ef0d2c2` incorpora main `b0248f31d`. CT257 conserva exactamente la huella
+revisada; las listas mantienen CT253 de main antes de CT257.
+
+La copia completa arrancó en 256,78 segundos. El expediente nuevo `2026/95044`
+se preparó por las pantallas desde la petición del centro: ratificación, alta,
+análisis, vía, asignación e informe. Las dos firmas nativas devolvieron 201 con
+verificación válida y `firma_eficaz: false`. La fiscalización favorable devolvió
+201 y versión 6. No se añadió configuración de ofertas; el GET de estado
+respondió con el 404 catalogado de ruta no montada y el formulario permitió
+la solicitud singular nueva.
+
+El único POST de selección, a las 05:47:43 de Madrid, devolvió 503. El registro
+indicó `causa_interna=*errors.errorString`, etapa desconocida, centinela no
+clasificado y SQLSTATE vacío. El tipo Go no identifica la causa concreta.
+Se comunicó a dirección y se detuvo el recorrido: sin reintento, recarga,
+reinicio, otra clave ni otra selección. La copia y la intención se conservan;
+los registros y la captura a 1440 píxeles permanecen fuera de Git. No hay
+comprobación positiva de recuperación real ni candidata lista para fusionar.
+
+La CI posterior a unir main se detuvo antes del ensayo SQL: el control de la
+lista esperaba 25 casos, pero CT253 y CT257 juntos suman 26. Se actualizaron
+solo las dos expectativas numéricas a 26, manteniendo la comprobación de
+bytes versionados y la lista cerrada. La prueba focal de ese método pasa.
+No cambió el SQL ni el código de producto ensayado.
