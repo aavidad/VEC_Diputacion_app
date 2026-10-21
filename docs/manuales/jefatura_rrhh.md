@@ -242,6 +242,12 @@ Cada cambio queda guardado como una versión nueva, con su motivo y quién lo hi
 
 ## 7. Lo que hay, lo que falta y cómo será al final
 
+La consulta de documentos del expediente vuelve a intentarse si coincide con
+otra operación y la base de datos la cancela por ese motivo. Conserva la misma
+consulta y sus permisos. Si el conflicto persiste, muestra que el servicio no
+está disponible. Esta recuperación está comprobada con pruebas automatizadas;
+queda pendiente comprobarla en el recorrido de la copia local.
+
 **Hoy.** Intervención puede abrir Fiscalización desde un enlace y ver en la
 cabecera el total de sus áreas disponibles al terminar la carga.
 El [manual de Intervención](intervencion.md) recoge el registro de conformidad,
