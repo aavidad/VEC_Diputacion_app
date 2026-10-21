@@ -68,5 +68,21 @@ la repetición exacta se acepta y una publicación incompatible se rechaza.
 
 La prueba verifica la asignación exacta en PostgreSQL dentro del manejador;
 no emite una decisión ni ejecuta un acto de negocio completo. Las pruebas de
-esta tarea no acreditan un recorrido en Chrome. Revisión independiente y
-comprobación con detector de carreras pendientes sobre la cabeza final.
+esta tarea no acreditan un recorrido en Chrome.
+
+`go test -race -p 2 ./internal/app/bootstrap -run '^TestSerializacionPerfilCT'
+-count=1` pasa (31,252 s; las dos variantes PostgreSQL se ejecutaron por separado
+con la base desechable). `go vet -p 2 ./internal/app/bootstrap`, comprobación de
+tamaños y `git diff --check` pasan. Semgrep local: cuatro reglas sobre los tres
+Go de producción modificados, cero avisos. GoSec completa el paquete: 81 avisos
+en archivos ajenos al cambio y ninguno en los modificados.
+
+La concurrencia PostgreSQL usa el filtro
+`^(TestSerializacionPerfilCTConservaAsignacionHastaRevalidarPostgreSQL18|TestAutoridadPublicacionConcurrente.*PostgreSQL18)$`,
+con `VEC_PERFIL_DINAMICO_RRHH_PG_DESECHABLE=1` y los dos DSN de prueba existentes
+dirigidos al contenedor desechable. Los binarios anterior y actual se compilaron
+con la misma prueba; el anterior solo retiraba del revalidador la toma del turno.
+El contenedor se eliminó al terminar. Sin nueva copia ni arranque de aplicación.
+
+La PR permanece en borrador hasta las revisiones independientes de autorización;
+dirección organiza la segunda.
