@@ -75,6 +75,8 @@ type catalogosAltaContratacionTemporalDesarrollo struct {
 	// Códigos fuente de la misma publicación Personal que produjo los centros.
 	// La clave es la referencia original que conserva la petición del centro.
 	centrosCodigoFuente map[string]string
+	// Etiquetas de las claves canónicas: solo presentación, fuera del JSON.
+	centrosEtiquetasOrganizacion map[string]string
 	// analisis son las opciones del análisis RRHH resueltas del catálogo de
 	// reglas; nulo significa las de siempre. No se publica con el alta.
 	analisis        *opcionesAnalisisCTDesarrollo
@@ -297,12 +299,14 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 	var centros []centroCatalogosAltaContratacionTemporalDesarrollo
 	var centrosOrganizacion []string
 	centrosCodigoFuente := make(map[string]string)
+	centrosEtiquetasOrganizacion := make(map[string]string)
 	for _, u := range datos.Unidades {
 		if u.Tipo == "centro" {
 			if !domain.ReferenciaOpacaValida(u.Clave) {
 				return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles)
 			}
 			centrosOrganizacion = append(centrosOrganizacion, u.Clave)
+			centrosEtiquetasOrganizacion[u.Clave] = u.Etiqueta
 			if u.CodigoFuente != "" {
 				centrosCodigoFuente[u.Clave] = u.CodigoFuente
 			}
@@ -350,13 +354,14 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 		},
 	}
 	return &catalogosAltaContratacionTemporalDesarrollo{
-		Esquema:             esquemaCatalogosAltaContratacionTemporal,
-		Centros:             centros,
-		Categorias:          categorias,
-		Motivos:             motivos,
-		Documentos:          make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
-		centrosOrganizacion: centrosOrganizacion,
-		centrosCodigoFuente: centrosCodigoFuente,
+		Esquema:                      esquemaCatalogosAltaContratacionTemporal,
+		Centros:                      centros,
+		Categorias:                   categorias,
+		Motivos:                      motivos,
+		Documentos:                   make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
+		centrosOrganizacion:          centrosOrganizacion,
+		centrosCodigoFuente:          centrosCodigoFuente,
+		centrosEtiquetasOrganizacion: centrosEtiquetasOrganizacion,
 	}, nil
 }
 
@@ -707,6 +712,9 @@ func (o *origenConsultasContratacionTemporalDesarrollo) etiquetasReferenciasCata
 				return "Categoría C2"
 			}
 			return ""
+		}
+		if nombre := catalogos.centrosEtiquetasOrganizacion[referencia]; nombre != "" {
+			return nombre
 		}
 		for _, centro := range catalogos.Centros {
 			if centro.Referencia == referencia {
