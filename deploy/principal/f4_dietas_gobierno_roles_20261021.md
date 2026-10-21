@@ -41,43 +41,49 @@ corregir una instalación confirmada, corresponde otra migración revisada.
 
 ## Comprobaciones y límites
 
-La prueba SQL usa el canon y el validador reales y sustituye solo el lector
-del catálogo en una transacción que termina con `ROLLBACK`. No demuestra una
-publicación, una asignación ni un recibo de Administración. Queda registrada en
-el ensayo de fase 1 para comprobarla antes y después del reinicio.
+Las dos revisiones independientes de dirección dieron visto bueno sobre
+`3b7db89ba`, sin hallazgos graves. La migración conserva exactamente esta
+huella SHA-256:
 
-Comprobación del 21 de octubre sobre el código de `05a0c9b90`:
+`8348e9a0f586d19b42c04afd28a6086048c7ae04ade3cae59d644c975a0e6314`
+
+Los cambios posteriores se limitan a esta nota, la prueba y su registro. El
+SQL y el código Go revisados conservan sus bytes. La orden de dirección del
+21 de octubre a las 10:56 pide mantenerlos mientras se completan las pruebas.
 
 - `go test` y `go test -race`, con `-p 4` y filtro
   `GobiernoRol|RolNuevo|MeritosCartera`, en dominio y el manejador de
   Administración: positivos. `go vet` de ambos paquetes: positivo.
-- Quince pruebas Python del conductor SQL: positivas.
-- PostgreSQL 18 aislado, esquema HZ37 sin datos (662 tablas comprobadas),
-  preparación versionada y 147 migraciones de la lista: instalación positiva.
-  AUT107 y la regresión AUT80 pasan antes y después del reinicio, sin reaplicar
-  SQL. La copia propia se retiró al terminar.
+- Quince pruebas Python del conductor SQL: positivas. El registro conserva
+  AUT107 detrás de AUT106 e incluye también la regresión AUT80: 33 casos.
+- Ensayo local propio sobre la unión `5f4cea731`: esquema HZ37 sin datos,
+  662 tablas comprobadas, preparación versionada y **148 migraciones**.
+  AUT80 y AUT107 originales pasaron antes y después del reinicio, sin
+  reaplicar SQL. Se retiró la copia al terminar.
+- La prueba AUT107 ampliada rechaza diez variantes para cada rol de Dietas,
+  incluidos un perfil existente, una entrada de Administración y una concesión
+  de Bolsa. Conserva los positivos de Méritos con dos y tres concesiones y
+  de un rol genérico de una concesión. Usa los validadores y el canon reales;
+  solo sustituye el lector del catálogo en una transacción con `ROLLBACK`.
+- CI de la unión `741190978`: ensayo PostgreSQL positivo con 148 migraciones
+  y los 33 casos antes y después del reinicio. Incluye las nuevas variantes
+  y las dos concurrencias del recorrido de fase 1. La migración conserva el
+  ensayo local de sus mismos bytes; esta corrida completa de CI añade los
+  casos pedidos sin ocupar el turno reservado para la copia del recorrido.
 - Guarda de `search_path`: conforme. Semgrep local: tres reglas Go, cuatro
   archivos, sin hallazgos. gosec: 106 archivos, sin errores de carga; sus 25
   avisos corresponden a archivos anteriores ajenos al cambio. Ninguno afecta
   a los cuatro archivos de producción modificados.
-- Revisión focal propia: acciones, campos, finalidad, ámbitos, vigencia,
-  repetición histórica, separación de aprobador, propietario y permisos
-  conservados. No sustituye las dos revisiones independientes de dirección.
 
-Actualización tras incorporar main `92f6a7501`, por orden de dirección de las
-10:28: AUT107 queda después de AUT106; su prueba sigue a la de AUT106 en el
-registro, que ahora tiene 32 casos. Sobre la unión `5f4cea731` se instaló la
-secuencia de 148 migraciones y volvieron a pasar AUT80 y AUT107 antes y después
-del reinicio. Las quince pruebas Python del registro también pasaron. Se
-retiró la copia de ensayo. AUT107 conserva sus bytes, cuerpos y permisos; la
-cabeza anterior tuvo seis puertas verdes y la unión abre una nueva CI.
+El ensayo local usa las utilidades de
+`deploy/postgresql/fase1/ensayar.py` para restaurar y retirar el contenedor.
+Ejecuta solo AUT80 y AUT107; la batería completa corresponde a la CI. Estas
+pruebas no acreditan publicación, asignación ni recibo de Administración.
+El arranque de Dietas y la comisión desde su pantalla siguen pendientes.
 
-El ensayo usa las utilidades de `deploy/postgresql/fase1/ensayar.py` para
-restaurar y retirar el contenedor. Ejecuta solo las pruebas AUT80 y AUT107;
-la batería completa corresponde a la CI. Las pruebas sustituyen el lector del
-catálogo bajo `ROLLBACK`, por lo que no acreditan un acto de publicación.
-Quedan pendientes la CI completa y las dos revisiones independientes sobre la
-cabeza final. No se declara comprobado el arranque de Dietas ni su pantalla.
+La comprobación final de huella del cuerpo instalado y el reconocimiento de
+una repetición idéntica quedan como mejora para una migración futura, según
+la revisión de dirección. AUT107 no se modifica para añadirlas.
 
 La asignación de Personal para Dietas sigue cerrada: no existe la vía de carga
 del catálogo de validadores competentes ni su consumo transaccional. Según la
