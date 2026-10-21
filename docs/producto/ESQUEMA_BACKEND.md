@@ -131,6 +131,10 @@ y permite reconciliar si la respuesta fue ambigua. Ejemplo:
 
 ### Reglas, plazos y categorías configurables
 
+La lectura de reglas vigentes incluye `edicion_disponible` por catálogo.
+Describe si está montada la ruta de edición; no concede permisos. El portal
+explica la edición desactivada sin consultar una ruta ausente (F1-33).
+
 Órdenes de Alberto del 25/09 y del 29/09: lo que RRHH no ha decidido todavía se
 guarda como dato modificable, y cada cambio deja constancia de quién lo hizo.
 
@@ -330,7 +334,30 @@ la rama documental RRHH exige certificado y garantía alta, conservando el
 consumo externo del justificante. F1-13 usa AD296 aparte; los consumidores de
 Cronos, Dietas y denominaciones administrativas esperan contratos posteriores.
 
+F1-95B añade el perfil `publicacion_oficial_bases_rrhh` y su consumidor
+nominal en AD301, exclusivo del propietario de Convocatorias. BC17 conserva
+los permisos de BC15 y compara la huella firmada del recurso con la de la
+petición y los ámbitos de la política vigente; no presupone campos ajenos al
+canon de decisión. La recuperación exige el mismo perfil que el enlace del
+acto original. Activación: `deploy/principal/f1_95_publicacion_bases_web/`.
+
+AD304 (F1-106) añade solo la fila 7 a
+`conjunto_audiencias_capacidad_admin_v1`: conserva el conjunto 6 y suma las
+dos audiencias ya admitidas de propuesta y cierre de roles nuevos. Las claves
+se publican mediante el gobierno técnico existente y AUT60 conserva el acto
+de dos personas, sus decisiones, auditoría y recibo. No se reconstruye la
+función central ni se alteran los conjuntos anteriores.
+
 ### 7.2 Auditoría encadenada y sellada
+
+AD303 (F1-105) limita a la revalidación de las lecturas de CT la preferencia
+por índices (`enable_seqscan=off`). La comprobación de una secuencia de
+`pendiente_sellado_auditoria_v5` usa su clave primaria existente: un recorrido
+completo de esa cola puede provocar conflictos de serialización con otras
+consultas. Conserva el cuerpo, las verificaciones, los permisos y la auditoría;
+comprueba la huella de la función y que el índice sigue siendo válido. La
+preferencia termina al salir de la función, incluso si la llamada falla.
+Guía: `deploy/principal/revalidacion_indice_sellado_f1_105_20261020.md`.
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
   cada asiento calcula su huella sin bloqueo común y entra en
@@ -589,6 +616,14 @@ inscripción no cambian.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
+Los adaptadores de petición del centro y entrega a RRHH reciben su organización
+como argumento explícito de composición y la conservan en el repositorio. Esa
+referencia forma parte de la huella del recurso de autorización; el material
+JSON conserva su contrato SQL. Los adaptadores de reglas y plantillas admiten
+la referencia explícita y mantienen su cotejo exacto. El montaje con fuentes
+maestras publicadas sigue pendiente. Contrato y activación del primer corte de
+F1-128 en [`referencia_organizativa_ct_f1_128.md`](../../deploy/principal/referencia_organizativa_ct_f1_128.md).
+
 F1-47 amplía la consulta existente de seguimiento con la versión, fase,
 estado y número visible actuales del expediente (CT242). Fase y estado salen
 de las columnas de la versión vigente y el número es el de la numeración
@@ -656,6 +691,30 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+La consulta del detalle añade `origen_ct_confirmado` a cada participación de
+Bolsa. Solo acredita una aceptación firme singular cuyo recibo y emisión
+corresponden a la selección confirmada de CT y a su versión fiscalizada
+histórica. La autorización y auditoría siguen en la lectura nominal existente;
+la marca no concede una escritura. El panel conserva el justificante original
+de Mi Bolsa; la resolución pertenece al segundo corte de F1-125.
+
+CT249 amplía `resolucion_manual_respuesta_rrhh` con `fuente_respuesta`,
+`respuesta_portal_ref`, `recibo_respuesta_portal_ref` y `participacion_ref`.
+Las filas anteriores quedan identificadas como `correo_rrhh`. En la variante `portal`,
+`comunicacion_ref` y `justificante_ref` quedan nulos; se guarda la referencia
+al recibo original de Bolsa. La unicidad por organización, expediente y
+llamamiento impide resolverlo dos veces entre ambas vías.
+
+El mismo POST de resoluciones admite el valor `portal` en `fuente_respuesta`;
+sin ese campo mantiene el contrato de correo. El servidor determina la
+organización. El acto consume su autorización en la transacción del asiento y
+el recibo, y verifica la aceptación original mediante B113. El estado `revision_manual_portal` conserva la revisión
+expresa del plazo por RRHH; no afirma un cómputo automático. Un reintento
+confirmado devuelve las mismas referencias y fecha. La ficha usa
+`resolucion_portal_disponible` para ofrecer el acto, separado de la marca de
+origen; el servidor vuelve a comprobar sus requisitos al ejecutarlo.
+El positivo de resolución desde la ficha sigue pendiente en una copia nueva.
+
 F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
 padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
 padre, plaza y recibo en una operación atómica. La ruta
@@ -714,6 +773,14 @@ versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes
 La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añade
 consumidor de autorización ni permisos por defecto. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
+
+F1-124 conserva en esa consulta los códigos de serialización e interbloqueo
+(`40001`, `40P01`, CT248). El lector repite la operación completa con la
+política común y una autorización nueva después de revertir el intento
+anterior. Los permisos, el consumo y la auditoría siguen siendo obligatorios;
+los bloqueos y las inconsistencias conservan su error. Activación conjunta de
+SQL y binario en
+[`comunicaciones_f1_124.md`](../../deploy/principal/comunicaciones_f1_124.md).
 
 F1-69 prepara CT238: un índice único parcial en O6 impide más de una
 selección `confirmada` por organización y expediente. Antes de crearlo,
@@ -785,6 +852,15 @@ incorporaciones; CT le entrega un plan (`plan_incorporacion_ct`) y Personal
 lo ejecuta. Las categorías de la RPT se gobiernan en `vec_catalogos_configurables`,
 no aquí. Plan del módulo: `docs/plan_modulos/personal.md` y
 `docs/plan_modulos/organizacion_rpt.md`.
+
+F1-104 reutiliza `consultar_organizacion_historica_v1` y su recibo desde el
+puerto en proceso de Contratación. La consulta lleva el perfil de Personal de
+la misma cuenta autenticada, con el organismo y las unidades de su asignación.
+No añade tablas, funciones ni roles PostgreSQL. El rol
+`consulta_organizacion_historica_rrhh:v1` se publica por AUT60 con dos
+administradores distintos. La semilla de la copia local prepara dos cuentas nominales, cada una
+con su persona y su perfil, con ámbitos `organismo_ref` y `unidad_clave`; esa asignación
+ficticia no es un acto de Administración. Su gobierno queda pendiente.
 
 ### 8.5 Autorización (`vec_autorizacion`)
 
@@ -1098,6 +1174,19 @@ opcional no concede permisos; ausente o incorrecta deja solo esta consulta en
 Falta completar el ensayo de lectura y reinicio de esta candidata.
 
 ### 11.2 Reglas de frontera
+
+F1-141 amplía `GET /api/vec/contratacion-temporal/llamamientos/seleccion/estado`
+para recuperar también la intención de un llamamiento singular pendiente.
+Conserva la autorización, la sesión y la auditoría de la consulta existente.
+La respuesta singular añade `tipo_seleccion: llamamiento`, la clave y la versión
+originales, el efecto pendiente y si queda una ventana abierta. La consulta no
+reanuda el acto; el formulario debe enviar expresamente la solicitud original
+por la ruta de selección existente. El contrato de las ofertas plurales se conserva.
+El GET solo se monta cuando existe su servicio. Para una persona, el 404
+`api.vec.ruta_exacta.error.recurso_no_encontrado` del enrutador conserva la
+selección anterior; un 404 de expediente, un 503 o una intención ya recuperada
+siguen bloqueando. Sin configuración de ofertas no hay recuperación después
+de recargar; F1-142 abordará esa lectura sin ampliar permisos en F1-141.
 
 - Rutas exactas registradas en una autoridad (`internal/vec/adapters/httpapi/rutas_exactas.go`
   y las composiciones de `internal/app/bootstrap/`); una ruta no registrada da 404.

@@ -28,6 +28,9 @@ def ejecutar(copia, fase):
         return
     if fase not in ('preparar', 'arrancar', 'comprobar'):
         raise ValueError('Fase ADMIN desconocida')
+    if control.get('versionado') is True:
+        from admin_copia.ejecutor import ejecutar as ejecutar_versionado
+        return ejecutar_versionado(copia, fase)
     ruta = Path(control['ejecutor'])
     if huella_ejecutor(ruta) != control['sha256']:
         raise ValueError('El ejecutor ADMIN cambió; no se ejecutará sobre esta copia')

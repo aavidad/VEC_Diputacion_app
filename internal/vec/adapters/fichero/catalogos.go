@@ -202,6 +202,11 @@ func contieneDatoPrivadoCatalogo(valor any, ruta string) bool {
 // un prefijo que no contenga ningún dato personal. Ninguna otra
 // referencia, número o texto evita el detector.
 func valorOpacoCatalogoValido(ruta, clave, valor string) bool {
+	// Los actores de creación y publicación son referencias de Persona,
+	// aunque estos dos campos del esquema no terminen en _ref.
+	if ruta == "catalogo" && (clave == "creado_por" || clave == "publicado_por") {
+		return strings.HasPrefix(valor, "per_") && patronRefOpacaPaquete.MatchString(valor)
+	}
 	if (ruta == "fuente" && clave == "origen_sha256") ||
 		(ruta == "catalogo.entradas[].atributos" && strings.HasSuffix(clave, "_sha256")) {
 		return patronSHA256Paquete.MatchString(valor)

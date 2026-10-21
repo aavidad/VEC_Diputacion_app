@@ -245,7 +245,27 @@ restaura el volcado y sus permisos sin credenciales globales, genera material
 de 90 días y permite reiniciar o borrar una instancia propia. Este primer
 corte arranca el portal con funciones opcionales apagadas; las conexiones y
 actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
-El arranque HTTP no acredita el recorrido funcional.
+F1-119 añade la orden `personal` a la fábrica: genera las conexiones propias,
+publica por el gobierno existente y prepara incorporación B2, categoría RPT,
+GINPIX manual y cese desde una configuración aprobada, sin copiar capacidades
+antiguas. La activación y la semilla no autoritativa de Plantilla están en el
+apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
+
+F1-131 añade `crear --recorrido-completo` con productores versionados. Prepara
+Administración con dos personas, los roles simples, el plan, las admisiones,
+Documentos y Personal; los roles compuestos conservan su condición de semilla
+técnica. Genera material propio y coteja el software de verificación declarado.
+Puede incluir el manejador de firma y conserva las huellas de ambos. Los LOGIN nuevos
+caducan a los 90 días; los certificados de desarrollo pueden cubrir 400.
+La orden y sus parámetros están en `deploy/principal/recorrido_copia/LEEME.md`.
+El certificado original conserva la tramitación de RRHH y usa un perfil
+documental propio, distinto del perfil dinámico CT y de los cuatro nominales.
+El técnico firmante recibe un cuarto certificado propio; ningún certificado
+comparte tramitación y firma. Los cuatro firmantes conservan sus perfiles de
+custodia y admisiones, separados del perfil documental de la técnica original.
+La creación y recuperación iniciales se comprobaron en otra copia; la nueva
+composición exige otra creación y revisión antes de acreditarse. Estas pruebas
+no acreditan la firma ni el recorrido completo del expediente.
 
 ### Arranque de Administración
 
@@ -482,6 +502,23 @@ transacción. No se crean fachadas de permisos nuevas para cada lectura. Su esta
 
 ## 6. Autorización
 
+En desarrollo, el cuadro, el detalle y la descarga de Contratación temporal
+usan un perfil estable de lectura de la técnica (F1-114, compuesto en
+F1-124). Reúne sus tres concesiones existentes, con los mismos ámbitos,
+persona y cuenta. Cada petición comprueba la asignación publicada; no cambia
+el rol por consultar ni recupera una asignación revocada. Su preparación en
+la copia usa la vía no autoritativa de perfiles fijos y no sustituye la
+provisión gobernada del uso real. Activación en
+`deploy/principal/comunicaciones_f1_124.md`.
+
+La incorporación nominal a Personal reutiliza la frontera exacta de consulta
+del detalle de CT. Si la composición ha ligado el perfil fijo técnico, compara
+esa referencia concreta y rechaza el perfil dinámico retirado, otro fijo o un
+perfil vacío. Conserva método, ruta, política, capacidad y superficie; no suma
+los permisos de los perfiles. Sin un fijo ligado, valida el perfil base de la
+configuración anterior. Activación y comprobaciones en
+`deploy/principal/perfil_consulta_incorporacion_f1_137.md`.
+
 Se deniega por defecto. Solo autoriza una concesión central positiva, exacta y
 vigente para actor, perfil, acción, recurso, ámbito, finalidad, campos y
 obligaciones. Ausencia, lista vacía, ambigüedad, valor desconocido, caducidad,
@@ -548,6 +585,24 @@ y `/cierres`, en `deploy/principal/habilitacion_b1_convoca_20261009.md`). La
 restauración de copias sigue el mismo patrón (`docs/plan_modulos/copias_seguridad.md`).
 
 ### Lecturas y actos
+
+F1-104 conecta la selección de Contratación con Organización histórica de
+Personal mediante un puerto en proceso. Revalida el certificado y la cuenta
+de la petición y selecciona el perfil de consulta propio de esa cuenta, sin
+sumarlo al perfil de Contratación. Conserva la ruta original, la autorización
+y la auditoría de Personal. El cliente M10 con certificado fijo deja de usarse
+en este recorrido. Si falta el montaje de Personal, falla solo la selección.
+
+F1-106 retira la publicación del rol de Organización histórica del arranque de
+la copia. `crear --modulos` no publica ese rol ni activa la consulta. El rol
+`consulta_organizacion_historica_rrhh:v1` requiere propuesta y aprobación de dos
+administradores distintos por AUT60 y el conjunto 7. Después se ejecuta
+`copia_local.sh organizacion-historica --equipo o --instancia f106` para sembrar
+identidades y asignaciones ficticias y montar la consulta. La aplicación arranca
+antes y después. La copia acredita publicación por dos administradores y consulta
+de dos técnicas con 200 en su centro y 403 fuera, también tras reiniciar. Véase
+`deploy/principal/organizacion_historica_f1_106_20261020.md`.
+
 
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe
   el estado (apartado 7).
@@ -616,7 +671,16 @@ se muestra pertenece al registro original. La respuesta ampliada de la ficha
 exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
 uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
 identidad ni huellas y cancela la consulta al cambiar de expediente. La
-publicación y el recorrido real siguen pendientes.
+consulta y recuperación tras reiniciar se comprobaron en la copia de F1-58;
+el caso completo 4.0 sigue pendiente.
+
+F1-58 utiliza AUT103 y el plan de publicación de cargos v2 para suceder los
+cuatro roles de consulta: conserva cuadro y descarga y sustituye solo la
+operación de detalle por la que concede los selectores. La recuperación R5
+necesita además su propia fila técnica de origen AD172, distinta de la
+descarga y sin permiso humano nuevo. El cotejo del núcleo, la activación y
+los límites del ensayo se describen en
+[`firma_por_cargos_f1_58_20261020.md`](../../deploy/principal/firma_por_cargos_f1_58_20261020.md).
 
 ## 8. Protección de datos
 
@@ -628,6 +692,12 @@ publicación y el recorrido real siguen pendientes.
 - **Minimización.** Listados, auditoría y eventos usan referencias opacas y los
   datos justos. Los datos especialmente protegidos (por ejemplo, discapacidad)
   solo si la convocatoria lo exige y con medidas reforzadas.
+- **Actores de los catálogos (F1-126).** En `catalogo.creado_por` y
+  `catalogo.publicado_por`, el lector reconoce únicamente la referencia
+  canónica `per_` seguida de 32 caracteres hexadecimales en minúsculas.
+  Sus cifras no se interpretan como un teléfono. La excepción no se aplica
+  al texto libre, a otras rutas ni a referencias de otro tipo o malformadas;
+  siguen vigentes los detectores de datos personales y secretos.
 - **Contacto de candidatos**: enmascarado en listados y completo en la ficha, con
   constancia de quién lo consultó.
 - **Internos y externos separados.** Datos de trabajadores y de aspirantes no se
@@ -735,6 +805,10 @@ Telemetría por petición (`internal/shared/telemetria/`):
   petición (`telemetria/bd.go`) si la consulta usa el contexto de la petición.
 - Consultas para Sistemas: `deploy/principal/consultas_observabilidad.sql`.
   Pruebas de carga: `scripts/carga/`.
+- Si una selección de llamamiento queda indeterminada, el registro añade
+  `causa_interna`: el código de una causa conocida del módulo o, si no la
+  reconoce, solo el tipo Go del error más interno. No incluye mensajes, datos
+  de la solicitud ni referencias; la respuesta pública conserva su contenido.
 
 **Lo que falta.** El cuadro de Contratación temporal medía entre 363 y 372 ms de
 p95 el 08/10, por encima del objetivo. Falta medir todas las lecturas en la

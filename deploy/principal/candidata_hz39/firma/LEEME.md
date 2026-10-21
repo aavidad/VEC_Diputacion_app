@@ -152,6 +152,23 @@ Preparar los materiales canónicos con el modelo común de catálogos y
 `vec-plan-firma-validar preparar`. El validador acredita solo la preparación.
 `publicar_plan_v2.sh` exige versión 2 y no sirve para este catálogo nuevo.
 
+El preparador completo está en Git (F1-121). Conserva la interfaz
+`--config CONFIG --salida MATERIAL` de la receta y genera los dos materiales
+con sus huellas, sin acudir al auxiliar privado:
+
+```sh
+go_local=$(scripts/seleccionar_toolchain_go_local.sh)
+GOTOOLCHAIN=local GOPROXY=off "$go_local" build -p 6 \
+  -o "$RUN/vec-plan-firma-preparar" ./cmd/vec-plan-firma-validar
+"$RUN/vec-plan-firma-preparar" --config "$RUN/config.json" --salida "$RUN/material"
+```
+
+La configuración y los seis archivos de salida se describen en
+[`cmd/vec-plan-firma-validar/README.md`](../../../../cmd/vec-plan-firma-validar/README.md).
+`RUN` pertenece a esta copia; las referencias salen de sus propios recibos.
+El estado `preparado_sin_autorizacion` conserva propuestas, no confirma los
+actos de creación ni publicación que siguen.
+
 Enviar creación y publicación a la entrada existente:
 
 ```text

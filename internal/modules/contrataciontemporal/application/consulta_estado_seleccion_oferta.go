@@ -33,9 +33,11 @@ func NuevoServicioConsultaEstadoSeleccionOfertaCT(p ports.PreparadorConsultaEsta
 
 type DatosEstadoSeleccionOfertaParaAdaptador struct {
 	Estado            string
+	TipoSeleccion     string
 	ExpedienteRef     string
 	VersionEsperada   uint64
 	ClaveIdempotencia string
+	Efecto            string
 	VentanaAbierta    bool
 	Oferta            *DatosReciboSeleccionOfertaParaAdaptador
 	Descarte          *DatosReciboDescarteOfertaParaAdaptador
@@ -82,10 +84,13 @@ func (s *ServicioConsultaEstadoSeleccionOfertaCT) ConsultarEstadoSeleccionOferta
 	}
 	if !estado.Encontrada {
 		if !reflect.DeepEqual(estado.Intencion, ports.IntencionSeleccionOfertaCT{}) ||
-			!reflect.DeepEqual(estado.Estado, ports.EstadoSeleccionOfertaCT{}) {
+			!reflect.DeepEqual(estado.Estado, ports.EstadoSeleccionOfertaCT{}) || estado.Singular != nil {
 			return vacio, ErrResultadoSeleccionOfertaNoConfiable
 		}
 		return DatosEstadoSeleccionOfertaParaAdaptador{Estado: "ausente", ExpedienteRef: expedienteRef}, nil
+	}
+	if estado.Singular != nil {
+		return proyectarIntencionSingularPendiente(operacion, q, estado, s.lector)
 	}
 	i := estado.Intencion
 	e := estado.Estado
@@ -150,4 +155,37 @@ func (s *ServicioConsultaEstadoSeleccionOfertaCT) ConsultarEstadoSeleccionOferta
 		return vacio, ErrResultadoSeleccionOfertaNoConfiable
 	}
 	return d, nil
+}
+
+func proyectarIntencionSingularPendiente(ctx context.Context,
+	q ports.SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT,
+	estado ports.EstadoSeleccionOfertaPorExpedienteCT,
+	lector ports.LectorExpedienteSeleccionLlamamiento,
+) (DatosEstadoSeleccionOfertaParaAdaptador, error) {
+	vacio := DatosEstadoSeleccionOfertaParaAdaptador{}
+	if estado.Singular == nil || !reflect.DeepEqual(estado.Intencion, ports.IntencionSeleccionOfertaCT{}) ||
+		!reflect.DeepEqual(estado.Estado, ports.EstadoSeleccionOfertaCT{}) {
+		return vacio, ErrResultadoSeleccionOfertaNoConfiable
+	}
+	i := *estado.Singular
+	if i.Validar() != nil || i.OrganizacionRef != q.OrganizacionRef ||
+		i.ExpedienteRef != q.ExpedienteRef || i.VersionExpediente != q.VersionObservada {
+		return vacio, ErrResultadoSeleccionOfertaNoConfiable
+	}
+	historia, err := lector.LeerExpedienteParaSeleccion(ctx, q.OrganizacionRef,
+		q.ExpedienteRef, i.VersionExpediente)
+	if err != nil {
+		return vacio, normalizarFalloSeleccionOferta(ctx, err)
+	}
+	if historia.VersionActual != q.VersionObservada || historia.Fiscalizado.Validar() != nil ||
+		historia.Fiscalizado.Referencia != i.ExpedienteRef ||
+		historia.Fiscalizado.Version != i.VersionExpediente ||
+		historia.Fiscalizado.Solicitud.NumeroPersonas > 1 ||
+		historia.Fiscalizado.InstruccionCompartida != nil {
+		return vacio, ErrResultadoSeleccionOfertaNoConfiable
+	}
+	return DatosEstadoSeleccionOfertaParaAdaptador{Estado: "pendiente", TipoSeleccion: "llamamiento",
+		ExpedienteRef: q.ExpedienteRef, VersionEsperada: i.VersionExpediente,
+		ClaveIdempotencia: i.ClaveIdempotencia, Efecto: string(i.Efecto),
+		VentanaAbierta: i.VentanaAbierta}, nil
 }

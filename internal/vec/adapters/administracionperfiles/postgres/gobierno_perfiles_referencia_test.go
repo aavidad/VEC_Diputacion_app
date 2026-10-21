@@ -140,6 +140,33 @@ func TestCerrarGobiernoRolPorReferenciaRechazaConfirmacionFuturaAntesCommit(t *t
 	}
 }
 
+func TestCerrarGobiernoRolPorReferenciaAceptaFechaPostgreSQLUTC(t *testing.T) {
+	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	confirmado := ahora.Add(time.Second)
+	solicitud, respuesta := cierreGobiernoReferenciaPrueba(t, ahora, confirmado)
+	b, err := json.Marshal(respuesta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// jsonb conserva +00:00 para timestamptz; los documentos canónicos usan Z.
+	b = []byte(strings.Replace(string(b),
+		`"confirmado_en":"`+confirmado.Format(time.RFC3339)+`"`,
+		`"confirmado_en":"`+confirmado.Format("2006-01-02T15:04:05")+`+00:00"`, 1))
+	if !strings.Contains(string(b), `"confirmado_en":"`+confirmado.Format("2006-01-02T15:04:05")+`+00:00"`) {
+		t.Fatal("la respuesta no contiene el formato horario de PostgreSQL")
+	}
+	reloj := ahora.Add(2 * time.Second)
+	tx := &txGobiernoReferenciaPrueba{fila: filaFalsa{dato: b}}
+	autoridad := &AutoridadGobiernoRolNuevo{
+		pool: &poolGobiernoReferenciaPrueba{tx: tx}, fuente: fuenteCatalogoGobiernoReferenciaPrueba{},
+		emisor: emisorGobiernoReferenciaPrueba{t: t, ahora: reloj}, reloj: relojFijo(reloj),
+	}
+	cierre, err := autoridad.CerrarGobiernoRolPorReferencia(context.Background(), solicitud)
+	if err != nil || cierre.ConfirmadoEn.Location() != time.UTC || !cierre.ConfirmadoEn.Equal(confirmado) || tx.commits != 1 {
+		t.Fatalf("cierre PostgreSQL rechazado: err=%v fecha=%v commits=%d", err, cierre.ConfirmadoEn, tx.commits)
+	}
+}
+
 func cierreGobiernoReferenciaPrueba(t *testing.T, ahora, confirmadoEn time.Time) (
 	domain.SolicitudCierreGobiernoRolPorReferencia, cierreGobiernoRolRespuesta,
 ) {

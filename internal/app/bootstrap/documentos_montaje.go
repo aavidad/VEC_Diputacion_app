@@ -350,7 +350,7 @@ func (a autoridadConsultaDocumentos) autorizar(ctx context.Context, accion, fina
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return vacia, err
 		}
-		if errors.Is(err, core.ErrAutorizacionDenegada) {
+		if errors.Is(err, core.ErrAutorizacionDenegada) || errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 			return vacia, docports.ErrAccesoDenegado
 		}
 		a.autoridad.incidencia(core.IncidenciaGobiernoV3NoDisponible, core.ComponenteIncidenciaGobiernoV3, core.EtapaIncidenciaConsulta)

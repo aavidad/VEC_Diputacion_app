@@ -286,8 +286,7 @@ func nuevoServidorDesarrollo(
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
 	servidorSinCT := func(componente string, causa error) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
-		fallo := marcarFalloComponenteArranque(componente, causa)
-		slog.Warn("contratacion_temporal_no_disponible", "componente", ComponenteFalloArranque(fallo), "causa", telemetria.ClaseErrorArranque(fallo))
+		registrarAvisoFalloMontajeCTDesarrollo(marcarFalloComponenteArranque(componente, causa))
 		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor)
 	}
 	if falloPreferencias != nil {
@@ -392,7 +391,7 @@ func nuevoServidorDesarrollo(
 	}
 	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT, portafirmasapagado.Conector{}))
 	rutasContratacion = append(rutasContratacion, rutaFormalizacion)
-	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo)
+	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo, rutasContratacion...)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("reglas_vigentes", err)
 	}
@@ -571,6 +570,9 @@ func nuevoServidorDesarrollo(
 	ctxOH, cancelarOH := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	montajeOH, errOH := nuevoMontajeOrganizacionHistoricaCombinada(ctxOH, cfg, autoridadContratacion, registradorFrontera)
 	cancelarOH()
+	if autoridadContratacion.configurarPersonalLlamamiento != nil {
+		autoridadContratacion.configurarPersonalLlamamiento(montajeOH)
+	}
 	if errOH != nil && cfg.OrganizacionHistoricaConsultaEnabled != "" && cfg.OrganizacionHistoricaConsultaEnabled != "false" {
 		causa := "capacidad_no_disponible"
 		if errors.Is(errOH, vecports.ErrVinculoCorporativoRRHHNoDisponible) {

@@ -231,6 +231,102 @@ test("B3 registra y consulta contactos con ruta, idempotencia y recibo", async (
   const lectura=await consultarContactosCandidato("bolsa:01","participacion:01",{fetchImpl:async()=>({ok:true,status:200,json:async()=>({data:{esquema:ESQUEMA_CONTACTOS,contactos:[{contacto_ref:"contacto:01",participacion_ref:"participacion:01",llamamiento_ref:null,canal:"telefono",instante:"2026-09-22T00:10:00Z",actor_ref:"per_0123456789abcdefghijkl",resultado:"contactado",anotacion:"Se explicó la oferta"}],cursor_siguiente:null,hay_mas:false}})})});
   assert.equal(lectura.ok,true); assert.equal(lectura.datos.contactos[0].resultado,"contactado");
 });
+
+test("teléfono anunciado omite fecha local; conflictos conservan el código y un recibo ajeno se rechaza", async () => {
+  const base={canal:"telefono",resultado:"contactado",anotacion:"Se explicó la oferta",llamamiento_ref:"llamamiento:01",clave_idempotencia:"contacto-0002",registro_telefono:true};
+  let opciones;
+  const fetchImpl=async(_ruta,config)=>{opciones=config;return{ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:contacto:02",participacion_ref:"participacion:01",llamamiento_ref:"llamamiento:01",canal:"telefono",resultado:"contactado",anotacion:base.anotacion,instante:"2026-10-20T09:00:00Z"}})}};
+  const alta=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl});
+  assert.equal(alta.ok,true); assert.equal(Object.hasOwn(JSON.parse(opciones.body),"instante"),false);
+  assert.equal(opciones.referrerPolicy,"no-referrer");
+  const legado=await registrarContactoCandidato("bolsa:01","participacion:01",{...base,registro_telefono:false,instante:"2026-10-20T09:00:00Z"},{fetchImpl});
+  assert.equal(legado.ok,true); assert.equal(JSON.parse(opciones.body).instante,"2026-10-20T09:00:00Z");
+  const ajeno=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:ajeno",participacion_ref:"participacion:02"}})})});
+  assert.equal(ajeno.ok,false); assert.equal(ajeno.codigo,"respuesta_invalida");
+  for(const status of [200,201]){
+    for(const json of [async()=>{throw new SyntaxError("JSON truncado")},async()=>({data:{}}),async()=>({data:{recibo_ref:""}})]){
+      const incierto=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:true,status,json})});
+      assert.equal(incierto.ok,false); assert.equal(incierto.status,0); assert.equal(incierto.codigo,"respuesta_invalida");
+    }
+  }
+  const pendiente=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async(...args)=>({...await fetchImpl(...args),status:202})});
+  assert.equal(pendiente.ok,false); assert.equal(pendiente.status,0);
+  for(const [codigo,fragmento] of [["contacto_en_conflicto","historial"],["contacto_no_valido","resultado"],["intento_fuera_de_franja","horario"],["anotacion_con_dato_personal","datos personales"]]){
+    const fallo=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:false,status:codigo==="anotacion_con_dato_personal"?400:409,json:async()=>({error:{codigo}})})});
+    assert.equal(fallo.codigo,codigo); assert.match(fallo.mensaje,new RegExp(fragmento,"iu"));
+  }
+});
+
+test("el formulario usa hora del servidor solo para el llamamiento anunciado y fija el modo del reintento", async () => {
+  const originalFormData=globalThis.FormData, originalFetch=globalThis.fetch;
+  const peticiones=[];
+  const registro={esquema:"vec.bolsa.registro_telefono.v1",instante_servidor:true,anotacion_opcional:true,resultados:["contactado"]};
+  const modal={abierto:true,candidato:{participacion_ref:"participacion:01"},bolsa:{},intentosLlamamiento:"llamamiento:01",intentosContacto:{carga:"listo",datos:{registro_telefono:registro}}};
+  const estado={bolsaSeleccionada:"bolsa:01",modalFicha:modal,filtrosBolsa:{}};
+  const escuchas={}; const documento={addEventListener(tipo,fn){(escuchas[tipo]??=[]).push(fn)},querySelector:()=>null,querySelectorAll:()=>[]};
+  const formulario={dataset:{participacionRef:"participacion:01"},campos:new Map(),querySelector:()=>({disabled:false})};
+  const evento={preventDefault(){},target:{closest(selector){return selector==='[data-bolsa-form="contacto"]'?formulario:null}}};
+  globalThis.FormData=class{constructor(form){this.campos=form.campos}get(clave){return this.campos.get(clave)}};
+  let estadoRespuesta=503;
+  globalThis.fetch=async(_ruta,opciones)=>{peticiones.push(opciones);return{ok:false,status:estadoRespuesta,json:async()=>({error:{codigo:estadoRespuesta===409?"contacto_no_valido":"servicio_no_disponible"}})}};
+  try{
+    crearControladorBolsas({estado,renderizar:()=>{},navegar:()=>{},documento}).instalar();
+    const enviar=async(llamamiento,resultado="contactado",canal="telefono")=>{formulario.campos=new Map([["canal",canal],["resultado",resultado],["anotacion","Se explicó la oferta"],["llamamiento_ref",llamamiento]]);for(const fn of escuchas.submit||[])fn(evento);await new Promise(r=>setImmediate(r));return peticiones.at(-1)};
+    const actual=await enviar("llamamiento:01"); assert.equal(Object.hasOwn(JSON.parse(actual.body),"instante"),false);
+    modal.intentosContacto={carga:"error"};
+    const repeticion=await enviar("llamamiento:01"); assert.equal(repeticion.body,actual.body); assert.equal(repeticion.headers["Idempotency-Key"],actual.headers["Idempotency-Key"]);
+    estadoRespuesta=409; await enviar("llamamiento:01"); assert.equal(modal.claveContacto,"");
+    const antes=peticiones.length; await enviar("llamamiento:01"); assert.equal(peticiones.length,antes); assert.match(modal.errorContacto,/consulte de nuevo/iu);
+    modal.intentosContacto={carga:"cargando"}; await enviar("llamamiento:01"); assert.equal(peticiones.length,antes);
+    modal.intentosContacto={carga:"listo",datos:{registro_telefono:registro}};
+    await enviar("llamamiento:01","no_contesta"); assert.equal(peticiones.length,antes); assert.match(modal.errorContacto,/resultado/iu);
+    registro.resultados.push("no_contesta");
+    estadoRespuesta=503;
+    const otroResultado=await enviar("llamamiento:01","no_contesta"); assert.equal(Object.hasOwn(JSON.parse(otroResultado.body),"instante"),false);
+    estadoRespuesta=409; await enviar("llamamiento:01","no_contesta");
+    const antesAjeno=peticiones.length; await enviar("llamamiento:02"); assert.equal(peticiones.length,antesAjeno);
+    estadoRespuesta=503;
+    const sinLlamamiento=await enviar(""); assert.equal(typeof JSON.parse(sinLlamamiento.body).instante,"string");
+    estadoRespuesta=409; await enviar("");
+    estadoRespuesta=503; const otroCanal=await enviar("llamamiento:01","contactado","correo"); assert.equal(typeof JSON.parse(otroCanal.body).instante,"string");
+  }finally{globalThis.FormData=originalFormData;globalThis.fetch=originalFetch}
+});
+
+test("JSON truncado y recibo vacío repintan el borrador y reenvían exactamente el mismo contacto", async () => {
+  const { envelopeCandidatos }=construirFixturesDesdeDemo();
+  const datos=validarRespuestaCandidatosBolsa(envelopeCandidatos), bolsa=datos.bolsa;
+  const candidato={...datos.candidatos[0],ultimo_llamamiento:{llamamiento_ref:"llamamiento:01",comunicado_en:"2026-10-20T09:00:00Z",canal:"correo",resultado:"sin_respuesta"}};
+  const modal={abierto:true,candidato,bolsa,intentosLlamamiento:"llamamiento:01",intentosContacto:{carga:"listo",datos:{registro_telefono:{esquema:"vec.bolsa.registro_telefono.v1",instante_servidor:true,anotacion_opcional:true,resultados:["no_contesta"]}}}};
+  const estado={bolsaSeleccionada:bolsa.bolsa_ref,modalFicha:modal,filtrosBolsa:{}};
+  const presentador=crearPresentadorPanelInterno({claseEstado:()=>"info",encabezadoVista:(_a,t)=>`<h2>${t}</h2>`,escaparHTML:v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;"),numero:v=>String(v??0),
+    obtenerDatosPanel:()=>({esquema:"vec.bolsa.panel.interno.v1"}),tituloVista:v=>v,obtenerDatosCandidatosBolsa:()=>({carga:"listo",datos:{...datos,candidatos:[candidato],contactos:[]}}),
+    obtenerEstadoCandidatos:()=>({filtros:{pestana:"candidatos",estado:"",texto:""}}),obtenerModalFicha:()=>estado.modalFicha});
+  const formulario={dataset:{participacionRef:candidato.participacion_ref},valores:new Map(),querySelector:()=>({disabled:false})};
+  let html="";
+  const renderizar=()=>{html=presentador.renderizarVista("bolsa-candidatos")};
+  const escuchas={}, documento={addEventListener(tipo,fn){(escuchas[tipo]??=[]).push(fn)},querySelector:()=>({focus(){}}),querySelectorAll:()=>[]};
+  const evento={preventDefault(){},target:{closest(selector){return selector==='[data-bolsa-form="contacto"]'?formulario:null}}};
+  const anteriorFormData=globalThis.FormData, anteriorFetch=globalThis.fetch, peticiones=[];
+  globalThis.FormData=class{constructor(form){this.valores=form.valores}get(clave){return this.valores.get(clave)}};
+  globalThis.fetch=async(_ruta,opciones)=>{peticiones.push(opciones);return peticiones.length===1
+    ?{ok:true,status:201,json:async()=>{throw new SyntaxError("JSON truncado")}}
+    :{ok:true,status:200,json:async()=>({data:{recibo_ref:""}})}};
+  try{
+    crearControladorBolsas({estado,renderizar,navegar:()=>{},documento}).instalar();
+    formulario.valores=new Map([["canal","telefono"],["resultado","no_contesta"],["anotacion","Se habló con Ana"],["llamamiento_ref","llamamiento:01"]]);
+    for(const fn of escuchas.submit||[])fn(evento);
+    await new Promise(r=>setImmediate(r));
+    assert.equal(modal.resultadoInciertoContacto,true);
+    const fragmento=html.slice(html.indexOf('data-bolsa-form="contacto"'),html.indexOf('</form>',html.indexOf('data-bolsa-form="contacto"')));
+    assert.match(fragmento,/<option value="telefono" selected>/u); assert.match(fragmento,/<option value="no_contesta" selected>/u);
+    assert.match(fragmento,/<option value="llamamiento:01" selected>/u); assert.match(fragmento,/>Se habló con Ana<\/textarea>/u);
+    assert.match(fragmento,/Reintentar el mismo registro/u); assert.match(fragmento,/No se pudo confirmar el contacto/u);
+    const primera=peticiones[0];
+    for(const fn of escuchas.submit||[])fn(evento);
+    await new Promise(r=>setImmediate(r));
+    assert.equal(peticiones[1].body,primera.body); assert.equal(peticiones[1].headers["Idempotency-Key"],primera.headers["Idempotency-Key"]);
+  }finally{globalThis.FormData=anteriorFormData;globalThis.fetch=anteriorFetch}
+});
 test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sintético", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const validado = validarRespuestaCandidatosBolsa(envelopeCandidatos);

@@ -262,7 +262,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/modules/") && strings.HasSuffix(path, "/action"):
 		h.handleModuleAction(w, r, principal, path)
 	default:
-		h.writeError(w, http.StatusNotFound, "vec route not found")
+		responderAutorizacionRutaExacta(w, errRutaExactaNoEncontrada)
 	}
 }
 

@@ -72,11 +72,14 @@ export function renderizarResultadoBolsa(expediente, t, locale, zonaHoraria, est
   // Con la persona conocida va primero, con la fecha, para que a 390 px se lea
   // a quién y cuándo aunque el control cerrado corte el final.
   const opciones = candidatas.map((emision, indice) => {
-    const cuando = escapar(new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria })
-      .format(new Date(emision.emitido_en)));
+    const cuando = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria })
+      .format(new Date(emision.emitido_en));
     const quien = personas(emision.llamamiento_ref);
-    return `<option value="${indice}">${quien ? `${escapar(quien)} · ${cuando} · ${escapar(emision.referencia_visible)}`
-      : `${escapar(emision.referencia_visible)} · ${cuando}`}</option>`;
+    const propia = emision.referencia_visible === expediente.expediente_ref;
+    return `<option value="${indice}">${propia
+      ? escapar(t("resultado_bolsa_emision_este_expediente", { fecha: cuando }))
+      : quien ? `${escapar(quien)} · ${escapar(cuando)} · ${escapar(emision.referencia_visible)}`
+        : `${escapar(emision.referencia_visible)} · ${escapar(cuando)}`}</option>`;
   }).join("");
   const seleccion = candidatas.length ? `<form data-ct-bolsa-vincular>
     <label class="ct-exp-campo" for="ct-bolsa-emision"><span>${escapar(t("resultado_bolsa_elegir"))}</span>

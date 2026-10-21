@@ -214,6 +214,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
+	// La sesión y la frontera de lectura se componen antes de publicar los
+	// perfiles. La ausencia de la capacidad conserva el arranque habitual.
+	if configuracion.ConsultasRRHHConfiguradas() {
+		if err := componerPerfilFijoConsultasTecnicoCTDesarrollo(soporte, reloj.Ahora()); err != nil {
+			return vacias, err
+		}
+	}
 	etapa = "derivar_material_atestacion"
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 		derivador, reloj.Ahora(),

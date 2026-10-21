@@ -1,8 +1,16 @@
 package bootstrap
 
-import "errors"
+import (
+	"errors"
 
-const mensajeFuenteConfiguracionArranque = "bootstrap: fuente configurada no disponible"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+)
+
+const (
+	mensajeFuenteConfiguracionArranque             = "bootstrap: fuente configurada no disponible"
+	mensajeFuenteNecesidadesAltaNoConfigurada      = "contratacion temporal: falta configurar VEC_CT_NECESIDADES_ALTA_SOURCE_PATH para necesidades de alta"
+	mensajeCatalogoRPTNecesidadesAltaNoConfigurado = "contratacion temporal: falta configurar VEC_RPT_CATALOGO_PATH para necesidades de alta"
+)
 
 // Este marcador identifica una fuente configurada sin transportar su ruta ni
 // sustituir la causa original que necesitan errors.Is y errors.As.
@@ -12,12 +20,33 @@ func (*falloFuenteConfiguracionArranque) Error() string              { return me
 func (f *falloFuenteConfiguracionArranque) Unwrap() error            { return f.causa }
 func (*falloFuenteConfiguracionArranque) ClaseErrorArranque() string { return "configuracion" }
 
+type falloConfiguracionNecesidadesAltaArranque struct{ mensaje string }
+
+func (f *falloConfiguracionNecesidadesAltaArranque) Error() string { return f.mensaje }
+func (*falloConfiguracionNecesidadesAltaArranque) Unwrap() error {
+	return ports.ErrFuenteNecesidadesAltaNoDisponible
+}
+func (*falloConfiguracionNecesidadesAltaArranque) ClaseErrorArranque() string {
+	return "configuracion"
+}
+
+var (
+	errFuenteNecesidadesAltaNoConfigurada = marcarFalloComponenteArranque(
+		"fuente_necesidades_alta",
+		&falloConfiguracionNecesidadesAltaArranque{mensaje: mensajeFuenteNecesidadesAltaNoConfigurada},
+	)
+	errCatalogoRPTNecesidadesAltaNoConfigurado = marcarFalloComponenteArranque(
+		"catalogo_rpt",
+		&falloConfiguracionNecesidadesAltaArranque{mensaje: mensajeCatalogoRPTNecesidadesAltaNoConfigurado},
+	)
+)
+
 func marcarFalloFuenteConfiguracionArranque(componente string, err error) error {
 	if err == nil {
 		return nil
 	}
 	switch componente {
-	case "fuente_organizacion", "catalogo_rpt":
+	case "fuente_organizacion", "catalogo_rpt", "fuente_necesidades_alta":
 	default:
 		componente = "sin_etiqueta"
 	}

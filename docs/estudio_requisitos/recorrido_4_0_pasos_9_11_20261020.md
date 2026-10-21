@@ -38,11 +38,10 @@ Primer intento, por la ficha:
 
 - «Llamar a la siguiente persona» → diálogo de confirmación → aceptar.
 - Respuesta 409 `seleccion_no_disponible`. La selección desde la bolsa
-  constituida necesita el cliente de Organización histórica
-  (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`) y el GET de Organización histórica
-  en el proceso combinado
+  constituida necesita la consulta de Organización histórica de Personal
+  en el proceso combinado, con el perfil nominal del técnico de RRHH
   ([guía](../../deploy/principal/organizacion_historica_combinado_20261015.md)).
-  La copia no prepara ninguno de los dos (C1).
+  La copia no preparó ese montaje (C1).
 
 Segundo intento, por «Abrir llamamiento en Bolsa»:
 
@@ -138,10 +137,10 @@ persona. Falta el nombre o el orden de la persona llamada.
 
 ## Fallos de la copia
 
-- C1. Falta el cliente y la consulta de Organización histórica: la selección
-  de la ficha devuelve 409. No hay guion que los prepare; los pasos están en la
-  guía citada y tocan perfiles, motivos y publicación de capacidad. Pide tarea
-  propia.
+- C1. Falta la consulta de Organización histórica: la selección de la ficha
+  devuelve 409. La conexión por puerto en el mismo proceso requiere el montaje
+  existente y un perfil nominal del técnico que actúa; la guía citada explica
+  perfiles, motivos y publicación de capacidad. Pide tarea propia.
 - C2. El nombre que la lista da a la participación vinculada al certificado de
   Antonio (orden 1) es «Isabel Ramírez Vargas», y otra participación (orden 5)
   se llama «Antonio Reyes Álvarez». El guion de datos vincula a Antonio con el

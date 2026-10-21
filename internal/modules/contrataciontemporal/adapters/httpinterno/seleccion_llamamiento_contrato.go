@@ -199,12 +199,14 @@ func errorEntradaSeleccionLlamamiento(err error) errorPublicoCobertura {
 
 func clasificarErrorSeleccionLlamamiento(err error) errorPublicoCobertura {
 	switch {
+	case errors.Is(err, application.ErrEjecucionSeleccionLlamamientoIndeterminada):
+		// La causa interna no prueba que la operación quedase sin efectos.
+		return errorServicioSeleccionLlamamientoNoDisponible
 	case errors.Is(err, ports.ErrCriteriosOfrecimientoPendientesRRHH):
 		return nuevoErrorSeleccionLlamamiento(http.StatusConflict, "comprobacion_ofrecimiento_pendiente")
 	case errors.Is(err, application.ErrClaveSeleccionLlamamientoEnColision):
 		return errorConflictoSeleccionLlamamientoNoReintentable
-	case errors.Is(err, application.ErrEjecucionSeleccionLlamamientoIndeterminada),
-		errors.Is(err, application.ErrEjecucionSeleccionLlamamientoConcurrente):
+	case errors.Is(err, application.ErrEjecucionSeleccionLlamamientoConcurrente):
 		// La misma solicitud se puede recuperar con autorización nueva.
 		return errorServicioSeleccionLlamamientoNoDisponible
 	case errors.Is(err, ports.ErrAutorizacionDenegada):

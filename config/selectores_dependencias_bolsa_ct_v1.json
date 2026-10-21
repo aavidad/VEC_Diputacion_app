@@ -24,7 +24,6 @@
     {"variable": "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL", "tipo": "conexion", "uso_real": true, "requiere": ["VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL", "VEC_CT_CONSULTAS_RRHH_DATABASE_URL"]},
     {"variable": "VEC_CT_CONTEXTO_ACTOR_DATABASE_URL", "tipo": "conexion", "uso_real": true, "requiere": ["VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL", "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL"]},
 
-    {"variable": "VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Configuración privada del cliente de organización y RPT para seleccionar desde la bolsa constituida; sin ella esa selección permanece cerrada."},
     {"variable": "VEC_CT_REGLAS_SOURCE_PATH", "tipo": "catalogo", "uso_real": true, "nota": "Reglas de CT; lo exigen cese, cancelación e incorporación acreditada."},
     {"variable": "VEC_CT_REGLAS_AJUSTES_MOTIVOS_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Motivos que RRHH puede elegir al cambiar un plazo de CT."},
     {"variable": "VEC_CT_CAUSAS_CESE_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},

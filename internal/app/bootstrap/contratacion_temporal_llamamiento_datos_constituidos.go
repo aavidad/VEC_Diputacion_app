@@ -1,72 +1,23 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
-	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
-
-const rutaClienteM10LlamamientoCT = "VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH"
-
-type configuracionClienteM10LlamamientoCT struct {
-	Version            int    `json:"version"`
-	OrganismoRef       string `json:"organismo_ref"`
-	Origen             string `json:"origen"`
-	Directorio         string `json:"directorio"`
-	AutoridadCA        string `json:"autoridad_ca"`
-	CertificadoCliente string `json:"certificado_cliente"`
-	ClaveCliente       string `json:"clave_cliente"`
-	MaximoBytesPagina  int64  `json:"maximo_bytes_pagina"`
-}
-
-func cargarClienteM10LlamamientoCT() (*personalhttp.ClienteOrganizacionHistorica, string, error) {
-	ruta := os.Getenv(rutaClienteM10LlamamientoCT)
-	if ruta == "" || !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta || dentroDeRepositorioGit(ruta) {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	contenido, err := leerFicheroMaterialSeguro(ruta, 16<<10)
-	if err != nil {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	defer borrarBytes(contenido)
-	if validarClavesJSONUnicas(contenido) != nil {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	decodificador := json.NewDecoder(bytes.NewReader(contenido))
-	decodificador.DisallowUnknownFields()
-	var c configuracionClienteM10LlamamientoCT
-	if decodificador.Decode(&c) != nil || decodificador.Decode(new(any)) != io.EOF ||
-		c.Version != 1 || c.OrganismoRef == "" || c.Origen == "" ||
-		c.MaximoBytesPagina < 1 || c.MaximoBytesPagina > 8<<20 {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	cliente, err := personalhttp.NuevoClienteOrganizacionHistorica(personalhttp.ConfiguracionOrganizacionHistorica{
-		Origen: c.Origen, Directorio: c.Directorio, AutoridadCA: c.AutoridadCA,
-		CertificadoCliente: c.CertificadoCliente, ClaveCliente: c.ClaveCliente,
-		MaximoBytesPagina: c.MaximoBytesPagina,
-	})
-	if err != nil {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	return cliente, c.OrganismoRef, nil
-}
 
 // La orden nace de la identidad mTLS revalidada y del recurso Bolsa leído en
 // la misma transacción. El acuse lo produce exclusivamente el registrador SQL.
@@ -168,7 +119,16 @@ func nuevoConstructorOrdenOrigenCT(
 // El expediente aporta la necesidad exacta; Personal comprueba que su puesto
 // sigue perteneciendo a la publicación RPT cuya huella quedó en la petición.
 // Un expediente anterior sin ese vínculo no permite emitir en el circuito nativo.
-type resolutorPuestoRPTConstituidoCT func(context.Context, string, string) (string, error)
+// Cada página aporta su propio recibo de lectura de Personal. Se conserva
+// también la de páginas sin coincidencia, necesarias para descartar ambigüedad.
+type evidenciaPuestoRPTConstituidoCT = ctports.ConsultaPersonalLlamamiento
+
+type puestoRPTConstituidoCT struct {
+	PuestoRef  string
+	Evidencias []evidenciaPuestoRPTConstituidoCT
+}
+
+type resolutorPuestoRPTConstituidoCT func(context.Context, string, string) (puestoRPTConstituidoCT, error)
 
 // Personal conserva identificadores de importación con este formato hexadecimal.
 // Su contrato no asigna bits de versión o variante a esos identificadores.
@@ -179,15 +139,15 @@ func nuevoProveedorDatosEmisionConstituidaCT(
 	rpt personalports.ConsultaRPTPublica, resolutor *reglas.Resolutor, ahora func() time.Time,
 	resolverPuesto resolutorPuestoRPTConstituidoCT,
 ) proveedorConfiguracionEmisionCT {
-	return func(ctx context.Context, d preparacionLlamamientoDesarrollo) (ports.ConfiguracionLlamamiento, string, domain.ReferenciaEntradaCatalogo, error) {
+	return func(ctx context.Context, d preparacionLlamamientoDesarrollo) (ports.ConfiguracionLlamamiento, puestoRPTConstituidoCT, domain.ReferenciaEntradaCatalogo, error) {
 		vacio := ports.ConfiguracionLlamamiento{}
 		if ctx == nil || ctx.Err() != nil || rpt == nil || resolutor == nil || !resolutor.Disponible() || ahora == nil || resolverPuesto == nil || d.unidad == "" {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		e := d.expediente.Fiscalizado
 		if e.Validar() != nil || e.Analisis == nil || e.Solicitud.Necesidad == nil ||
 			e.Solicitud.Necesidad.ValidarInstantanea() != nil || e.Solicitud.Detalle == "" {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		campos := e.Solicitud.Necesidad.Campos
 		codigo := campos["puesto_codigo"]
@@ -195,29 +155,29 @@ func nuevoProveedorDatosEmisionConstituidaCT(
 		if err != nil || publicacion.Validar() != nil ||
 			publicacion.Fuente.Importacion != campos["rpt_catalogo_ref"] ||
 			subtle.ConstantTimeCompare([]byte(publicacion.Fuente.HuellaSHA256), []byte(campos["rpt_catalogo_huella_sha256"])) != 1 {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		puesto, categoria, ok := puestoPublicadoNecesidadCT(publicacion, codigo, d.categoria, e.Solicitud.CentroRef)
 		if !ok {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		unidadPuesto, ok := unidadPuestoPublicadoCT(puesto)
 		if !ok {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
-		puestoRef, err := resolverPuesto(ctx, codigo, unidadPuesto)
-		if err != nil || !patronPuestoRPTConstituidoCT.MatchString(puestoRef) {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+		puestoResuelto, err := resolverPuesto(ctx, codigo, unidadPuesto)
+		if err != nil || !patronPuestoRPTConstituidoCT.MatchString(puestoResuelto.PuestoRef) {
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		// b05 comienza con contacto efectivo. El aviso informativo no crea una
 		// fecha de vencimiento: el texto de plazo procede de la regla publicada.
 		regla, err := resolutor.Regla(ctx, reglas.BolsaPlazoRespuesta)
 		if err != nil || regla.Descripcion == "" || regla.Atributos["inicio"] != inicioPlazoContactoEfectivo {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		correo, err := cargarCatalogoCorreoLlamamientoBolsa()
 		if err != nil || !correo.Valido() {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		textos := correo.TextosDefecto(correo.IdiomaDefecto())
 		configuracion := ports.ConfiguracionLlamamiento{
@@ -231,9 +191,9 @@ func nuevoProveedorDatosEmisionConstituidaCT(
 		if ctx.Err() != nil || ahora().IsZero() ||
 			correo.ValidarPlantilla(configuracion.PlantillaVersion, configuracion.Asunto) != nil ||
 			correo.ValidarPlantilla(configuracion.PlantillaVersion, configuracion.Cuerpo) != nil {
-			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+			return vacio, puestoRPTConstituidoCT{}, domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
-		return configuracion, puestoRef, motivoEmitirLlamamientoBolsaDesarrollo(), nil
+		return configuracion, puestoResuelto, motivoEmitirLlamamientoBolsaDesarrollo(), nil
 	}
 }
 
@@ -247,8 +207,8 @@ func unidadPuestoPublicadoCT(puesto personaldomain.PuestoRPTPublico) (string, bo
 	return "unidad:centro:" + strings.ToLower(puesto.CentroCodigo), true
 }
 
-// El cliente HTTP existente de M10 entrega páginas con autorización V3 y
-// auditoría SQL de lectura. La raíz aporta su origen mTLS y ámbito privado.
+// El puerto de Personal entrega páginas con autorización V3 y auditoría SQL
+// de lectura bajo el perfil propio de la cuenta autenticada.
 type consultaOrganizacionHistoricaPuestoCT interface {
 	Consultar(context.Context, personaldomain.SelectorOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error)
 }
@@ -256,9 +216,9 @@ type consultaOrganizacionHistoricaPuestoCT interface {
 func nuevoResolutorPuestoRPTConstituidoCT(
 	cliente consultaOrganizacionHistoricaPuestoCT, organismoRef string, ahora func() time.Time,
 ) resolutorPuestoRPTConstituidoCT {
-	return func(ctx context.Context, codigo, unidadRef string) (string, error) {
+	return func(ctx context.Context, codigo, unidadRef string) (puestoRPTConstituidoCT, error) {
 		if ctx == nil || ctx.Err() != nil || cliente == nil || ahora == nil || codigo == "" || unidadRef == "" || organismoRef == "" {
-			return "", ports.ErrEmisionLlamamientoNoDisponible
+			return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		instante := ahora().UTC().Truncate(time.Microsecond)
 		selector := personaldomain.SelectorOrganizacionHistorica{
@@ -267,44 +227,48 @@ func nuevoResolutorPuestoRPTConstituidoCT(
 			ConocidoEn: instante, Limite: personaldomain.LimiteMaximoOrganizacionHistorica,
 		}
 		if selector.Validar() != nil {
-			return "", ports.ErrEmisionLlamamientoNoDisponible
+			return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		var puestoRef, versionRPT string
+		var evidencias []evidenciaPuestoRPTConstituidoCT
 		visitados := map[string]bool{}
 		for pagina := 0; pagina < 64; pagina++ {
 			resultado, err := cliente.Consultar(ctx, selector)
-			if err != nil || ctx.Err() != nil || resultado.Evidencia.AuditoriaRef == "" ||
+			if err != nil || ctx.Err() != nil || resultado.Evidencia.AuditoriaRef == "" || resultado.Evidencia.ReciboRef == "" ||
 				resultado.Pagina.VersionRPTRef == "" {
-				return "", ports.ErrEmisionLlamamientoNoDisponible
+				return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 			}
 			if versionRPT != "" && versionRPT != resultado.Pagina.VersionRPTRef {
-				return "", ports.ErrEmisionLlamamientoNoDisponible
+				return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 			}
 			versionRPT = resultado.Pagina.VersionRPTRef
+			evidencias = append(evidencias, evidenciaPuestoRPTConstituidoCT{
+				ReciboRef: resultado.Evidencia.ReciboRef, AuditoriaRef: resultado.Evidencia.AuditoriaRef,
+			})
 			for _, fila := range resultado.Pagina.PuestosIndividuales {
 				if !codigoPuestoM10ConstituidoCoincide(fila.CodigoFuente, codigo) ||
 					fila.UnidadID != unidadRef || fila.EstadoEstructural != "vigente" {
 					continue
 				}
 				if !patronPuestoRPTConstituidoCT.MatchString(fila.Traza.ID) || puestoRef != "" && puestoRef != fila.Traza.ID {
-					return "", ports.ErrEmisionLlamamientoNoDisponible
+					return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 				}
 				puestoRef = fila.Traza.ID
 			}
 			siguiente := resultado.Pagina.CursorSiguiente
 			if siguiente == "" {
 				if puestoRef == "" {
-					return "", ports.ErrEmisionLlamamientoNoDisponible
+					return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 				}
-				return puestoRef, nil
+				return puestoRPTConstituidoCT{PuestoRef: puestoRef, Evidencias: evidencias}, nil
 			}
 			if visitados[siguiente] {
-				return "", ports.ErrEmisionLlamamientoNoDisponible
+				return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 			}
 			visitados[siguiente] = true
 			selector.Cursor = siguiente
 		}
-		return "", ports.ErrEmisionLlamamientoNoDisponible
+		return puestoRPTConstituidoCT{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
 }
 

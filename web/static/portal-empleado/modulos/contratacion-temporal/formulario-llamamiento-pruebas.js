@@ -43,7 +43,8 @@ export function raizPrueba() {
       };
       return borradores[tipo];
     },
-    enviar(tipo, valores) {
+    async enviar(tipo, valores) {
+      await new Promise(setImmediate);
       const form = valores ? this.preparar(tipo, valores) : borradores[tipo];
       return eventos.get("submit")({ target: form, preventDefault() {} });
     },
@@ -66,6 +67,9 @@ export function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
     contexto: CONTEXTO, generarClaveIdempotencia: claveDePrueba(raiz),
     raiz, cliente: { seleccionarLlamamiento: async () => recibo,
+      consultarEstadoSeleccionOferta: async (expediente_ref) => ({
+        esquema: "vec.contratacion-temporal.estado-seleccion-oferta.v1", estado: "ausente", expediente_ref,
+      }),
       registrarComunicacionLlamamiento: async () => {},
       consultarReciboRespuesta: async () => { throw Object.assign(new Error("sin respuesta"), {
         estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
@@ -106,6 +110,9 @@ export async function montarExpedienteSeleccionado(inicial, alta = null) {
       async seleccionarExpediente(referencia) { estado = estadoSeleccionado(referencia); },
     },
     llamamiento: { cliente: {
+      consultarEstadoSeleccionOferta: async (expediente_ref) => ({
+        esquema: "vec.contratacion-temporal.estado-seleccion-oferta.v1", estado: "ausente", expediente_ref,
+      }),
       seleccionarLlamamiento: async () => { peticiones += 1; return recibo; },
       registrarComunicacionLlamamiento: async () => { peticiones += 1; },
       registrarRespuestaRecibida: async () => { peticiones += 1; },
