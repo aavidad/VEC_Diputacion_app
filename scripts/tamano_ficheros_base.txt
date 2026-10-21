@@ -65,7 +65,7 @@
 1034 internal/vec/adapters/postgres/confianzadocumental/servicio_test.go
 1254 internal/vec/adapters/seguridad/carga_directa.go
 1619 internal/vec/adapters/seguridad/carga_directa_test.go
-826 internal/vec/adapters/seguridad/confianzaatestacion/emision_material_v3_test.go
+828 internal/vec/adapters/seguridad/confianzaatestacion/emision_material_v3_test.go
 1855 internal/vec/application/cargas_documentales.go
 1514 internal/vec/application/cargas_documentales_test.go
 907 internal/vec/application/cotejo_transiciones_test.go
