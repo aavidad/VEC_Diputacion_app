@@ -40,6 +40,30 @@ interno no está en la petición HTTP y la transacción se deshizo. La definici�
 instalada y el error se conservaron para continuar el diagnóstico. No hay una
 corrección aplicada ni un resultado positivo de la segunda firma en H.
 
+El diagnóstico reprodujo una incompatibilidad de formato en solo lectura:
+`instante_utc_v1` conserva seis decimales, mientras que el canon elimina los
+ceros finales. CT219, líneas 385 y 399, construye la fecha histórica con la
+primera función y compara literalmente el resultado con el segundo. Con
+`.123450Z` frente a `.12345Z`, o `.000000Z` frente a `Z`, la guarda diverge;
+con `.123456Z` coincide. La revisión independiente confirma ese defecto de
+contrato. La fecha interna exacta del envío rechazado no quedó guardada, por
+lo que esta reproducción no demuestra todavía la causa de aquel envío.
+
+La comprobación usa las funciones instaladas y no ejecuta ningún registro:
+
+```sql
+BEGIN READ ONLY;
+WITH muestra AS (
+  SELECT vec_contratacion_temporal.instante_utc_v1(
+    '2026-10-21T04:34:12.123450Z'::timestamptz) AS fecha
+)
+SELECT fecha,
+  vec_autorizacion.canon_json_competencia_firmante_ct_v1(
+    to_jsonb(fecha), 't')::jsonb #>> '{}' AS canon
+FROM muestra;
+ROLLBACK;
+```
+
 Se reutilizan la [receta pública](../recorrido_copia/LEEME.md), la carga normal
 del XLS de Administrativo y el preparador de los cuatro entornos de firma.
 H usa Yago y las referencias de su propia carga; no traslada actos, claves ni
