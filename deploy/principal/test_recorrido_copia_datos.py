@@ -44,6 +44,17 @@ class DatosCopiaTest(unittest.TestCase):
         self.repo = Path(__file__).resolve().parents[2]
         self.copia = CopiaFalsa(self.raiz, self.repo)
 
+    def test_reglas_disponibles_antes_de_preparar_la_identidad_del_aspirante(self):
+        from recorrido_copia import bolsa
+        from copia_local_caso40 import REGLAS_BOLSA
+        archivo = self.raiz / 'entorno_modulos.json'
+        archivo.write_text(json.dumps({k: 'conexion' for k in GRUPOS}))
+        with patch.object(bolsa, '_historico', return_value=lambda *_: {}):
+            bolsa.preparar_bolsa(self.copia)
+        entorno = json.loads(archivo.read_bytes())
+        self.assertEqual(entorno['VEC_BOLSA_REGLAS_SOURCE_PATH'], str(self.repo / REGLAS_BOLSA))
+        self.assertNotIn('VEC_BOLSA_PORTAL_CANDIDATO_ENABLED', entorno)
+
     def test_roles_antes_de_ad278_guardan_claves_privadas_tras_sql(self):
         class Resultado:
             stdout = b"vec_ct_origen\n"
