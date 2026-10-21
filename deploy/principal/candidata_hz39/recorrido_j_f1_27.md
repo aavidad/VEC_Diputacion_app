@@ -178,3 +178,26 @@ esa frontera ni añadir concesiones. Los pasos 12–21 siguen pendientes.
 La denegación se presenta como 503, aunque debería conservar la
 clasificación 403/404 que corresponda según la política del módulo.
 Dirección ha pedido anotarlo por separado y mantenerlo fuera de este corte.
+
+## Preparación de los pasos 13 a 21
+
+Por orden de las 12:47 se hicieron consultas en J sin cambiar su fuente ni
+registrar actos. Se conservó la página de Gestión con la clave pendiente;
+las lecturas se hicieron en otro perfil de Chrome, cerrado al terminar.
+
+| Tramo | Preparación comprobada | Pendiente |
+| --- | --- | --- |
+| 13–14 | La técnica recupera el expediente y sus antecedentes; el informe firmado se descarga con la misma huella anterior | Registrar propuesta y resolución para alcanzar v7 y v8; generar y abrir PDF y Word de los documentos del recorrido |
+| 15 | El plan publicado de J fija Jefatura → Diputación → Secretaría General. Los tres entornos de firma están preparados | Las tres firmas de la resolución, sus recibos y el PDF verificado. Los cuatro documentos restantes se mantienen sin firma, según el caso de aceptación |
+| 17 | El centro ve 95034, su petición ratificada y «Aún no procede» por la fase actual | La bandeja debe habilitar la confirmación tras la formalización; usar el documento que exija su regla y una fecha no futura |
+| 18 y 16a–16b | Material de Personal con 27 operaciones; incorporación acreditada y gobierno B2 activos | Alta real, ficha descargada y confirmación manual de GINPIX ligada al recibo del alta |
+| 19–21 | Seguimiento y cese activos; relevo de Bolsa activo; política de fecha de efecto `primer_dia_sin_relacion` | Cese, vuelta a la misma participación de Bolsa y cierre, conservando sus recibos |
+
+La descarga técnica del informe conserva 49.314 bytes y SHA-256
+`86b8551684eaac338c3c9a7fa5c87b8508baa029b609e73254d8a576a566af99`.
+La vista a 390 px tiene 375 px de contenido, sin desbordamiento horizontal.
+La fecha de incorporación se validará al llegar al acto: el código exige
+un día no futuro de Madrid y el periodo solicitado empieza el 2 de noviembre.
+No se ha modificado ese periodo ni registrado una incorporación anticipada.
+La hoja [de preparación de incorporación a cierre](../f1_28_preparacion_pasos_16_21.md)
+conserva rutas, perfiles y límites. Estas consultas no acreditan esos actos.
