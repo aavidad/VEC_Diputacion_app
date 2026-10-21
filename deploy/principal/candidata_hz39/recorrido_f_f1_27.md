@@ -57,3 +57,18 @@ está fuera de la franja 09:00–14:00. No se registró otro canal ni se creó o
 llamamiento para evitar ese límite. El enlace desde CT abre el asistente de
 nuevo llamamiento, del que se salió sin crear nada. Los pasos 10–15 siguen
 pendientes.
+
+## Estado al esperar la corrección
+
+Dirección asignó el fallo horario a F1-143 y ordenó esperar con la copia
+parada. El gestor detuvo aplicación, Administración, PostgreSQL, buzón y
+verificador; también se cerraron Chrome y la pantalla privada. Se conservan
+la copia y la fuente de ejecución originales, sin modificar su sello.
+
+Antes de parar, la técnica descargó desde Chrome el PDF con las dos firmas:
+49.203 bytes, SHA-256
+`3fe35c6a6eab71253f41576dce97bf82fb41e37ee8381996fd2eb2ba1562cb82`.
+Coincide con la huella del documento firmado del segundo recibo. La instantánea
+privada conserva la versión 6, los dos recibos, sus fechas y los recuentos.
+Esto acredita la lectura anterior a la parada; aún no se ha hecho el reinicio
+de aceptación de F.
