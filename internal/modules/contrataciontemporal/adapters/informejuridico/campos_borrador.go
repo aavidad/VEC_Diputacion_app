@@ -14,6 +14,7 @@ import (
 // hueco para completarlo en el circuito competente.
 type fuenteCampos struct {
 	detalle           ports.DetalleExpedienteRRHH
+	resolucion        *ports.SolicitudResolucionFormalizacion
 	propuesta         ports.HitoExpedienteRRHH
 	requerido         *ports.HitoExpedienteRRHH
 	etiquetar         EtiquetadorReferencias
@@ -26,6 +27,18 @@ type fuenteCampos struct {
 // exige código porque exige un dato nuevo del expediente; cambiar un texto,
 // no.
 var camposBorrador = map[string]func(f *fuenteCampos) string{
+	"resolucion_numero": func(f *fuenteCampos) string {
+		if f.resolucion == nil {
+			return ""
+		}
+		return f.resolucion.NumeroResolucion
+	},
+	"resolucion_fecha": func(f *fuenteCampos) string {
+		if f.resolucion == nil {
+			return ""
+		}
+		return f.resolucion.FechaResolucion
+	},
 	"numero_expediente":  func(f *fuenteCampos) string { return f.detalle.Resumen.NumeroVisible },
 	"expediente_ref":     func(f *fuenteCampos) string { return f.detalle.Resumen.ExpedienteRef },
 	"version_expediente": func(f *fuenteCampos) string { return strconv.FormatUint(f.detalle.Resumen.Version, 10) },

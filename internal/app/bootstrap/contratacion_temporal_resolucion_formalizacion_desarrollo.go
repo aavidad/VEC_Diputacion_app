@@ -99,7 +99,11 @@ func (e *ejecutorResolucionFormalizacionDesarrollo) RegistrarResolucionFormaliza
 		d.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" {
 		return z, ports.ErrResolucionFormalizacionEnConflicto
 	}
-	pdf, err := e.renderizador.RenderizarBorrador(ctx, ports.BorradorResolucion, d.Clonar())
+	renderCtx, err := ports.ConResolucionDocumentoRRHH(ctx, s)
+	if err != nil {
+		return z, err
+	}
+	pdf, err := e.renderizador.RenderizarBorrador(renderCtx, ports.BorradorResolucion, d.Clonar())
 	if ctx.Err() != nil {
 		return z, ctx.Err()
 	}
