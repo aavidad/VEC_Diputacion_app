@@ -12,9 +12,10 @@ de firma de su expediente 2026/95032 no se reintenta. No se añaden ramas.
 
 | Tramo | Estado |
 | --- | --- |
-| Creación completa y carga nativa de Bolsa | En ejecución |
-| Petición, ratificación y alta (1–3) | Pendiente |
-| Análisis, vía, asignación, informe, dos firmas y fiscalización (4–8) | Pendiente |
+| Creación completa y carga nativa de Bolsa | Completada en 256,57 segundos; 146 migraciones |
+| Petición, ratificación y alta (1–3) | 200, 200 y 201; expediente 2026/95034, versión 1 |
+| Análisis, vía, asignación e informe (4–7) | Actuaciones 201 hasta versión 5 |
+| Dos firmas del informe y fiscalización (7b–8) | En curso; todavía sin registros de firma |
 | Selección, contacto y aceptación (9–11) | Pendiente; se observará el registro si falla |
 | Propuesta, resolución, documentos y tres firmas (12–15) | Pendiente |
 | Incorporación, Personal, GINPIX, cese, vuelta a Bolsa y cierre (17–21) | Pendiente |
@@ -26,3 +27,10 @@ como tipo. No modifica el error devuelto, la autorización ni las reglas.
 Si J confirma la selección, el recorrido continuará; si falla, se conservarán
 su petición, correlación y causa observada antes de proponer una corrección.
 Los materiales privados quedan fuera de Git. Esta hoja no cierra F1-27 ni F1-28.
+
+La primera apertura del programa de firma se detuvo en la conexión TLS, antes
+de mostrar el selector y sin enviar registros de firma a VEC. El navegador
+se había iniciado antes de preparar las cuatro autoridades locales de J.
+Se cerraron navegador y programa de firma de esa sesión y se abrió el
+navegador con esas autoridades ya preparadas. Solo se modifica el entorno
+privado del navegador; se conservan las comprobaciones TLS y los permisos.
