@@ -86,7 +86,7 @@ test("contacto efectivo muestra vencimiento y estado sin rotular la regla; sin t
     prueba_ref: "prueba:llamada", respuesta_hasta: "2027-01-01T00:00:00Z", tipo: "causa_justificada" });
   assert.deepEqual(enviadas, [{ clave_idempotencia: CLAVE_CONTACTO, organizacion_ref: recibo.organizacion_ref,
     expediente_ref: EXPEDIENTE, llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
-    version_comunicacion_esperada: 2, tipo: "contacto_efectivo", instante_en: "2026-09-05T08:30:00Z", prueba_ref: "prueba:llamada" }]);
+    version_comunicacion_esperada: 2, tipo: "contacto_efectivo", instante_en: "2026-09-05T06:30:00Z", prueba_ref: "prueba:llamada" }]);
   const plazo = raiz.innerHTML.match(/<section class="ct-llamamiento-paso ct-llamamiento-plazo"[\s\S]*?<\/section>\s*<\/section>|<section class="ct-llamamiento-paso ct-llamamiento-plazo"[\s\S]*$/u)[0];
   assert.match(plazo, /datetime="2026-09-06T22:00:00Z"/u);
   assert.match(plazo, /data-ct-llamamiento-plazo-situacion="en_plazo"/u);
@@ -95,6 +95,47 @@ test("contacto efectivo muestra vencimiento y estado sin rotular la regla; sin t
   assert.doesNotMatch(plazo, /data-ct-llamamiento-propuesta-expiracion/u);
   assert.doesNotMatch(plazo, /class="ct-ayuda"|id="ct-llamamiento-contacto-ayuda"/u);
   assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="contacto"]');
+  cerrar();
+});
+
+test("el contacto conserva la hora de Madrid al confirmar, reintentar y mostrar el recibo", async () => {
+  for (const [civil, utc, hora, plazo] of [
+    ["2026-09-05T08:30", "2026-09-05T06:30:00Z", "8:30", PLAZO],
+    ["2026-12-15T10:30", "2026-12-15T09:30:00Z", "10:30", {
+      ...PLAZO, respuesta_hasta: "2026-12-16T23:00:00Z", ultimo_dia: "2026-12-16",
+    }],
+  ]) {
+    const raiz = raizPrueba(), enviadas = [], confirmaciones = [];
+    const cerrar = await abrirPlazo(raiz, { registrarEventoPlazoLlamamiento: async (s) => {
+      enviadas.push(s);
+      if (enviadas.length === 1) throw new Error("respuesta perdida");
+      return { ...reciboEvento(s, plazo), registrado_en: utc };
+    } }, () => Date.parse(utc) + 60000, {
+      confirmarOperacion: (d) => { confirmaciones.push(d); return true; },
+    });
+    const entrada = { clave_idempotencia: CLAVE_CONTACTO, instante_en: civil, prueba_ref: "prueba:llamada" };
+    await raiz.enviar("contacto", entrada);
+    assert.equal(enviadas.length, 1);
+    assert.equal(enviadas[0].instante_en, utc);
+    assert.match(confirmaciones.at(-1).advertencia, new RegExp(hora, "u"));
+    assert.match(raiz.innerHTML, new RegExp(`name="instante_en"[^>]*value="${civil}"`, "u"));
+    await raiz.enviar("contacto", entrada);
+    assert.deepEqual(enviadas[1], enviadas[0], "el reintento no convierte otra vez el instante UTC");
+    assert.match(raiz.innerHTML, new RegExp(`datetime="${utc}"[^>]*>[^<]*${hora}`, "u"));
+    cerrar();
+  }
+});
+
+test("el contacto rechaza la hora inexistente y la repetida sin enviar el acto", async () => {
+  const raiz = raizPrueba(), enviadas = [];
+  const cerrar = await abrirPlazo(raiz, { registrarEventoPlazoLlamamiento: async (s) => {
+    enviadas.push(s); return reciboEvento(s);
+  } });
+  for (const instante_en of ["2026-03-29T02:30", "2026-10-25T02:30"]) {
+    await raiz.enviar("contacto", { clave_idempotencia: CLAVE_CONTACTO, instante_en, prueba_ref: "prueba:llamada" });
+    assert.deepEqual(enviadas, []);
+    assert.match(raiz.innerHTML, /Esa hora no existe o se repite por el cambio de hora/u);
+  }
   cerrar();
 });
 
@@ -141,8 +182,12 @@ test("respuesta fuera de plazo exige la causa acreditada antes de resolver", asy
   assert.match(raiz.innerHTML, /data-ct-llamamiento-form="causa"/u);
   await raiz.enviar("resolucion", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174003", ...revisionManual });
   assert.equal(resoluciones.length, 0, "sin causa acreditada no se resuelve");
+  await raiz.enviar("causa", { clave_idempotencia: CLAVE_CAUSA, instante_en: "2026-10-25T02:30", prueba_ref: "prueba:causa" });
+  assert.equal(eventos.length, 1, "la causa no elige una de las dos horas repetidas");
+  assert.match(raiz.innerHTML, /Esa hora no existe o se repite por el cambio de hora/u);
   await raiz.enviar("causa", { clave_idempotencia: CLAVE_CAUSA, instante_en: "2026-09-07T07:30", prueba_ref: "prueba:causa" });
   assert.equal(eventos.at(-1).tipo, "causa_justificada");
+  assert.equal(eventos.at(-1).instante_en, "2026-09-07T05:30:00Z");
   assert.match(raiz.innerHTML, /Causa justificada anotada/u);
   await raiz.enviar("resolucion", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174003", ...revisionManual });
   assert.equal(resoluciones.length, 1);
