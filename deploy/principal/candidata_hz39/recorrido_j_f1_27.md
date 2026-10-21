@@ -105,7 +105,27 @@ arrancó la nueva con el gestor. PostgreSQL conserva el mismo identificador
 de contenedor y el mismo instante de arranque. El proceso nuevo de la
 aplicación consta activo. El gestor devolvió después «ADMIN no preparado o ya
 activo» al intentar arrancar de nuevo Administración, que se había conservado
-activa con su mismo PID. Se comunicó esa guarda a dirección y se detuvo el
-recorrido, como había indicado: todavía no se ha pulsado «Guardar la
-propuesta» con el parche. Falta comprobar la recuperación de los recibos y
-continuar los pasos 12–21.
+activa con su mismo PID. Dirección autorizó comprobar ambos servicios sin
+apagar Administración. La comprobación terminó con código 0; el detalle
+recuperó la versión 6 y las mismas seis referencias de recibo. El navegador
+recibió la versión web `382b427427519658` con la corrección instalada.
+
+## Paso 12: envío de la propuesta
+
+El formulario envió una única petición el 21 de octubre a las 11:12:33,
+hora de Madrid. El servidor devolvió 503, con código
+`servicio_no_disponible` y correlación
+`corr_8718f8296439ab2158c4324140754f4b`. La clave conservada es
+`16b2f70c-02e7-417c-a98a-e55c8082b743`. La pantalla conserva la solicitud y
+no afirma que se haya guardado. No se ha repetido el envío.
+
+La consulta posterior de la copia, dentro de una transacción de solo
+lectura, encontró cero propuestas con esa clave. El expediente continúa en
+la versión 6 y su último evento sigue siendo la fiscalización. Durante la
+petición constan dos consumos de autorización confirmados; todavía no
+permiten atribuir el fallo a una etapa concreta. El registro recoge 39
+consultas, sin errores de base registrados, y clasifica la causa como
+desconocida. Se conserva la petición, respuesta y registro en el material
+privado. Dirección encargó localizar la causa y corregirla o añadir un
+diagnóstico limitado a errores reconocidos. Los pasos 12–21 y el reinicio
+final siguen pendientes.
