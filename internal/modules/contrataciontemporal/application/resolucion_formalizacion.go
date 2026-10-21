@@ -52,12 +52,72 @@ func (s *ServicioPreparacionResolucionFormalizacion) ConsultarPreparacionResoluc
 	}
 	p := captor.preparacion
 	if p.ValidarPara(expediente) != nil || d.Resumen.Version != p.VersionActual ||
-		len(d.Hitos) != int(p.VersionActual) || d.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
+		uint64(len(d.Hitos)) != p.VersionActual || d.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
 		(p.VersionActual == 8 && (d.Hitos[7].AccionClave != "registrar_resolucion_formalizacion" ||
 			!d.Hitos[7].RealizadaEn.Equal(p.Recibo.RegistradaEn))) {
 		return z, ports.ErrResultadoResolucionFormalizacionNoConfiable
 	}
 	return p.Clonar(), nil
+}
+
+// La misma decisión de lectura de detalle obtiene el acto ya confirmado.
+// El captor de esta petición conserva el recibo v8 aunque el detalle sea posterior.
+func (s *ServicioPreparacionResolucionFormalizacion) ConsultarActoResolucionFormalizacion(ctx context.Context, expediente string) (ports.ResultadoResolucionFormalizacion, error) {
+	z := ports.ResultadoResolucionFormalizacion{}
+	if s == nil || ctx == nil {
+		return z, ports.ErrResolucionFormalizacionNoDisponible
+	}
+	sesion, ok := s.sesion.(ports.SesionActoResolucionFormalizacion)
+	if !ok || dependenciaNula(sesion) {
+		return z, ports.ErrResolucionFormalizacionNoDisponible
+	}
+	q, err := ports.NuevaSolicitudDetalleRRHH(expediente, 0)
+	if err != nil {
+		return z, ports.ErrSolicitudResolucionFormalizacionInvalida
+	}
+	captor := &sesionActoResolucion{sesion: sesion}
+	detalle, err := NuevoServicioConsultaDetalleRRHH(s.autoridad, s.emisor, captor, s.reloj)
+	if err != nil {
+		return z, ports.ErrResolucionFormalizacionNoDisponible
+	}
+	d, err := detalle.Consultar(ctx, q)
+	if ctx.Err() != nil {
+		return z, ctx.Err()
+	}
+	if err != nil {
+		return z, err
+	}
+	r := captor.acto
+	if r.ValidarPara(r.Solicitud) != nil || r.Estado != "registrada" ||
+		r.Solicitud.ExpedienteRef != expediente || d.Resumen.Version < 8 ||
+		uint64(len(d.Hitos)) != d.Resumen.Version ||
+		d.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
+		d.Hitos[7].AccionClave != "registrar_resolucion_formalizacion" ||
+		!d.Hitos[7].RealizadaEn.Equal(r.RegistradaEn) {
+		return z, ports.ErrResultadoResolucionFormalizacionNoConfiable
+	}
+	return r, nil
+}
+
+type sesionActoResolucion struct {
+	sesion ports.SesionActoResolucionFormalizacion
+	acto   ports.ResultadoResolucionFormalizacion
+}
+
+func (s *sesionActoResolucion) ConsultarCuadroYRegistrar(context.Context, ports.OrdenConsultaCuadroRRHH) (ports.PaginaCuadroRRHH, error) {
+	return ports.PaginaCuadroRRHH{}, ports.ErrConsultaRRHHNoDisponible
+}
+func (s *sesionActoResolucion) ConsultarDetalleYRegistrar(ctx context.Context, o ports.OrdenConsultaDetalleRRHH) (ports.DetalleExpedienteRRHH, error) {
+	d, acto, err := s.sesion.ConsultarActoYRegistrarAcceso(ctx, o)
+	if err != nil {
+		return ports.DetalleExpedienteRRHH{}, err
+	}
+	if acto.ValidarPara(acto.Solicitud) != nil || acto.Estado != "registrada" ||
+		acto.Solicitud.ExpedienteRef != o.Solicitud().ExpedienteRef() {
+		return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	s.acto = acto
+	return d, nil
 }
 
 type sesionPreparacionResolucion struct {
