@@ -11,12 +11,14 @@ reparten entre una fuente de Personal y otra de Dietas; sus ámbitos y campos
 son los de AUT107. El material nuevo tiene una vigencia de 90 días.
 
 Las dos admisiones conservan sus recibos y su consulta cotejada. No sustituyen
-los dos actos comunes de la copia ni publican por sí solas un rol. Las cuentas
+los dos actos comunes de la copia. La etapa publica después los dos roles por
+propuesta y aprobación de dos administradores, usando el ejecutor existente.
+Antes de cualquier efecto exige los cuerpos exactos de AUT107. Las cuentas
 usan TLS verificado, una sola membresía directa y contraseñas distintas. Una
 respuesta SQL incierta impide repetir su alta: se conserva la operación original.
 
 La etapa deja `activada: false` en su resultado. Quedan pendientes la
-publicación y asignación de los perfiles por Administración, los manifiestos,
+asignación de los perfiles por Administración, los manifiestos,
 el motor de rutas, el arranque comprobado y la comisión desde el navegador con
 recibo y reinicio. No se enciende el selector de Dietas.
 
@@ -30,14 +32,16 @@ recibo y reinicio. No se enciende el selector de Dietas.
 - El manifiesto de comisiones selecciona un perfil de dos dimensiones. La
   consulta de asignación necesita cuatro; no se amplía ese perfil para cubrirla.
 - El grupo técnico de asignación necesita la conexión a la base que acredita
-  el procedimiento F4b. No se ejecuta el preparador histórico ni se sustituyen
-  sus precondiciones por permisos improvisados.
+  el procedimiento F4b. La etapa concede solo ese permiso de conexión dentro
+  de la transacción de alta, conservando las guardas del aprovisionador común.
+  No se ejecuta el preparador histórico.
 
-Pruebas focales: quince casos Python positivos sobre conexiones, catálogo y
+Pruebas focales: dieciocho casos Python positivos sobre conexiones, catálogo y
 conductor, incluidos el parser real de las fuentes y su vigencia. Los actos
 usan dobles en esas pruebas: no acreditan publicación ni recibos PostgreSQL.
-Semgrep local comprueba TLS, ejecución por shell y deserialización en cuatro
-archivos Python. El ensayo de esta etapa y el recorrido web siguen pendientes.
+Las pruebas de publicación usan dobles: comprueban los contratos y que una
+recuperación conserva el material sin otra propuesta. No acreditan actos reales.
+Semgrep local comprueba TLS, ejecución por shell y deserialización. El ensayo de esta etapa y el recorrido web siguen pendientes.
 No se crea una copia para repetir el bloqueo ya identificado.
 
 ## Motor de rutas comprobado por separado

@@ -49,6 +49,8 @@ class ConexionesDietasTest(unittest.TestCase):
         self.assertEqual(sentencia.count('CREATE ROLE '), 11)
         self.assertEqual(sentencia.count('WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;'), 11)
         self.assertEqual(sentencia.count("VALID UNTIL '2027-01-19T00:00:00Z'"), 11)
+        self.assertIn('GRANT CONNECT ON DATABASE postgres TO vec_personal_d7_ejecutor;', sentencia)
+        self.assertIn("has_database_privilege(r.oid,'postgres','CONNECT')", sentencia)
         self.assertNotIn('INSERT', sentencia)
         self.assertNotIn('VEC_DIETAS_BORRADORES_ENABLED', valores)
         self.assertEqual(dietas.conexiones(self.c), valores)
@@ -82,13 +84,15 @@ class ConexionesDietasTest(unittest.TestCase):
         self.assertFalse((self.c.carpeta / 'dietas').exists())
 
     def test_preparar_no_activa_ni_anuncia_un_recorrido(self):
-        with patch('recorrido_copia.catalogo.preparar_dietas', return_value={'recibos_reales': 2}) as admitir:
+        with (patch('recorrido_copia.catalogo.preparar_dietas', return_value={'recibos_reales': 2}) as admitir,
+              patch('recorrido_copia.dietas_gobierno.exigir_instalacion'),
+              patch('recorrido_copia.dietas_gobierno.publicar', return_value=[])):
             resultado = dietas.preparar(self.c)
         admitir.assert_called_once_with(self.c)
         self.assertFalse(resultado['activada'])
         self.assertEqual(resultado['conexiones_entorno'], 4)
         self.assertEqual(resultado['conexiones_manifiesto'], 7)
-        self.assertIn('perfil_gobernado', resultado['pendiente'])
+        self.assertIn('perfil_asignado', resultado['pendiente'])
         self.c.copia.arrancar.assert_not_called()
         self.c.copia.parar.assert_not_called()
         self.assertFalse((self.c.material / 'identidad/dietas-comisiones.json').exists())

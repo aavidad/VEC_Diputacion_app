@@ -29,15 +29,17 @@ MANIFIESTO = {
 
 def preparar(c):
     """Guarda las conexiones sin atribuirles activación ni autoridad funcional."""
-    from . import catalogo
+    from . import catalogo, dietas_gobierno
+    dietas_gobierno.exigir_instalacion(c)
     admisiones = catalogo.preparar_dietas(c)
+    roles = dietas_gobierno.publicar(c, admisiones)
     conexiones(c)
     resultado = {'version': 1, 'copia_ref': c.copia.nombre,
                  'sid_copia': c.copia.leer()['sid_copia'],
                  'conexiones_entorno': len(ENTORNO),
                  'conexiones_manifiesto': len(MANIFIESTO),
-                 'admisiones': admisiones, 'activada': False,
-                 'pendiente': ['perfil_gobernado', 'asignacion_personal',
+                 'admisiones': admisiones, 'roles': roles, 'activada': False,
+                 'pendiente': ['perfil_asignado', 'asignacion_personal',
                                'manifiesto', 'cartografia', 'recorrido_web']}
     c.guardar(c.carpeta / 'etapa-dietas.json', resultado)
     return resultado
@@ -89,7 +91,15 @@ def conexiones(c):
     vence = (c.ahora() + timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
     c.guardar(pendiente, {'version': 1, 'copia_ref': copia.nombre,
                          'sid_copia': estado['sid_copia'], 'logins': nombres})
-    c.sql(sql_logins(nombres, claves, list(grupos.values()), vence), 'dietas-conexiones.log')
+    # F4b acredita este CONNECT nominal: Personal D7 no lo concede en roles_up.
+    # Va en la misma transacción que las altas; la guarda común de grupos sigue
+    # intacta y cualquier fallo revierte también este permiso de conexión.
+    sentencia = sql_logins(nombres, claves, list(grupos.values()), vence)
+    if not sentencia.startswith(b'BEGIN;\n'):
+        raise ValueError('Aprovisionador de conexiones Dietas incompatible')
+    sentencia = (b'BEGIN;\nGRANT CONNECT ON DATABASE postgres TO vec_personal_d7_ejecutor;\n'
+                 + sentencia[len(b'BEGIN;\n'):])
+    c.sql(sentencia, 'dietas-conexiones.log')
     valores = {campo: 'postgresql://' + quote(login) + ':' + quote(clave)
                + '@localhost:' + str(puerto) + '/postgres?' + urlencode({
                    'sslmode': 'verify-full', 'sslrootcert': str(ca)})
