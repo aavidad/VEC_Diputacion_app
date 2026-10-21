@@ -611,7 +611,11 @@ func (p *puenteBolsaLlamamientoDesarrollo) SolicitarLlamamiento(ctx context.Cont
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	if p.emisorNativo != nil {
-		return p.solicitarLlamamientoConstituidoCT(ctx, d, comando)
+		recibo, err := p.solicitarLlamamientoConstituidoCT(ctx, d, comando)
+		if err != nil {
+			registrarFalloSeleccionNativaCT(ctx, err)
+		}
+		return recibo, err
 	}
 	s, f, err := p.servicio(d)
 	if err != nil {
