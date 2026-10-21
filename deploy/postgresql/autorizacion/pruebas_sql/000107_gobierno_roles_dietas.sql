@@ -21,21 +21,25 @@ INSERT INTO vec_autorizacion.cabeza_catalogo_acciones_admin_v1 VALUES
  ('catalogo:aut107:contrato',1,repeat('a',64),'caa_'||repeat('a',24),clock_timestamp());
 DO $test$
 DECLARE r record;g jsonb;c jsonb;p jsonb;cbase jsonb;pbase jsonb;e jsonb;selecciones jsonb;
- entrada jsonb;resultado jsonb;i integer;nombre text;rechazada boolean;
+ entrada jsonb;resultado jsonb;i integer;nombre text;rechazada boolean;desde text;hasta text;
+ vencida text;
 BEGIN
+ desde:=to_char(clock_timestamp()-interval '1 day','YYYY-MM-DD"T"HH24:MI:SS"Z"');
+ hasta:=to_char(clock_timestamp()+interval '89 days','YYYY-MM-DD"T"HH24:MI:SS"Z"');
+ vencida:=to_char(clock_timestamp()-interval '1 hour','YYYY-MM-DD"T"HH24:MI:SS"Z"');
  FOR r IN SELECT * FROM (VALUES
   ('persona_dietas_comisiones','[{"accion":"personal.relacion.propia.consultar_dietas","modulo_id":"personal","tipo_recurso":"relacion_empleado_dietas","finalidades":["preparar_borrador_dietas"],"garantia_minima":"alto","campos_permitidos":["desde","empleado_ref","estado","fuente_ref","fuente_version","hasta","persona_ref","procedencia_acto_ref","relacion_ref","unidad_ref","version"]},{"accion":"dietas.borrador.propio.crear","modulo_id":"dietas","tipo_recurso":"comision_borrador","finalidades":["crear_borrador_propio"],"garantia_minima":"alto","campos_permitidos":["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version"]},{"accion":"dietas.borrador.propio.consultar","modulo_id":"dietas","tipo_recurso":"comision_borrador","finalidades":["consultar_borrador_propio"],"garantia_minima":"alto","campos_permitidos":["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","items.comision.calculo","items.comision.codigos_ruta","items.comision.estado","items.comision.fecha_fin","items.comision.fecha_inicio","items.comision.motivo","items.comision.referencia","items.comision.relacion_ref","items.recibo.referencia","items.recibo.registrado_en","items.recibo.repeticion","items.recibo.version","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version","siguiente_cursor"]}]'::jsonb,'["empleado_ref","persona_ref"]'::jsonb),
   ('persona_dietas_rutas','[{"accion":"dietas.ruta.catalogo.consultar","modulo_id":"dietas","tipo_recurso":"catalogo_rutas_dietas","finalidades":["consultar_itinerario_dietas"],"garantia_minima":"alto"},{"accion":"dietas.ruta.calculo.solicitar","modulo_id":"dietas","tipo_recurso":"calculo_rutas_dietas","finalidades":["consultar_itinerario_dietas"],"garantia_minima":"alto"}]'::jsonb,'["ambito_ref"]'::jsonb)
  ) x(rol,concesiones,dimensiones) LOOP
   c:=jsonb_build_object('referencia','catalogo:aut107:contrato','version',1,
-   'vigente_desde','2026-01-01T00:00:00Z','vigente_hasta','2099-01-01T00:00:00Z',
+   'vigente_desde',desde,'vigente_hasta',hasta,
    'entradas','[]'::jsonb,'perfiles','[]'::jsonb);
   selecciones:='[]'::jsonb;
   FOR i IN 0..jsonb_array_length(r.concesiones)-1 LOOP
    entrada:=jsonb_build_object('referencia','accion:aut107:'||i::text,'version',1,
     'fuente_ref','fuente:aut107:contrato','fuente_version',1,'fuente_huella_sha256',repeat('b',64),
     'concesion',r.concesiones->i,'dimensiones_ambito',r.dimensiones,'clase_control','ordinario',
-    'vigente_desde','2026-01-01T00:00:00Z','vigente_hasta','2099-01-01T00:00:00Z');
+    'vigente_desde',desde,'vigente_hasta',hasta);
    c:=jsonb_set(c,'{entradas}',(c->'entradas')||jsonb_build_array(entrada));
    selecciones:=selecciones||jsonb_build_array(jsonb_build_object(
     'entrada_ref',entrada->>'referencia','entrada_version',1,'entrada_huella_sha256',
@@ -64,7 +68,7 @@ BEGIN
     WHEN 'rol' THEN p:=jsonb_set(jsonb_set(p,'{definicion_nueva,rol_id}','"otro_rol"'),
      '{version_rol_objetivo_ref}','"rol:otro_rol:v1"');
     WHEN 'duplicada' THEN NULL;
-    WHEN 'vencida' THEN c:=jsonb_set(c,'{entradas,0,vigente_hasta}','"2026-01-02T00:00:00Z"');
+    WHEN 'vencida' THEN c:=jsonb_set(c,'{entradas,0,vigente_hasta}',to_jsonb(vencida));
    END CASE;
    p:=jsonb_set(p,'{definicion_nueva,concesiones,0}',c#>'{entradas,0,concesion}');
    p:=jsonb_set(p,'{selecciones,0,entrada_huella_sha256}',to_jsonb(encode(sha256(convert_to(
