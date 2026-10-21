@@ -46,8 +46,30 @@ del catálogo en una transacción que termina con `ROLLBACK`. No demuestra una
 publicación, una asignación ni un recibo de Administración. Queda registrada en
 el ensayo de fase 1 para comprobarla antes y después del reinicio.
 
-Pendientes de anotar sobre la cabeza final: pruebas Go, ensayo PostgreSQL 18,
-revisión de seguridad y las dos revisiones independientes de dirección.
+Comprobación del 21 de octubre sobre el código de `05a0c9b90`:
+
+- `go test` y `go test -race`, con `-p 4` y filtro
+  `GobiernoRol|RolNuevo|MeritosCartera`, en dominio y el manejador de
+  Administración: positivos. `go vet` de ambos paquetes: positivo.
+- Quince pruebas Python del conductor SQL: positivas.
+- PostgreSQL 18 aislado, esquema HZ37 sin datos (662 tablas comprobadas),
+  preparación versionada y 147 migraciones de la lista: instalación positiva.
+  AUT107 y la regresión AUT80 pasan antes y después del reinicio, sin reaplicar
+  SQL. La copia propia se retiró al terminar.
+- Guarda de `search_path`: conforme. Semgrep local: tres reglas Go, cuatro
+  archivos, sin hallazgos. gosec: 106 archivos, sin errores de carga; sus 25
+  avisos corresponden a archivos anteriores ajenos al cambio. Ninguno afecta
+  a los cuatro archivos de producción modificados.
+- Revisión focal propia: acciones, campos, finalidad, ámbitos, vigencia,
+  repetición histórica, separación de aprobador, propietario y permisos
+  conservados. No sustituye las dos revisiones independientes de dirección.
+
+El ensayo usa las utilidades de `deploy/postgresql/fase1/ensayar.py` para
+restaurar y retirar el contenedor. Ejecuta solo las pruebas AUT80 y AUT107;
+la batería completa corresponde a la CI. Las pruebas sustituyen el lector del
+catálogo bajo `ROLLBACK`, por lo que no acreditan un acto de publicación.
+Quedan pendientes la CI completa y las dos revisiones independientes sobre la
+cabeza final. No se declara comprobado el arranque de Dietas ni su pantalla.
 
 La asignación de Personal para Dietas sigue cerrada: no existe la vía de carga
 del catálogo de validadores competentes ni su consumo transaccional. Según la
