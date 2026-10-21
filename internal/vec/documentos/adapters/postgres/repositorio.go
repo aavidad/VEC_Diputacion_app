@@ -115,16 +115,24 @@ func (r *Repositorio) transaccion(ctx context.Context, funcion string, args ...a
 }
 
 func ejecutarTransaccion(ctx context.Context, tx transaccionRepositorio, funcion string, args ...any) ([]byte, error) {
+	resultado, err := ejecutarIntentoTransaccion(ctx, tx, funcion, args...)
+	if err != nil {
+		return nil, clasificarErrorSQL(err)
+	}
+	return resultado, nil
+}
+
+func ejecutarIntentoTransaccion(ctx context.Context, tx transaccionRepositorio, funcion string, args ...any) ([]byte, error) {
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	if _, err := tx.Exec(ctx, ajustesTransaccionSQL); err != nil {
-		return nil, ErrRepositorioNoDisponible
+		return nil, err
 	}
 	var resultado []byte
 	if err := tx.QueryRow(ctx, funcion, args...).Scan(&resultado); err != nil {
-		return nil, clasificarErrorSQL(err)
+		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, clasificarErrorSQL(err)
+		return nil, err
 	}
 	return resultado, nil
 }
@@ -325,7 +333,7 @@ func (r *Repositorio) ListarExpediente(ctx context.Context, c ports.ConsultaExpe
 		return ports.PaginaDocumentos{}, err
 	}
 	auth, _ := autorizacionJSON(c.Autorizacion)
-	raw, err := r.transaccion(ctx,
+	raw, err := r.transaccionConsulta(ctx,
 		"SELECT vec_documentos.listar_expediente_v2($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
 		preimagen, string(auth), material.capacidad, material.decision, material.motivo,
 		material.contexto, material.persona, material.perfil, material.payload, material.sobre,
