@@ -26,14 +26,11 @@ sustituye a una firma completa.
 
 ## Reconocimiento de la migración instalada
 
-CT260 reconocerá tanto su preimagen como su postimagen exactas, con los mismos
-permisos y configuración. Ante la postimagen omitirá la reconstrucción y avisará
-que ya está instalada. Cualquier otra definición seguirá rechazándose.
-
-CT259 ya está instalada. Añadirle ese reconocimiento requeriría cambiar sus
-bytes y su huella en la lista canónica. Se conserva íntegra y se deja anotado
-este límite, como permite el encargo. No se reaplica CT259 ni se modifica
-historia.
+CT260 solo se aplica sobre su preimagen exacta, igual que CT259 y el resto de
+migraciones CT: si se reaplica, falla cerrada sin tocar nada. Una primera versión
+reconocía también la postimagen con metacomandos de psql (`\gset`, `\if`), pero
+la receta de copia local solo admite `\set ON_ERROR_STOP on` y `\restrict` en las
+migraciones versionadas, así que se retiró ese reconocimiento.
 
 La prueba histórica de CT219 se ajustará a las postimágenes vigentes de ambas
 funciones. Conserva el resto de los cotejos de permisos y del plan de firma.

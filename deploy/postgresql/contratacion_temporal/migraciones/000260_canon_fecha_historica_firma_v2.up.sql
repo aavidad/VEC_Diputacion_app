@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- CT260 / F1-149. Igualdad del instante histórico en la firma V2,
 -- con el mismo cotejo temporal ya instalado en CT259 para V3.
--- Si la postimagen exacta está instalada, no reconstruye ni modifica ACL.
+-- Solo se aplica sobre la preimagen exacta; como el resto de migraciones CT, no se reaplica.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -29,16 +29,10 @@ BEGIN
     OR p.provolatile<>'v' OR p.proparallel<>'u'
     OR p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
-    OR p.huella NOT IN ('49cf7bf45eb803baf87abee9556fe1417c61de4cf6daa8b0865f208e25ee6bd0','e25c5f2396341320420d8dced263eaff3d7c50114db1b784751368a242fdbac0')
- THEN RAISE EXCEPTION 'CT260: preimagen o postimagen de firma incompatible' USING ERRCODE='55000'; END IF;
+    OR p.huella IS DISTINCT FROM '49cf7bf45eb803baf87abee9556fe1417c61de4cf6daa8b0865f208e25ee6bd0'
+ THEN RAISE EXCEPTION 'CT260: preimagen de firma incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
--- psql decide después de la preguarda y bajo el mismo cerrojo transaccional.
-SELECT CASE WHEN encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-      = '49cf7bf45eb803baf87abee9556fe1417c61de4cf6daa8b0865f208e25ee6bd0' THEN 'true' ELSE 'false' END AS ct260_aplicar
-FROM pg_proc p WHERE p.oid=to_regprocedure('vec_contratacion_temporal.registrar_firma_verificada_v2(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)')
-\gset
-\if :ct260_aplicar
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.registrar_firma_verificada_v2(p_solicitud text, p_comprobada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea, p_descriptor_nominal bytea)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -588,10 +582,6 @@ EXCEPTION WHEN lock_not_available THEN
 WHEN data_exception THEN
  RAISE EXCEPTION 'material de firma externa inválido' USING ERRCODE='22023';
 END $function$;
-\else
-\echo 'CT260: ya instalada, sin cambios'
-\endif
-\unset ct260_aplicar
 
 DO $post$
 DECLARE f oid; p record;
