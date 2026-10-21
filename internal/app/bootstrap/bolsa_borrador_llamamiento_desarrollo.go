@@ -341,6 +341,7 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones, confirmacionDirecta http.Handler
 	preparador                                                                                                                             *preparadorBorradorLlamamientoDesarrollo
 	servicio                                                                                                                               *aplicacionbolsa.ServicioContactoParticipacion
+	contactosAuditados                                                                                                                     *aplicacionbolsa.ContactosRRHHAuditados
 	respuestas                                                                                                                             *aplicacionbolsa.ServicioRespuestasPortalRRHH
 	exclusiones                                                                                                                            *aplicacionbolsa.ServicioExclusionesOfrecimientoRRHH
 	// servicioSituacion permite componer después las reglas de transición.
@@ -410,7 +411,7 @@ func (m *manejadorParticipacionBolsaDesarrollo) ListarContactosBolsa(ctx context
 	if err != nil {
 		return puertosbolsa.PaginaContactosParticipacion{}, err
 	}
-	return m.servicio.ListarContactosBolsa(ctx, q)
+	return m.contactosAuditados.ListarContactosBolsa(ctx, q)
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ConsultarRespuestasPortalLlamamiento(
@@ -1032,7 +1033,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, err
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, confirmacionDirecta: handlerConfirmacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, confirmacionDirecta: handlerConfirmacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, contactosAuditados: contactosAuditados, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	mutador.repositorioOfertas, mutador.calculadoraOfertas = repositorioOfertas, calculadoraOfertas
 	mutador.comprobacion = montarComprobacionOfrecimiento(alta.postgresql.bolsa, preparador, emisor)
 	// El constructor no consulta SQL ni concesiones. Una función o permiso aún

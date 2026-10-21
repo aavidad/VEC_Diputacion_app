@@ -278,6 +278,7 @@ todavía está por hacer.
 
 | Parte | Hoy | Falta | Al final |
 | --- | --- | --- | --- |
+| Registro de fallos al consultar contactos | El listado de candidatos comparte el registro de denegaciones y errores de las consultas de contacto. | Comprobar el apunte desde el recorrido web de la copia. | RRHH puede consultar el rastro de los accesos y sus fallos sin que el registro copie teléfonos, correos ni notas. |
 | Entrada en la aplicación | Cada persona entra con un certificado de pruebas. | Conectar con el directorio de usuarios de la Diputación. Depende de Informática. | El personal entra con su usuario de la Diputación y su certificado. Los aspirantes, con DNI electrónico o certificado digital. |
 | Consultas simultáneas de Contratación | En una copia local, quinientas consultas del cuadro con su resumen, con hasta diez a la vez, terminaron sin errores. Los permisos y el registro de accesos se conservan. | Integrar el ajuste en la candidata y reducir el tiempo de respuesta con varias personas consultando a la vez. | El cuadro sigue disponible mientras otras personas consultan los expedientes. |
 | Cuenta propia del aspirante | En la copia local se ha comprobado que el aspirante entra en Mi Bolsa con su certificado y conserva el acceso tras reiniciar. La cuenta comprobada aún no tenía participaciones. | Completar la administración de sus permisos y comprobar los trámites que los necesitan. | Cada aspirante consulta y tramita lo suyo desde su área personal. |
