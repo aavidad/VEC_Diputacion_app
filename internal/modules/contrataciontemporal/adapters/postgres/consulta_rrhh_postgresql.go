@@ -531,10 +531,7 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 	destinos []any,
 	validar func() (T, error),
 ) (T, error) {
-	reintentable := consulta == consultaCuadroRRHHPostgreSQL || consulta == consultaDetalleRRHHPostgreSQL ||
-		consulta == consultaDetalleConBolsaRRHHPostgreSQL ||
-		consulta == consultaDetalleConSelectoresRRHHPostgreSQL ||
-		consulta == consultaDetalleConBolsaYSelectoresRRHHPostgreSQL
+	reintentable := consultaRRHHReintentable(consulta)
 	for intento := 1; ; intento++ {
 		if ctx != nil && ctx.Err() != nil {
 			var vacio T

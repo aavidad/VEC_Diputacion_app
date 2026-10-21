@@ -46,3 +46,13 @@ func TestSelectorDocumentalPGSoloDiezReferenciasPropias(t *testing.T) {
 		t.Fatal("otra organización")
 	}
 }
+
+func TestSelectorDocumentalPGSeReintentaComoElDetalle(t *testing.T) {
+	if !consultaRRHHReintentable(consultaSelectorIdentidadDocumentalRRHHPostgreSQL) ||
+		!consultaRRHHReintentable(consultaDetalleRRHHPostgreSQL) {
+		t.Fatal("el selector documental no se reintenta ante 40001 como el detalle")
+	}
+	if consultaRRHHReintentable(consultaPreparacionResolucionRRHHPostgreSQL) {
+		t.Fatal("se amplió el reintento a otra lectura")
+	}
+}

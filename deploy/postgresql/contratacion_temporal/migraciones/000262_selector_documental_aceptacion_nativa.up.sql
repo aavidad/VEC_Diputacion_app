@@ -21,6 +21,9 @@ BEGIN
   OR to_regclass('vec_contratacion_temporal.propuesta_formalizacion') IS NULL
   OR to_regclass('vec_contratacion_temporal.expediente_version_integral') IS NULL
   OR to_regclass('vec_contratacion_temporal.expediente_integral_actual') IS NULL
+  OR to_regclass('vec_contratacion_temporal.no_incorporacion_v1') IS NULL
+  OR to_regclass('vec_contratacion_temporal.propuesta_sustitucion_v1') IS NULL
+  OR to_regprocedure('vec_contratacion_temporal.propuesta_documental_vigente_ct262(text,jsonb)') IS NOT NULL
   OR NOT EXISTS (SELECT 1 FROM pg_class t WHERE t.oid=to_regclass('vec_contratacion_temporal.propuesta_formalizacion')
       AND t.relowner='vec_contratacion_temporal_propietario'::regrole
       AND t.relrowsecurity AND t.relforcerowsecurity)
@@ -32,6 +35,30 @@ BEGIN
           'f29879a9e90b3d0daef565b657919d5b5c26b2d5b366091d3cb04b761177737a')
  THEN RAISE EXCEPTION 'CT262: preimagen o dependencia ausente' USING ERRCODE='55000'; END IF;
 END $pre$;
+
+-- La propuesta v7 deja de servir a los documentos cuando hubo después una no
+-- incorporación efectiva (CT124) o una propuesta que la sustituye (CT128).
+-- no_incorporacion_v1 solo es visible para sesiones del ejecutor (política de
+-- CT124); la sesión del consultor RRHH la ve vacía. Por eso la señal efectiva
+-- es la actuación de no incorporación del agregado actual, que sí lee; la
+-- consulta a la tabla se conserva para las sesiones que la ven.
+CREATE FUNCTION vec_contratacion_temporal.propuesta_documental_vigente_ct262(
+ p_propuesta_ref text, p_actual jsonb
+) RETURNS boolean
+LANGUAGE sql STABLE SECURITY INVOKER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on
+AS $vigente$
+ SELECT CASE WHEN p_propuesta_ref IS NULL
+   OR jsonb_typeof(p_actual->'actuaciones') IS DISTINCT FROM 'array' THEN false
+  ELSE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(p_actual->'actuaciones') a
+       WHERE a->>'accion_clave'='contratacion_temporal.incorporacion.no_incorporacion')
+   AND NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.no_incorporacion_v1 n
+       WHERE n.propuesta_ref=p_propuesta_ref)
+   AND NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.propuesta_sustitucion_v1 x
+       WHERE x.propuesta_anterior_ref=p_propuesta_ref)
+  END
+$vigente$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.propuesta_documental_vigente_ct262(text,jsonb) FROM PUBLIC;
 
 CREATE FUNCTION vec_contratacion_temporal.consultar_selector_documental_aceptacion_nativa_v1(
  p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
@@ -66,14 +93,18 @@ BEGIN
   OR lectura.version_expediente<7 THEN
   RAISE EXCEPTION 'selector documental no disponible' USING ERRCODE='42501';
  END IF;
- SELECT v.* INTO STRICT actual FROM vec_contratacion_temporal.expediente_integral_actual a
- JOIN vec_contratacion_temporal.expediente_version_integral v USING(expediente_ref,version)
- WHERE a.expediente_ref=lectura.expediente_ref;
- SELECT * INTO STRICT original FROM vec_contratacion_temporal.expediente_version_integral v
- WHERE v.expediente_ref=lectura.expediente_ref AND v.version=7;
- SELECT * INTO STRICT propuesta FROM vec_contratacion_temporal.propuesta_formalizacion p
- WHERE p.expediente_ref=lectura.expediente_ref AND p.organizacion_ref=p_alcance.organizacion_ref
-  AND p.propuesta_ref=original.operacion_ref AND p.version_resultante=7;
+ BEGIN
+  SELECT v.* INTO STRICT actual FROM vec_contratacion_temporal.expediente_integral_actual a
+  JOIN vec_contratacion_temporal.expediente_version_integral v USING(expediente_ref,version)
+  WHERE a.expediente_ref=lectura.expediente_ref;
+  SELECT * INTO STRICT original FROM vec_contratacion_temporal.expediente_version_integral v
+  WHERE v.expediente_ref=lectura.expediente_ref AND v.version=7;
+  SELECT * INTO STRICT propuesta FROM vec_contratacion_temporal.propuesta_formalizacion p
+  WHERE p.expediente_ref=lectura.expediente_ref AND p.organizacion_ref=p_alcance.organizacion_ref
+   AND p.propuesta_ref=original.operacion_ref AND p.version_resultante=7;
+ EXCEPTION WHEN no_data_found OR too_many_rows THEN
+  RAISE EXCEPTION 'selector documental no disponible' USING ERRCODE='42501';
+ END;
  IF actual.version IS DISTINCT FROM lectura.version_expediente
   OR actual.agregado_json->>'organizacion_ref' IS DISTINCT FROM p_alcance.organizacion_ref
   OR original.origen_version IS DISTINCT FROM 'propuesta_formalizacion_o6'
@@ -102,7 +133,8 @@ BEGIN
   OR propuesta.recibo_json->>'ReciboLocalRef' IS DISTINCT FROM propuesta.recibo_ref
   OR propuesta.recibo_json->>'AuditoriaRef' IS DISTINCT FROM propuesta.auditoria_ref
   OR propuesta.recibo_json->'VersionResultante' IS DISTINCT FROM '7'::jsonb
-  OR propuesta.recibo_json->>'Estado' IS DISTINCT FROM 'confirmado' THEN
+  OR propuesta.recibo_json->>'Estado' IS DISTINCT FROM 'confirmado'
+  OR vec_contratacion_temporal.propuesta_documental_vigente_ct262(propuesta.propuesta_ref,actual.agregado_json) IS NOT TRUE THEN
   RAISE EXCEPTION 'selector documental no confiable' USING ERRCODE='42501';
  END IF;
  seleccion:=propuesta.aceptacion_bolsa_json->'Selector';
@@ -144,8 +176,15 @@ GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_selector_documenta
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_contratacion_temporal_consultor_rrhh;
 DO $post$
-DECLARE f oid;
+DECLARE f oid; g oid;
 BEGIN
+ g:='vec_contratacion_temporal.propuesta_documental_vigente_ct262(text,jsonb)'::regprocedure;
+ IF NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=g
+  AND p.proowner='vec_contratacion_temporal_propietario'::regrole
+  AND NOT p.prosecdef AND p.provolatile='s' AND p.proparallel='u'
+  AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on']::text[]
+  AND p.proacl=ARRAY['vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario']::aclitem[])
+ THEN RAISE EXCEPTION 'CT262: vigencia de la propuesta divergente' USING ERRCODE='55000'; END IF;
  f:='vec_contratacion_temporal.consultar_selector_documental_aceptacion_nativa_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  IF NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
   AND p.proowner='vec_contratacion_temporal_propietario'::regrole

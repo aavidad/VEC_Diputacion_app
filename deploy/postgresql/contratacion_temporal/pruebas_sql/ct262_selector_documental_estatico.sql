@@ -22,6 +22,9 @@ BEGIN
   OR position('propuesta.recibo_aceptacion_ref' IN cuerpo)=0
   OR position('propuesta.aceptacion_bolsa_json' IN cuerpo)=0
   OR position('RETURN QUERY SELECT lectura.contenido_canonico' IN cuerpo)=0
+  OR position('EXCEPTION WHEN no_data_found OR too_many_rows' IN cuerpo)<=despues
+  OR position('propuesta_documental_vigente_ct262(propuesta.propuesta_ref,actual.agregado_json) IS NOT TRUE THEN' IN cuerpo)
+     NOT BETWEEN despues AND position('RETURN QUERY SELECT lectura.contenido_canonico' IN cuerpo)
  THEN RAISE EXCEPTION 'CT262: proyección sin ligadura documental' USING ERRCODE='55000'; END IF;
 END $prueba$;
 ROLLBACK;
