@@ -26,6 +26,10 @@ def exigir_instalacion(c):
 def publicar(c, admisiones):
     """Sin asignaciones ni SQL de escritura: propone ADMIN1 y cierra ADMIN2."""
     exigir_instalacion(c)
+    from .actos import perfiles_admin
+    perfiles = perfiles_admin(c)
+    if len(perfiles) != 2 or perfiles[0] == perfiles[1]:
+        raise ValueError('Dietas requiere dos administradores distintos')
     ultimo = admisiones['actos'][-1]
     _, publicado = roles_admin._cabeza(c, ultimo)
     fuentes = [json.loads((c.fuente / 'deploy/principal/fuentes' / spec[2]).read_bytes())

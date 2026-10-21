@@ -36,7 +36,7 @@ recibo y reinicio. No se enciende el selector de Dietas.
   de la transacción de alta, conservando las guardas del aprovisionador común.
   No se ejecuta el preparador histórico.
 
-Pruebas focales: dieciocho casos Python positivos sobre conexiones, catálogo y
+Pruebas focales: diecinueve casos Python positivos sobre conexiones, catálogo y
 conductor, incluidos el parser real de las fuentes y su vigencia. Los actos
 usan dobles en esas pruebas: no acreditan publicación ni recibos PostgreSQL.
 Las pruebas de publicación usan dobles: comprueban los contratos y que una

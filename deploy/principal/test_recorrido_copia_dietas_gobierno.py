@@ -24,6 +24,15 @@ class GobiernoDietasTest(unittest.TestCase):
         c.sql.assert_not_called()
         c.guardar.assert_not_called()
 
+    def test_no_publica_con_el_mismo_administrador(self):
+        c = Mock()
+        c.consultar.return_value = 't'
+        with patch('recorrido_copia.actos.perfiles_admin', return_value=['mismo', 'mismo']):
+            with self.assertRaisesRegex(ValueError, 'dos administradores distintos'):
+                gobierno.publicar(c, {'actos': []})
+        c.admin.assert_not_called()
+        c.sql.assert_not_called()
+
     def test_dos_roles_por_actos_existentes_y_recuperacion_sin_nuevas_propuestas(self):
         self.ejecutar_publicacion(False)
 
@@ -68,7 +77,8 @@ class GobiernoDietasTest(unittest.TestCase):
                 roles[primer['rol_id']]['documento']['concesiones'][0]['campos_permitidos'].append('campo_ajeno')
                 propuestas.clear()
 
-            with (patch.object(gobierno.roles_admin, '_cabeza', return_value=({}, publicado)),
+            with (patch('recorrido_copia.actos.perfiles_admin', return_value=['administrador1', 'administrador2']),
+                  patch.object(gobierno.roles_admin, '_cabeza', return_value=({}, publicado)),
                   patch.object(gobierno.roles_admin, '_rol', side_effect=lambda _c, rol: roles.get(rol)),
                   patch.object(gobierno.roles_admin, '_proponer_y_cerrar', side_effect=cerrar)):
                 admisiones = {'actos': [{'catalogo_sha256': 'b' * 64}]}
