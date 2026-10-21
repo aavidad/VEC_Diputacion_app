@@ -64,6 +64,14 @@ Comprobación del 21 de octubre sobre el código de `05a0c9b90`:
   repetición histórica, separación de aprobador, propietario y permisos
   conservados. No sustituye las dos revisiones independientes de dirección.
 
+Actualización tras incorporar main `92f6a7501`, por orden de dirección de las
+10:28: AUT107 queda después de AUT106; su prueba sigue a la de AUT106 en el
+registro, que ahora tiene 32 casos. Sobre la unión `5f4cea731` se instaló la
+secuencia de 148 migraciones y volvieron a pasar AUT80 y AUT107 antes y después
+del reinicio. Las quince pruebas Python del registro también pasaron. Se
+retiró la copia de ensayo. AUT107 conserva sus bytes, cuerpos y permisos; la
+cabeza anterior tuvo seis puertas verdes y la unión abre una nueva CI.
+
 El ensayo usa las utilidades de `deploy/postgresql/fase1/ensayar.py` para
 restaurar y retirar el contenedor. Ejecuta solo las pruebas AUT80 y AUT107;
 la batería completa corresponde a la CI. Las pruebas sustituyen el lector del
