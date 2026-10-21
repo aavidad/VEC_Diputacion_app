@@ -61,6 +61,12 @@ func ValidarResultadoBolsaRRHH(r ports.ResultadoBolsaRRHH) error {
 					p.RespondidaEn == nil || p.RespondidaEn.Before(v.EmitidoEn)) {
 				return ports.ErrResultadoBolsaRRHHNoConfiable
 			}
+			if p.ResolucionPortalDisponible &&
+				(!p.OrigenCTConfirmado || len(v.Participaciones) != 1 ||
+					p.Respuesta == nil || *p.Respuesta != "acepta" || p.Modo == nil ||
+					*p.Modo != "firme" || p.ReciboRespuestaRef == nil || p.RespondidaEn == nil) {
+				return ports.ErrResultadoBolsaRRHHNoConfiable
+			}
 			if p.ContactoResultado != nil {
 				if p.ReciboContactoRef == nil || !domain.ReferenciaOpacaValida(*p.ReciboContactoRef) ||
 					p.ContactoEn == nil || !domain.InstanteUTCCanonico(*p.ContactoEn) {
