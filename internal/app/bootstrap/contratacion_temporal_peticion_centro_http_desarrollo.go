@@ -53,25 +53,20 @@ func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *
 		return nil, err
 	}
 	if p != nil && p.alta != nil && p.alta.servicio != nil {
+		// El aviso de fuente de necesidades no configurada sale una sola vez,
+		// donde la composición decide la fuente (avisarFuenteNecesidadesAlta-
+		// NoConfigurada); montar estas rutas no lo repite.
 		if err := s.ConfigurarPreparadorNecesidad(p.alta.servicio); err != nil {
 			return nil, err
-		}
-		if !p.alta.servicio.FuenteNecesidadesAltaConfigurada() {
-			avisarErrorCatalogadoNecesidadesAltaArranque(
-				errFuenteNecesidadesAltaNoConfigurada,
-				"VEC_CT_NECESIDADES_ALTA_SOURCE_PATH",
-			)
-		} else if !p.alta.servicio.VerificadorPuestoRPTAltaConfigurado() {
-			avisarErrorCatalogadoNecesidadesAltaArranque(
-				errCatalogoRPTNecesidadesAltaNoConfigurado,
-				"VEC_RPT_CATALOGO_PATH",
-			)
 		}
 	}
 	m := &manejadorPeticionCentroDesarrollo{proveedor: p, servicio: s, bandeja: r, catalogo: catalogo}
 	return []vechttp.RutaExacta{{Ruta: rutaOperacionesPeticionCentro, Manejador: m}, {Ruta: rutaBandejaPeticionCentro, Manejador: m}, {Ruta: rutaContextoPeticionCentro, Manejador: m}}, nil
 }
 
+// avisarFuenteNecesidadesAltaNoConfigurada es el único emisor del aviso: la
+// composición lo llama una vez por arranque, en la rama que deja el alta de
+// necesidades sin fuente.
 func avisarFuenteNecesidadesAltaNoConfigurada(rutaRPT string) {
 	avisarErrorCatalogadoNecesidadesAltaArranque(
 		errFuenteNecesidadesAltaNoConfigurada,
