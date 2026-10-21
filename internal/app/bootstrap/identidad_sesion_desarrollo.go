@@ -43,6 +43,7 @@ type proveedorSesionConsultaRRHHDesarrollo struct {
 	fronteras               catalogoFronterasComunDesarrollo
 	// La copia del GET histórico elige un perfil publicado de esta misma cuenta.
 	organizacionHistoricaPorCuenta map[string]seleccionPerfilOrganizacionHistorica
+	anclajePropuesta               *perfilesNominalesIncorporacion
 	superficie                     httpseguridad.Superficie
 	clave                          [sha256.Size]byte
 }
@@ -428,6 +429,9 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) perfilActivoSeleccionado(ctx con
 	if fronteraConsultaPersonal(frontera) {
 		seleccion, oh := p.seleccionOrganizacionHistorica(ctx)
 		return seleccion.perfil, oh && seleccion.version != 0 && perfilActivoSeguridadComunValido(seleccion.perfil) && frontera.descriptor.admitePerfil(seleccion.perfil)
+	}
+	if p.anclajePropuesta != nil && frontera.ruta == httpinterno.RutaPropuestaFormalizacion {
+		return perfil, perfilActivoSeguridadComunValido(perfil) && p.perfilAnclajePropuestaLigado(ctx, perfil)
 	}
 	return perfil, perfilActivoSeguridadComunValido(perfil) && frontera.descriptor.admitePerfil(perfil)
 }
