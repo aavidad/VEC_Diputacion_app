@@ -182,3 +182,26 @@ test("una aceptación portal sin resolución no habilita la propuesta al haber c
   assert.equal(peticiones, 0);
   cerrar();
 });
+
+for (const estado of [403, 503]) test(`la propuesta portal resuelta no depende de una lectura CT ${estado}`, async () => {
+  const raiz = raizPrueba(), peticiones = [];
+  const cerrar = montar(raiz, {
+    resolverLlamamiento: async () => recibo(),
+    consultarComunicacionesExpediente: async () => { throw Object.assign(new Error("lectura CT no disponible"),
+      { estado, codigo: estado === 403 ? "acceso_denegado" : "servicio_no_disponible", envelopeValido: true }); },
+    prepararPropuestaFormalizacion: async (s) => {
+      peticiones.push(s);
+      return { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1", estado_local: "confirmado",
+        propuesta_ref: "propuesta:portal:001", recibo_local_ref: "recibo:propuesta:portal:001",
+        version_resultante: 7, confirmada_en: "2026-10-20T10:05:00Z" };
+    },
+  }, { contexto: contexto(resultado()), fetchPublicaciones: publicaciones });
+  await esperar();
+  await enviar(raiz, formulario());
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  await raiz.enviar("propuesta", { clave_idempotencia: CLAVE });
+  assert.equal(peticiones.length, 1);
+  assert.equal(peticiones[0].recibo_resolucion_aceptada_ref, recibo().recibo_local_ref);
+  assert.match(raiz.innerHTML, /Propuesta guardada/u);
+  cerrar();
+});

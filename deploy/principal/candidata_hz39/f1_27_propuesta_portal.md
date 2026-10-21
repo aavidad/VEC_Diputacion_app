@@ -42,8 +42,8 @@ resuelta, guardar la propuesta y conservar su recibo. Seleccionar la
 comunicación debe mantener un único formulario. El recorrido en Chrome aún
 está pendiente; esta nota no acredita el paso 12 ni el reinicio de J.
 
-Las 71 pruebas focales cubren ambos caminos, la conservación del antecedente
+Las 73 pruebas focales cubren ambos caminos, la conservación del antecedente
 del portal frente a campos ajenos del formulario, confirmación y rechazo del
-servidor, ausencia de propuesta sin resolución y bloqueo de un nuevo envío
+servidor, independencia ante lecturas CT rechazadas o no disponibles, ausencia de propuesta sin resolución y bloqueo de un nuevo envío
 tras confirmar. La base de tamaño del formulario pasa de 1.388 a 1.394 líneas
 reales por conservar esa preparación y distinguir su antecedente.

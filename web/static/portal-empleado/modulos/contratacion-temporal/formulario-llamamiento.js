@@ -801,10 +801,10 @@ export function montarFormularioLlamamiento({
     if (operacion === "seleccion" && estado.estadoOferta.estado === "pendiente"
       && estado.estadoOferta.tipoSeleccion !== "llamamiento") return;
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
-    if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     // La propuesta del portal conserva su resolución nominal; la consulta de
     // una respuesta por correo de CT no es su antecedente.
     const propuestaPortal = operacion === "propuesta" && estado.propuesta.portal === true && puedeProponer();
+    if (!propuestaPortal && ["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (!propuestaPortal && estado.comunicaciones.estado === "lista"
       && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente",
         "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion)
