@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -151,6 +153,9 @@ func causaInternaSeleccionIndeterminada(causa error) string {
 		{application.ErrResultadoSeleccionLlamamientoNoConfiable, "resultado_seleccion_no_confiable"},
 		{application.ErrClaveSeleccionLlamamientoEnColision, "clave_seleccion_en_colision"},
 		{application.ErrEjecucionSeleccionLlamamientoConcurrente, "ejecucion_seleccion_concurrente"},
+		{pgx.ErrNoRows, "postgres_sin_filas"},
+		{context.Canceled, "context_canceled"},
+		{context.DeadlineExceeded, "deadline_exceeded"},
 	}
 	mejor, profundidadConocida := "", -1
 	var interno error
