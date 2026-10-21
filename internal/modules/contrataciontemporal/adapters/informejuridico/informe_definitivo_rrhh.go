@@ -2,6 +2,8 @@ package informejuridico
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -12,9 +14,11 @@ import (
 )
 
 // RenderizadorBorradorDesarrollo representa la consulta ya autorizada.
-// No consulta más datos, registra propuestas ni sustituye un modelo oficial.
+// Completa los datos del acto mediante su lectura nominal, sin registrarlo.
 type RenderizadorBorradorDesarrollo struct {
-	PDF vecports.RenderizadorDocumento
+	PDF                       vecports.RenderizadorDocumento
+	Resolucion                ports.FuenteResolucionDocumentoRRHH
+	ComprobarHuellaResolucion bool
 	// OmitirReferencias muestra sólo el nombre cuando lo hay. Se activa en
 	// descargas; el valor cero conserva los bytes de formalización y custodia.
 	OmitirReferencias bool
@@ -55,7 +59,11 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas, r.Plantillas, r.OmitirReferencias)
+	resolucion, err := resolucionBorrador(ctx, tipo, detalle, r.Resolucion, r.Plantillas, r.ComprobarHuellaResolucion)
+	if err != nil {
+		return nil, err
+	}
+	documento, err := contenidoBorradorConResolucion(tipo, detalle, r.Etiquetas, r.Plantillas, r.OmitirReferencias, solicitudDocumento(resolucion))
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +72,9 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 		return nil, err
 	}
 	if err := r.PDF.ValidarSalida(ctx, contenido); err != nil {
+		return nil, err
+	}
+	if err := cotejarOriginalResolucion(tipo, detalle, r.ComprobarHuellaResolucion, resolucion, contenido); err != nil {
 		return nil, err
 	}
 	return contenido, ctx.Err()
@@ -117,6 +128,13 @@ func contenidoBorradorDesarrollo(
 	plantillas *PlantillasBorrador,
 	omitirReferencias bool,
 ) (vecdomain.ContenidoDocumento, error) {
+	return contenidoBorradorConResolucion(tipo, detalle, etiquetar, plantillas, omitirReferencias, nil)
+}
+
+func contenidoBorradorConResolucion(tipo ports.TipoBorradorRRHH, detalle ports.DetalleExpedienteRRHH,
+	etiquetar EtiquetadorReferencias, plantillas *PlantillasBorrador, omitirReferencias bool,
+	resolucion *ports.SolicitudResolucionFormalizacion,
+) (vecdomain.ContenidoDocumento, error) {
 	plantilla, ok := plantillas.Plantilla(tipo)
 	if !ok {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
@@ -133,7 +151,7 @@ func contenidoBorradorDesarrollo(
 		!plantillas.tieneEtiqueta("fin.", string(detalle.Analisis.PeriodoCausaFin)) {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
-	fuente := fuenteCampos{detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla, omitirReferencias: omitirReferencias}
+	fuente := fuenteCampos{detalle: detalle, resolucion: resolucion, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla, omitirReferencias: omitirReferencias}
 	if tipo == ports.BorradorInformeDefinitivo && plantilla.RequiereAccion == accionCatalogoInformeJuridico {
 		hito, vigente := ctapplication.HitoInformeVigenteParaOriginalRRHH(detalle)
 		if !vigente {
@@ -176,4 +194,72 @@ func propuestaAnteriorA(hitos []ports.HitoExpedienteRRHH, accion string) (ports.
 		return ports.HitoExpedienteRRHH{}, nil, false
 	}
 	return ports.HitoExpedienteRRHH{}, nil, false
+}
+
+// El informe previo no depende de una resolución posterior. Tampoco consulta
+// el recibo cuando la proyección aún no ha alcanzado la propuesta, ni cuando
+// la plantilla publicada no combina el número o la fecha del acto.
+//
+// Solo el original firmable de la resolución (comprobarHuella) lee el acto
+// desde la proyección v7: es la versión histórica que el acto ya fijó. Una
+// descarga de la proyección v7 es la actual previa al acto y no lo consulta.
+func resolucionBorrador(ctx context.Context, tipo ports.TipoBorradorRRHH, d ports.DetalleExpedienteRRHH,
+	fuente ports.FuenteResolucionDocumentoRRHH, plantillas *PlantillasBorrador, comprobarHuella bool,
+) (*ports.DatosResolucionDocumentoRRHH, error) {
+	if tipo == ports.BorradorInformeDefinitivo || d.Resumen.Version < 7 {
+		return nil, nil
+	}
+	original := comprobarHuella && tipo == ports.BorradorResolucion
+	if !original && !plantillaUsaResolucion(plantillas, tipo) {
+		return nil, nil
+	}
+	if d.Resumen.Version == 7 && !original {
+		fuente = nil
+	}
+	return ports.ResolucionParaDocumentoRRHH(ctx, d.Resumen.ExpedienteRef, fuente)
+}
+
+// cotejarOriginalResolucion exige que el original firmable de la resolución
+// sea exactamente el PDF cuya huella conservó el acto. Durante el registro la
+// solicitud en curso no trae huella: el propio acto la calculará con estos bytes.
+func cotejarOriginalResolucion(tipo ports.TipoBorradorRRHH, d ports.DetalleExpedienteRRHH, comprobar bool,
+	resolucion *ports.DatosResolucionDocumentoRRHH, contenido []byte,
+) error {
+	if tipo != ports.BorradorResolucion || !comprobar {
+		return nil
+	}
+	if resolucion == nil {
+		return ports.ErrBorradorRRHHNoDisponible
+	}
+	if resolucion.OriginalSHA256 == "" {
+		return nil
+	}
+	h := sha256.Sum256(contenido)
+	if d.Resumen.Version != 7 || hex.EncodeToString(h[:]) != resolucion.OriginalSHA256 {
+		return ports.ErrResultadoResolucionFormalizacionNoConfiable
+	}
+	return nil
+}
+
+func solicitudDocumento(datos *ports.DatosResolucionDocumentoRRHH) *ports.SolicitudResolucionFormalizacion {
+	if datos == nil {
+		return nil
+	}
+	return &datos.Solicitud
+}
+
+// Las descargas de plantillas anteriores no añaden una consulta innecesaria.
+func plantillaUsaResolucion(plantillas *PlantillasBorrador, tipo ports.TipoBorradorRRHH) bool {
+	p, ok := plantillas.Plantilla(tipo)
+	if !ok {
+		return false
+	}
+	for _, texto := range append([]string{p.Titulo}, p.Parrafos...) {
+		for _, marca := range marcaPlantilla.FindAllStringSubmatch(texto, -1) {
+			if marca[2] == "resolucion_numero" || marca[2] == "resolucion_fecha" {
+				return true
+			}
+		}
+	}
+	return false
 }

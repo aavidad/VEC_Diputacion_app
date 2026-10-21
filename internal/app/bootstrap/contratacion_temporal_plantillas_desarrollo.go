@@ -721,6 +721,14 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
+	sesionPreparacion, ok := consultas.sesion.(ctports.SesionPreparacionResolucionFormalizacion)
+	if !ok {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	preparacionResolucion, err := ctapplication.NuevoServicioPreparacionResolucionFormalizacion(autoridadDetalle, emisor, sesionPreparacion, reloj)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
 	materialDocumental := alta.postgresql.proveedorMaterialPlantillasDocumental
 	materialDocumental.soporte, materialDocumental.motivo = soporte, motivoDocumental
 	proveedorAutorizacion, err := nuevoProveedorDocumentalPlantillasCT(soporte, pdpDocumental, materialDocumental, motivoDocumental, reloj)
@@ -733,7 +741,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	manejador, err := plantillashttp.NuevoManejadorBorradores(consultorDetalle, proveedorDocumental,
-		plantillashttp.GeneradorBorradoresCatalogo{PDF: pdfvec.Renderizador{Membrete: true}, DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas},
+		plantillashttp.GeneradorBorradoresCatalogo{PDF: pdfvec.Renderizador{Membrete: true}, DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Resolucion: fuenteResolucionDocumentoCT(preparacionResolucion)},
 		reloj.Ahora)
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible

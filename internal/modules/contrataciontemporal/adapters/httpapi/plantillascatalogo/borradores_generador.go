@@ -13,9 +13,10 @@ import (
 // CT133 con los renderizadores comunes. No vuelve a consultar el catálogo:
 // bytes y referencias proceden de la misma publicación.
 type GeneradorBorradoresCatalogo struct {
-	PDF       vecports.RenderizadorDocumento
-	DOCX      vecports.RenderizadorDocumento
-	Etiquetas informejuridico.EtiquetadorReferencias
+	PDF        vecports.RenderizadorDocumento
+	DOCX       vecports.RenderizadorDocumento
+	Etiquetas  informejuridico.EtiquetadorReferencias
+	Resolucion ports.FuenteResolucionDocumentoRRHH
 }
 
 func (g GeneradorBorradoresCatalogo) Generar(
@@ -33,7 +34,7 @@ func (g GeneradorBorradoresCatalogo) Generar(
 	r := informejuridico.RenderizadorBorradorCatalogoVivo{
 		Proveedor: PlantillasFijadas{Instantanea: plantillas},
 		PDF:       g.PDF, DOCX: g.DOCX, Etiquetas: g.Etiquetas,
-		OmitirReferencias: true,
+		OmitirReferencias: true, Resolucion: g.Resolucion,
 	}
 	var resultado informejuridico.BorradorCatalogado
 	var err error

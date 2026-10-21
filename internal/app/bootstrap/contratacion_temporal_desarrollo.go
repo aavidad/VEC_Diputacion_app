@@ -974,10 +974,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
 		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
-		// Descargas con nombre y logotipo; formalización y original firmable conservan sus bytes.
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
-		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
+		resolucionDocumento := fuenteResolucionDocumentoCT(consultasRRHH.preparacionResolucion)
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, Resolucion: resolucionDocumento, OmitirReferencias: true}
+		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas, Resolucion: resolucionDocumento, ComprobarHuellaResolucion: true}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, Resolucion: resolucionDocumento, OmitirReferencias: true}
 	}
 	// CT201 consume el detalle V3 y lee B98 en la misma transacción antes de
 	// devolverlo. La respuesta firme nativa conserva así su acuse nominal.
