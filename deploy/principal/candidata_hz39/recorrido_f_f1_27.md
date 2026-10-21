@@ -105,3 +105,6 @@ posterior a la emisión del llamamiento; el evento de CT no basta. En la ficha
 de la persona, «Registrar contacto» con teléfono y el último llamamiento usa
 la hora del servidor y aplica la misma franja que «Registrar intento telefónico».
 Se comunicó este segundo límite a dirección antes de continuar el ensayo.
+
+F se retiró después de quedar superada por G y al preparar H desde main.
+Se usó su gestor y se conservó la evidencia privada; no se alteraron recibos.
