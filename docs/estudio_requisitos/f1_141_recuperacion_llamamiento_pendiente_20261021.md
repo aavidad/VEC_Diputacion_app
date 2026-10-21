@@ -81,7 +81,14 @@ un 503 y una respuesta malformada; conserva bloqueadas las selecciones plurales
 y las intenciones que la pantalla ya había recuperado. Las 28 pruebas focales
 del formulario de ofertas pasan después de este cambio.
 
-La copia original se conserva parada. Falta comprobar en Chrome la selección
+La siguiente copia, desde `f63f91ba4`, arrancó en 231,99 segundos. Chrome
+comprobó que la ruta ausente devolvía todavía el cuerpo antiguo del router
+exterior, sin catálogo. El cliente lo rechazó y mantuvo el bloqueo. Se corrige
+esa salida reutilizando el error catalogado existente; una prueba Go distingue
+ruta ausente y 404 propio de una ruta montada, y otra con el cliente JavaScript
+real rechaza el cuerpo antiguo y el 404 de expediente.
+
+La copia quedó parada y Chrome cerrado. Falta comprobar en Chrome la selección
 singular nueva desde la candidata corregida y la CI final. No se afirma una
 recuperación singular con autorización real sin configuración de ofertas.
 La candidata todavía no está lista para fusionar.

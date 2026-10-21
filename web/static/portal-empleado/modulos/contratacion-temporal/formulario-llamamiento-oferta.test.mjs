@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
 import { ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   validarSolicitudRecuperacionOferta, validarReciboSeleccion, validarReciboSeleccionOferta,
   validarReciboDescarteOferta, validarEstadoSeleccionOferta } from "./contrato-llamamiento.js";
@@ -328,6 +329,29 @@ test("la desaparición de la ruta no permite sustituir una intención singular y
   assert.equal(consultas, 2);
   assert.deepEqual(escritas, []);
   cerrar();
+});
+
+test("el cliente real distingue el 404 catalogado del cuerpo antiguo y del 404 del expediente", async () => {
+  for (const [cuerpo, permitido] of [
+    [{ error: { codigo: "recurso_no_encontrado", clave_i18n: "api.vec.ruta_exacta.error.recurso_no_encontrado",
+      correlacion_ref: "corr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }, true],
+    [{ error: "vec route not found" }, false],
+    [{ error: { codigo: "recurso_no_encontrado",
+      clave_i18n: "api.contratacion_temporal.seleccion_llamamiento.error.recurso_no_encontrado",
+      correlacion_ref: "corr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }, false],
+  ]) {
+    const raiz = raizPrueba(), escritas = [];
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => new Response(
+      JSON.stringify(cuerpo), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: cliente.consultarEstadoSeleccionOferta,
+      seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+    await asentarse();
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(escritas.length, permitido ? 1 : 0);
+    cerrar();
+  }
 });
 
 test("N plural con S2 sin configurar bloquea POST hasta consulta válida", async () => {
