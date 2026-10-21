@@ -18,6 +18,7 @@ import (
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -167,6 +168,9 @@ func (p *preparadorPoliticaOfertasBolsaDesarrollo) PrepararConsultaPoliticaOfert
 	}
 	_, _, exportador, err := p.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, contexto.Resultado)
 	if err != nil || exportador == nil {
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return bolsahttp.ConsultaPoliticaOfertasPreparada{}, dominiovec.ErrAutorizacionDenegada
+		}
 		return bolsahttp.ConsultaPoliticaOfertasPreparada{}, errBorradorNoDisponibleEn()
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
@@ -189,6 +193,9 @@ func (p *preparadorPoliticaOfertasBolsaDesarrollo) PrepararPublicacionPoliticaOf
 	}
 	_, _, exportador, err := p.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, contexto.Resultado)
 	if err != nil || exportador == nil {
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return puertosbolsa.ComandoPublicarPoliticaOfertas{}, dominiovec.ErrAutorizacionDenegada
+		}
 		return puertosbolsa.ComandoPublicarPoliticaOfertas{}, errBorradorNoDisponibleEn()
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()

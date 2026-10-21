@@ -16,6 +16,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -55,9 +56,44 @@ func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *
 		if err := s.ConfigurarPreparadorNecesidad(p.alta.servicio); err != nil {
 			return nil, err
 		}
+		if !p.alta.servicio.FuenteNecesidadesAltaConfigurada() {
+			avisarErrorCatalogadoNecesidadesAltaArranque(
+				errFuenteNecesidadesAltaNoConfigurada,
+				"VEC_CT_NECESIDADES_ALTA_SOURCE_PATH",
+			)
+		} else if !p.alta.servicio.VerificadorPuestoRPTAltaConfigurado() {
+			avisarErrorCatalogadoNecesidadesAltaArranque(
+				errCatalogoRPTNecesidadesAltaNoConfigurado,
+				"VEC_RPT_CATALOGO_PATH",
+			)
+		}
 	}
 	m := &manejadorPeticionCentroDesarrollo{proveedor: p, servicio: s, bandeja: r, catalogo: catalogo}
 	return []vechttp.RutaExacta{{Ruta: rutaOperacionesPeticionCentro, Manejador: m}, {Ruta: rutaBandejaPeticionCentro, Manejador: m}, {Ruta: rutaContextoPeticionCentro, Manejador: m}}, nil
+}
+
+func avisarFuenteNecesidadesAltaNoConfigurada(rutaRPT string) {
+	avisarErrorCatalogadoNecesidadesAltaArranque(
+		errFuenteNecesidadesAltaNoConfigurada,
+		"VEC_CT_NECESIDADES_ALTA_SOURCE_PATH",
+	)
+	if strings.TrimSpace(rutaRPT) == "" {
+		avisarErrorCatalogadoNecesidadesAltaArranque(
+			errCatalogoRPTNecesidadesAltaNoConfigurado,
+			"VEC_RPT_CATALOGO_PATH",
+		)
+	}
+}
+
+func avisarErrorCatalogadoNecesidadesAltaArranque(err error, requisito string) {
+	slog.Warn(
+		"fuente de necesidades de alta no configurada al arrancar",
+		"componente", ComponenteFalloArranque(err),
+		"causa", "fuente_necesidades_no_disponible",
+		"requisito", requisito,
+		"error.type", telemetria.ClaseErrorArranque(err),
+		"error.message", telemetria.MensajeErrorArranque(err),
+	)
 }
 
 func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
