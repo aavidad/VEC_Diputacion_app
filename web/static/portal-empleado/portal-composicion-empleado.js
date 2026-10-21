@@ -8,6 +8,31 @@
  * son opcionales y van juntos: sin sus tres piezas no se ofrecen. Igual las
  * notificaciones a RRHH (envío de la persona y bandeja de RRHH).
  */
+// Clasifica la respuesta del servidor a una lectura de Cronos: «denegado»
+// (401/403), «ausente» (404: servicio apagado en la configuración) o
+// «incidencia» (red, plazo, 5xx, respuesta extraña). Abortar se propaga.
+function clasificarFalloCronos(error) {
+  if (error?.codigo === "operacion_abortada") throw error;
+  if ([401, 403].includes(error?.estado) || error?.codigo === "acceso_denegado") return "denegado";
+  if (error?.estado === 404) return "ausente";
+  return "incidencia";
+}
+
+/**
+ * Copia de la composición de Cronos sin las subvistas de los servicios que el
+ * servidor tiene apagados (`servicios.avisos` o `servicios.notificaciones`
+ * igual a «ausente»). Sin comprobación (`null`) devuelve la misma composición.
+ */
+export function retirarServiciosApagadosCronos(cronos, servicios) {
+  if (!cronos || !servicios) return cronos;
+  const retirar = [
+    ...(servicios.avisos === "ausente" ? ["montarAvisos", "montarBandeja"] : []),
+    ...(servicios.notificaciones === "ausente" ? ["montarNotificaciones", "montarBandejaNotificaciones"] : []),
+  ].filter((clave) => Object.hasOwn(cronos, clave));
+  if (retirar.length === 0) return cronos;
+  return Object.freeze(Object.fromEntries(Object.entries(cronos).filter(([clave]) => !retirar.includes(clave))));
+}
+
 export function componerCronosInterno(recursos, entorno) {
   const { saldo, remoto, movimientos, movimientosPropios, permisosPropios,
     clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
@@ -70,6 +95,27 @@ export function componerCronosInterno(recursos, entorno) {
     ...(resolucion || notificaciones ? { etiquetas } : {}),
     ...subvistasResolucion,
     ...subvistasNotificaciones,
+    // Acceso de la sesión a Cronos según el servidor, por la lectura del saldo
+    // propio del día (la persona la deriva el servidor del certificado).
+    async comprobarAcceso({ signal } = {}) {
+      try {
+        await cliente.saldo.consultar({ periodo: "hoy" }, { signal });
+        return "permitido";
+      } catch (error) { return clasificarFalloCronos(error); }
+    },
+    // Estado de los servicios opcionales por su lectura propia: «activo» o el
+    // fallo clasificado. Solo «ausente» (404) retira su pestaña.
+    async comprobarServiciosOpcionales({ signal } = {}) {
+      const comprobar = async (consulta) => {
+        if (!consulta) return "ausente";
+        try { await consulta(); return "activo"; } catch (error) { return clasificarFalloCronos(error); }
+      };
+      const [estadoAvisos, estadoNotificaciones] = await Promise.all([
+        comprobar(resolucion ? () => clienteResolucionHTTP.consultarAvisos({ signal }) : null),
+        comprobar(notificaciones ? () => clienteNotificacionesHTTP.consultarPropias({ signal }) : null),
+      ]);
+      return Object.freeze({ avisos: estadoAvisos, notificaciones: estadoNotificaciones });
+    },
     montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       const t = traducir; const documento = raiz.ownerDocument;
       const elemento = (etiqueta, clase, texto) => {

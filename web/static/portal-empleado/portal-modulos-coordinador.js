@@ -13,6 +13,7 @@ import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./port
 import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=VEC_WEB_VERSION";
 import {
   componerCronosInterno,
+  retirarServiciosApagadosCronos,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
@@ -81,16 +82,21 @@ export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
 ]);
 // Documentos sólo se carga cuando el servidor lo tiene montado, pero no tiene
 // entrada propia en menú ni en Inicio: su vista se abre únicamente desde un
-// expediente, que le entrega la referencia a consultar. Personal, Cronos y
-// Dietas se cargan y conservan su vista, pero tampoco tienen entrada en el
-// menú, en Inicio ni en el ayudante de trámites: el portal solo ofrece Bolsa
-// y la contratación temporal. Su URL directa sigue funcionando.
-export const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_DOCUMENTOS, CLAVE_PERSONAL, "cronos", "dietas"]);
+// expediente, que le entrega la referencia a consultar. Personal y Dietas se
+// cargan y conservan su vista, pero tampoco tienen entrada en el menú, en
+// Inicio ni en el ayudante de trámites. Su URL directa sigue funcionando.
+export const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_DOCUMENTOS, CLAVE_PERSONAL, "dietas"]);
+// Módulos que entran en el menú y en Inicio solo cuando el servidor ha
+// respondido que la persona de la sesión puede usarlos. Cronos lo sabe por la
+// lectura de su propio saldo: 200 lo ofrece; 401/403, 404 (servicio apagado)
+// o cualquier fallo lo dejan fuera. El navegador no aporta nada a la decisión.
+// El ayudante de trámites sigue sin ofrecerlo (`vistaConEntradaPortal`).
+export const CLAVES_ENTRADA_SEGUN_ACCESO = Object.freeze(["cronos"]);
 const CLAVES_CARGA_PORTAL = Object.freeze([...CLAVES_CARGA_MODULAR, CLAVE_DOCUMENTOS]);
 // Módulos sin entrada que no se cargan al arrancar, sino al pedir una de sus
 // vistas. Documentos no se difiere: se abre desde el expediente y su carga no
-// hace consultas.
-const CLAVES_DIFERIDAS_PORTAL = Object.freeze([CLAVE_PERSONAL, "cronos", "dietas"]);
+// hace consultas. Cronos tampoco: su carga comprueba el acceso para el menú.
+const CLAVES_DIFERIDAS_PORTAL = Object.freeze([CLAVE_PERSONAL, "dietas"]);
 // Rol con el que la frontera de identidad atesta a Intervención. Solo decide
 // qué pantalla se ofrece; cada operación la sigue autorizando el servidor.
 const ROL_INTERVENCION = "intervencion";
@@ -297,9 +303,13 @@ export function moduloDeVistaPortal(vista) {
   return "";
 }
 
-/** Indica si una vista pertenece a un módulo que se ofrece en menú e Inicio. */
+/**
+ * Indica si una vista pertenece a un módulo con entrada fija en el portal
+ * (la que no depende de la sesión). Lo usa el ayudante de trámites.
+ */
 export function vistaConEntradaPortal(vista) {
-  return !CLAVES_SIN_ENTRADA_PORTAL.includes(moduloDeVistaPortal(vista));
+  const modulo = moduloDeVistaPortal(vista);
+  return !CLAVES_SIN_ENTRADA_PORTAL.includes(modulo) && !CLAVES_ENTRADA_SEGUN_ACCESO.includes(modulo);
 }
 
 export function rutaDeVistaPortal(vista) {
@@ -855,16 +865,29 @@ export function crearCoordinadorModulosPortal({
     }
   }
 
-  async function cargarCronos({ exigirVigente }) {
+  async function cargarCronos({ consultar, exigirVigente }) {
     const recursos = await cargarModuloConLimite(
       cargadoresInternos.cronos || CARGADORES_INTERNOS_PREDETERMINADOS.cronos,
       "cronos", limiteCargaModularMs, temporizadores,
     );
     exigirVigente();
     // Falta cualquier montar* o cliente → undefined: falla cerrado.
-    const cronos = componerCronosInterno(recursos, entorno);
-    if (!cronos) throw new TypeError("vistas de Cronos no disponibles");
-    return { cronos };
+    const compuesto = componerCronosInterno(recursos, entorno);
+    if (!compuesto) throw new TypeError("vistas de Cronos no disponibles");
+    // Solo la respuesta del servidor abre Cronos: sin «permitido» el módulo
+    // queda no disponible y no se ofrece en el menú ni en Inicio.
+    const acceso = await consultar(({ signal }) => compuesto.comprobarAcceso({ signal }), "comprobar acceso a Cronos");
+    exigirVigente();
+    if (acceso !== "permitido") return undefined;
+    // Las pestañas de servicios apagados (404) no se ofrecen. Si la
+    // comprobación falla, se conservan y cada vista muestra su propio estado.
+    let servicios = null;
+    try {
+      servicios = await consultar(({ signal }) => compuesto.comprobarServiciosOpcionales({ signal }),
+        "comprobar servicios de Cronos");
+    } catch { servicios = null; }
+    exigirVigente();
+    return { cronos: retirarServiciosApagadosCronos(compuesto, servicios) };
   }
 
   // Personal y sus catálogos públicos opcionales se cargan a la vez.
@@ -1069,7 +1092,8 @@ export function crearCoordinadorModulosPortal({
     const conVista = catalogoInterno
       .filter((modulo) => CLAVES_MODULOS_CON_VISTA_PORTAL.includes(modulo.clave));
     catalogo = conVista.length === catalogoInterno.length ? catalogoInterno : Object.freeze(conVista);
-    const ofrecidos = catalogo.filter((modulo) => !CLAVES_SIN_ENTRADA_PORTAL.includes(modulo.clave));
+    const ofrecidos = catalogo.filter((modulo) => !CLAVES_SIN_ENTRADA_PORTAL.includes(modulo.clave)
+      && !CLAVES_ENTRADA_SEGUN_ACCESO.includes(modulo.clave));
     catalogoOfrecido = ofrecidos.length === catalogo.length ? catalogo : Object.freeze(ofrecidos);
 
     const partes = {
@@ -1216,12 +1240,18 @@ export function crearCoordinadorModulosPortal({
     return vista === "personal-registro" && estadoCargaModulo(CLAVE_CONTRATACION_TEMPORAL) === "cargando";
   }
 
+  // Catálogo del menú y de Inicio: el fijo más los módulos cuyo acceso ya ha
+  // confirmado el servidor en esta carga, en el orden del catálogo.
   function obtenerCatalogo() {
-    return catalogoOfrecido;
+    const confirmados = CLAVES_ENTRADA_SEGUN_ACCESO.filter((clave) => composicion?.[clave] !== undefined);
+    if (confirmados.length === 0) return catalogoOfrecido;
+    return Object.freeze(catalogo.filter((modulo) => catalogoOfrecido.includes(modulo)
+      || confirmados.includes(modulo.clave)));
   }
 
   function obtenerAccesosEmpleado() {
-    const accesos = Object.fromEntries(["personal", "cronos", "dietas"]
+    // Cronos ya tiene su entrada en el menú y en Inicio cuando la persona puede usarlo.
+    const accesos = Object.fromEntries(["personal", "dietas"]
       .filter((clave) => catalogo.some((modulo) => modulo.clave === clave))
       .map((clave) => [clave, Object.freeze({ estado: estadoCargaModulo(clave) })]));
     if (catalogo.some((modulo) => ["cronos", "dietas"].includes(modulo.clave)))
@@ -1322,7 +1352,7 @@ export function crearCoordinadorModulosPortal({
     if (typeof vistaPermitida !== "function") throw new TypeError("filtro de vistas no válido");
     // Menú fijo: los mismos módulos en cualquier pantalla; solo cambia el activo.
     return renderizarNavegacionModulos({
-      catalogo: catalogoOfrecido,
+      catalogo: obtenerCatalogo(),
       resolverAcceso: (clave) => {
         const acceso = resolverAcceso(clave, bolsaDisponible);
         if (acceso.disponible !== true) return acceso;

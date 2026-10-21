@@ -16,7 +16,8 @@ function entorno({ catalogo = ["cronos", "dietas", "personal"], pendienteCronos,
   const montar = () => ({ desmontar() {} });
   const recursosCronos = {
     saldo: { montarVistaSaldoCronos: montar }, remoto: { montarVistaRemotoCronos: montar }, movimientos: { montarVistaMovimientosCronos: montar }, movimientosPropios: { montarMovimientosPropiosCronos: montar }, permisosPropios: { montarPermisosPropiosCronos: montar },
-    clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({}) }, clienteRemoto: { crearClienteRemotoCronosHTTP: () => ({}) }, i18n: { crearTraductorCronos: () => (clave) => clave },
+    // La carga de Cronos comprueba el acceso con el saldo del día (sin red aquí).
+    clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({ consultar: async () => ({}) }) }, clienteRemoto: { crearClienteRemotoCronosHTTP: () => ({}) }, i18n: { crearTraductorCronos: () => (clave) => clave },
     clienteSolicitudes: { crearClienteSolicitudesCronosHTTP: () => ({ consultarPermisos: async (consulta, opciones) => { lecturas.push(["cronos", consulta, opciones]); if (falloCronos) throw { codigo: falloCronos }; return cronos(consulta.anio); } }) },
   };
   const recursosDietas = { contrato: {}, clienteBorradores: { crearClienteBorradoresDietasHTTP: () => ({ listar: async (consulta, opciones) => { lecturas.push(["dietas", consulta, opciones]); if (falloDietas) throw { codigo: falloDietas, message: "detalle reservado" }; return dietas; } }) }, clienteAsignacion: { crearClienteAsignacionDietasHTTP: () => ({}) }, calculador: { crearCalculadorRutasDietasHTTP: () => ({}) }, mapa: { crearVisorRutaDietas: () => ({}) }, recorridos: { montarVistaRecorridosDietas: montar } };
@@ -33,7 +34,8 @@ function entorno({ catalogo = ["cronos", "dietas", "personal"], pendienteCronos,
 test("Mis trámites es una vista del portal y carga sólo código registrado al abrir, sin lecturas", async () => {
   const e = entorno(); const c = e.coordinador; await c.cargarInterno();
   assert.equal(moduloDeVistaPortal("mis-tramites"), "portal"); assert.equal(rutaDeVistaPortal("mis-tramites"), "#mis-tramites");
-  assert.equal(c.obtenerAccesosEmpleado()["mis-tramites"].estado, "diferido"); assert.deepEqual(e.cargas, []); assert.deepEqual(e.lecturas, []);
+  // Cronos se carga al arrancar (comprueba el acceso); la hoja y Dietas, al abrir.
+  assert.equal(c.obtenerAccesosEmpleado()["mis-tramites"].estado, "diferido"); assert.deepEqual(e.cargas, ["cronos"]); assert.deepEqual(e.lecturas, []);
   await c.prepararVista("mis-tramites"); assert.deepEqual(e.cargas.sort(), ["cronos", "dietas", "hoja"]); assert.deepEqual(e.lecturas, []);
   assert.equal(c.vistaDisponible("mis-tramites"), true); assert.equal(await c.montarVista("mis-tramites", raiz()), true);
   const signal = new AbortController().signal;
@@ -49,10 +51,13 @@ test("Mis trámites es una vista del portal y carga sólo código registrado al 
 });
 
 test("la vista espera una carga Cronos ya iniciada y no monta antes de resolverla", async () => {
-  const pendiente = diferida(); const e = entorno({ pendienteCronos: pendiente }); await e.coordinador.cargarInterno();
-  const cargaCronos = e.coordinador.prepararVista("cronos"); const cargaTramites = e.coordinador.prepararVista("mis-tramites"); await tick();
+  const pendiente = diferida(); const e = entorno({ pendienteCronos: pendiente });
+  // La carga de Cronos empieza al arrancar y sigue en curso.
+  const cargaInicial = e.coordinador.cargarInterno(); await tick(); await tick();
+  assert.equal(e.coordinador.prepararVista("cronos"), null, "Cronos no se difiere");
+  const cargaTramites = e.coordinador.prepararVista("mis-tramites"); await tick();
   assert.equal(e.coordinador.vistaDisponible("mis-tramites"), false); assert.equal(e.coordinador.vistaPendiente("mis-tramites"), true);
-  pendiente.resolver(e.recursosCronos); await Promise.all([cargaCronos, cargaTramites]);
+  pendiente.resolver(e.recursosCronos); await Promise.all([cargaInicial, cargaTramites]);
   assert.equal(e.cargas.filter((clave) => clave === "cronos").length, 1); assert.equal(e.coordinador.vistaDisponible("mis-tramites"), true); assert.deepEqual(e.lecturas, []);
 });
 

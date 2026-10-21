@@ -37,8 +37,9 @@ test("el coordinador acepta la localización del documento al fallar el índice 
 });
 
 
-// Personal, Cronos y Dietas no tienen entrada en el portal: no se cargan al
-// arrancar, sino al pedir una de sus vistas (`prepararVista`).
+// Personal y Dietas no tienen entrada en el portal: no se cargan al arrancar,
+// sino al pedir una de sus vistas (`prepararVista`). Cronos se carga al
+// arrancar; pedir su vista no hace nada más.
 async function cargarConDiferidos(coordinador) {
   await coordinador.cargarInterno();
   await Promise.all(["personal", "cronos", "dietas"].map((vista) => coordinador.prepararVista(vista)));
@@ -795,6 +796,9 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
 test("Mi ficha ofrece destinos propios diferidos sin cargarlos ni consultar sus datos", async () => {
   for (const destinos of [[], ["cronos"], ["dietas"], ["cronos", "dietas"]]) {
     const peticiones = []; const cargadas = []; const location = { hash: "#personal" };
+    // Cronos ya no se difiere: se carga al arrancar para comprobar el acceso.
+    // Aquí su carga falla, así que deja de ofrecerse como destino.
+    const diferidos = destinos.filter((clave) => clave !== "cronos");
     const coordinador = crearCoordinadorModulosPortal({
       escaparHTML: String,
       entorno: { location, fetch: async (ruta) => {
@@ -822,18 +826,18 @@ test("Mi ficha ofrece destinos propios diferidos sin cargarlos ni consultar sus 
     const botones = raiz.querySelectorAll("[data-personal-ficha-destino]");
     for (const boton of botones) {
       const destino = boton.dataset.personalFichaDestino;
-      assert.equal(boton.disabled, !destinos.includes(destino), destino);
+      assert.equal(boton.disabled, !diferidos.includes(destino), destino);
       assert.equal(coordinador.vistaDisponible(destino), false, "navegar no equivale a tener el destino montado");
       boton.listeners.click();
-      if (destinos.includes(destino)) assert.equal(location.hash, `#${destino}`);
+      if (diferidos.includes(destino)) assert.equal(location.hash, `#${destino}`);
     }
-    assert.deepEqual(cargadas, [], "la ficha no carga los destinos");
+    assert.deepEqual(cargadas, destinos.includes("cronos") ? ["cronos"] : [], "la ficha no carga los destinos");
     assert.deepEqual(peticiones, ["/api/interna/personal/mi-ficha"], "sólo consulta la ficha propia");
-    if (destinos.length) {
-      await coordinador.prepararVista(destinos[0]);
-      assert.equal(coordinador.obtenerAccesosEmpleado()[destinos[0]].estado, "no_disponible");
+    if (diferidos.length) {
+      await coordinador.prepararVista(diferidos[0]);
+      assert.equal(coordinador.obtenerAccesosEmpleado()[diferidos[0]].estado, "no_disponible");
       await coordinador.montarVista("personal", raiz);
-      assert.equal(raiz.querySelector(`[data-personal-ficha-destino="${destinos[0]}"]`).disabled, true,
+      assert.equal(raiz.querySelector(`[data-personal-ficha-destino="${diferidos[0]}"]`).disabled, true,
         "un destino cuya carga ha fallado deja de ofrecerse");
     }
     coordinador.desmontarVistaActual();
@@ -1168,12 +1172,29 @@ async function recursosCronosInternos() {
   return { saldo, remoto, movimientos, movimientosPropios, permisosPropios, clienteSaldo, clienteRemoto, clienteSolicitudes, i18n };
 }
 const esperarVueltas = async () => { for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve)); };
+// La carga de Cronos comprueba el acceso leyendo el saldo del día: la primera
+// lectura responde 200 (la sesión puede usar Cronos); las demás, `fetchImpl`.
+const SALDO_HOY = Object.freeze({
+  periodo: { tipo: "hoy", desde: "2026-10-21", hasta: "2026-10-21" },
+  resumen: { previstos_minutos: null, trabajados_minutos: 0, saldo_minutos: null, estado: "sin_datos" },
+  detalle: [],
+});
+function conAccesoCronos(fetchImpl) {
+  let sondeado = false;
+  return async (ruta, opciones) => {
+    if (!sondeado && String(ruta) === "/api/interna/cronos/saldos/propio?periodo=hoy") {
+      sondeado = true;
+      return new Response(JSON.stringify(SALDO_HOY), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return fetchImpl(ruta, opciones);
+  };
+}
 
 test("Cronos interno monta saldo, fichaje remoto, movimientos y calendario; con la API en 404 cada parte muestra su estado", async () => {
   const recursos = await recursosCronosInternos();
   const pedidas = [];
-  const entorno = { fetch: async (ruta) => { pedidas.push(String(ruta).split("?")[0]);
-    return new Response(JSON.stringify({ error: "no_encontrado" }), { status: 404, headers: { "content-type": "application/json" } }); } };
+  const entorno = { fetch: conAccesoCronos(async (ruta) => { pedidas.push(String(ruta).split("?")[0]);
+    return new Response(JSON.stringify({ error: "no_encontrado" }), { status: 404, headers: { "content-type": "application/json" } }); }) };
   const cargadoresInternos = {
     contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
     cronos: async () => recursos,
@@ -1230,7 +1251,7 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
     permisosPropios: { montarPermisosPropiosCronos: (opciones) => { llamadas.push(["permisos", opciones]);
       const r = parte("permisos-montaje")(opciones); opciones.registrarDesmontar?.(r.desmontar); return r; } },
   };
-  const crear = (cronos) => crearCoordinadorModulosPortal({ escaparHTML: String, entorno: { fetch: async () => { throw new Error("sin red"); } },
+  const crear = (cronos) => crearCoordinadorModulosPortal({ escaparHTML: String, entorno: { fetch: conAccesoCronos(async () => { throw new Error("sin red"); }) },
     cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos: {
       contratacion_temporal: async () => { throw new Error("no debe cargar CT"); }, cronos: async () => cronos } });
   const coordinador = crear(recursos);
@@ -1273,7 +1294,7 @@ test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas di
     i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => clave },
   };
   const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
-    entorno: { fetch: () => assert.fail("no debe sondear competencia de RRHH") },
+    entorno: { fetch: conAccesoCronos(() => assert.fail("no debe sondear competencia de RRHH")) },
     cargarCatalogoInterno: async () => [{ clave: "cronos" }],
     cargadoresInternos: { contratacion_temporal: () => assert.fail("sin CT"), cronos: async () => recursos },
   });
