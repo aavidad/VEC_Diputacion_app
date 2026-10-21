@@ -39,3 +39,20 @@ La franja de llamadas de 09:00 a 14:00 se conserva. I tendrá referencias,
 actos y recibos propios; no trasladará los de H ni de otras copias.
 Los materiales privados permanecen fuera de Git. Esta hoja no cierra el
 recorrido ni las tareas F1-27 y F1-28.
+
+## Lecturas al retomar
+
+La ficha recupera la fiscalización favorable y el informe con sus dos firmas.
+La sesión nominal de técnico muestra el PDF firmado; a 390 px no hay
+desbordamiento horizontal (375 px de contenido). Las capturas permanecen
+en el material privado del ensayo. No se ha repetido ninguna actuación.
+
+Al abrir la ficha con la sesión de gestión, la consulta de comunicaciones
+devolvió 503. El registro sitúa el rechazo en la guarda de versión de
+`autoridad_postgresql_desarrollo.go:542`, envuelta por
+`contratacion_temporal_autoridad_postgresql_desarrollo.go:763`. El inventario
+independiente confirma que una lista vacía debe poder consultarse; la
+ausencia de selección no explica el error. La preparación y la publicación
+del perfil leen en transacciones distintas, pero todavía no se ha demostrado
+qué petición adelantó la versión. Se comunicó a dirección para F1-33.
+La guarda se conserva y el ensayo continúa con el paso 9 desde las 09:00.
