@@ -92,3 +92,20 @@ abre la guarda ni se usa el preparador histórico. La consulta de esa asignació
 requiere además un perfil de cuatro dimensiones; no cabe en el perfil de dos
 dimensiones de la comisión propia. El recorrido web y la receta #1416 siguen
 pendientes; no cambia el estado del tablero.
+
+## Corrección del adaptador PostgreSQL
+
+En la copia, la primera propuesta de un rol de Dietas devolvió 503 sin guardar
+nada: el adaptador de Go seguía exigiendo una sola concesión antes de llamar a
+AUT107. Ahora el adaptador usa la misma comprobación cerrada del dominio en sus
+tres puntos (lectura del catálogo, material de la propuesta y recurso
+autorizable): admite exactamente los dos contratos de Dietas, con tres y dos
+concesiones, y mantiene la concesión única para el resto. Antes de leer el
+catálogo comprueba además que el número de concesiones encaja con el rol.
+No hay SQL nuevo ni configuración nueva. Los roles de Méritos con varias
+concesiones siguen sin pasar por este adaptador, como antes.
+
+Las pruebas Go del adaptador rechazan un rol compuesto ajeno (sin leer el
+catálogo), un rol de Dietas con una concesión de Bolsa, aunque el catálogo la
+publique con huellas coherentes, una finalidad cambiada y un rol de Dietas con
+una sola concesión.
