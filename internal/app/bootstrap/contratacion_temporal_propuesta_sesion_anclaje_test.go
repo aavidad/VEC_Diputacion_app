@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
 	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -24,6 +25,9 @@ type escenarioSesionAnclajePropuestaPrueba struct {
 func nuevaSesionAnclajePropuestaPrueba(t *testing.T) escenarioSesionAnclajePropuestaPrueba {
 	t.Helper()
 	e := nuevaSesionConsultaPrueba(t)
+	// Simula que preparar perfiles tarda más de un segundo, como en CI.
+	// La evidencia del canal debe usar el reloj de la sesión, no el reloj real.
+	e.reloj.ahora = e.reloj.Ahora().Add(-2 * time.Second)
 	v, err := e.soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		t.Fatal(err)
@@ -77,6 +81,10 @@ func nuevaSesionAnclajePropuestaPrueba(t *testing.T) escenarioSesionAnclajePropu
 		ReciboEmisionRef: "recibo:emision:uno", ReciboRespuestaRef: "recibo:respuesta:uno",
 	}
 	ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpct.RutaPropuestaFormalizacion)
+	canal := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	canal.certificadoVerificadoEn = e.reloj.Ahora().Add(-time.Second)
+	canal.certificadoValidoHasta = e.reloj.Ahora().Add(time.Hour)
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, canal)
 	descriptor, ok := e.p.fronteras.resolver(http.MethodPost, httpct.RutaPropuestaFormalizacion)
 	if !ok || descriptor.admitePerfil(perfil.perfilRef()) {
 		t.Fatal("el descriptor público CT debe conservar solo su perfil declarado")

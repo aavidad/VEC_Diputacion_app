@@ -36,3 +36,16 @@ con código 0. Es una copia privada sin red, limitada a 2 GiB; J sigue intacta.
 Esta prueba no ejecuta una lectura nominal real de versión 9 o posterior.
 Las focales Go cubren ese contrato con dobles; el consumo genuino, el
 recorrido en Chrome y las revisiones independientes siguen pendientes.
+
+## Corrección de la prueba de sesión del anclaje
+
+La primera puerta de calidad falló en la prueba del anclaje de Bolsa. La
+preparación mezclaba el reloj congelado de la sesión con el reloj real del
+certificado ficticio; si preparar los perfiles tardaba más de un segundo, el
+certificado quedaba fechado en el futuro. La prueba aislada pasó sin cambios
+en la cabeza inicial, en main aeaa28570 y en 014dc27e8. Un desfase controlado
+de dos segundos reprodujo la denegación.
+
+La prueba conserva ese desfase como regresión y fecha el certificado con el
+reloj de la sesión. Los casos positivo y negativos del anclaje pasan con esa
+preparación. No cambia ninguna guarda de producción ni la migración CT261.
