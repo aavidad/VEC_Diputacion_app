@@ -15,7 +15,10 @@ main. Conserva propietario, permisos, autorización y auditoría; añade la rama
 singular después de consumir la decisión. El contrato plural se conserva.
 No hay configuración nueva. Se necesita el montaje de consulta de ofertas
 existente, también para la lectura singular. Sin él, el portal arranca y la
-selección queda cerrada.
+selección singular nueva conserva el recorrido anterior cuando el enrutador
+confirma que esa ruta no está instalada. Un error de una ruta instalada sigue
+bloqueando el envío. La recuperación sin ofertas se separó en F1-142 por
+decisión de dirección del 21 de octubre a las 02:46.
 
 ## Comprobaciones realizadas
 
@@ -64,12 +67,21 @@ admitidos como referencia opaca. La coincidencia se comunicó al responsable de
 la receta para corregir el productor; no se alteraron el lector, el catálogo
 publicado, las firmas ni la autoridad.
 
-L preparó la corrección prospectiva del productor en la PR #1406, cabeza
-`b92fab3b8`: dos prefijos y UUID canónica. Su ensayo está en curso; todavía
-no se cuenta como comprobación de F1-141.
+La corrección del productor se integró en main mediante #1407. La candidata
+`3c6d79f57` creó la copia pública completa en 248,05 segundos y montó CT y
+Personal. La consulta de estado devolvió 503 sin consultar PostgreSQL porque
+la receta no activa `ofertas-ct.json`. Es una dependencia de composición:
+CT225 consume la autoridad de vinculación de ofertas, que la guarda de lectura
+singular no sustituye. No se improvisaron permisos ni configuración.
 
-Las copias, contenedores, navegador y depurador propios se retiraron. Falta
-crear la copia completa corregida, abrir un expediente con una intención
-singular pendiente, recargar y reanudar desde la ficha; comprobar el mismo
-recibo y la ausencia de duplicados después de reiniciar aplicación y base.
+Dirección limitó este corte a conservar el recorrido singular anterior cuando
+la ruta no está instalada. La recuperación sin esa configuración pasa a F1-142.
+La corrección distingue el 404 catalogado del enrutador de un 404 de expediente,
+un 503 y una respuesta malformada; conserva bloqueadas las selecciones plurales
+y las intenciones que la pantalla ya había recuperado. Las 28 pruebas focales
+del formulario de ofertas pasan después de este cambio.
+
+La copia original se conserva parada. Falta comprobar en Chrome la selección
+singular nueva desde la candidata corregida y la CI final. No se afirma una
+recuperación singular con autorización real sin configuración de ofertas.
 La candidata todavía no está lista para fusionar.

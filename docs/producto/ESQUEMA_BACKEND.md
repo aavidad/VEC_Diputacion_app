@@ -1174,6 +1174,11 @@ La respuesta singular añade `tipo_seleccion: llamamiento`, la clave y la versi�
 originales, el efecto pendiente y si queda una ventana abierta. La consulta no
 reanuda el acto; el formulario debe enviar expresamente la solicitud original
 por la ruta de selección existente. El contrato de las ofertas plurales se conserva.
+El GET solo se monta cuando existe su servicio. Para una persona, el 404
+`api.vec.ruta_exacta.error.recurso_no_encontrado` del enrutador conserva la
+selección anterior; un 404 de expediente, un 503 o una intención ya recuperada
+siguen bloqueando. Sin configuración de ofertas no hay recuperación después
+de recargar; F1-142 abordará esa lectura sin ampliar permisos en F1-141.
 
 - Rutas exactas registradas en una autoridad (`internal/vec/adapters/httpapi/rutas_exactas.go`
   y las composiciones de `internal/app/bootstrap/`); una ruta no registrada da 404.

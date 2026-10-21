@@ -906,7 +906,10 @@ CT no tiene llamamiento propio: usa el de Bolsa sobre una bolsa constituida
    consulta la intención singular pendiente y ofrece «Reanudar llamamiento».
    RRHH revisa y confirma; abrir o recargar la ficha no repite el acto ni
    genera otra clave. La consulta requiere el montaje de lectura de estado
-   de ofertas existente, también para una sola persona (F1-141).
+   de ofertas existente, también para una sola persona (F1-141). Si esa ruta no
+   está instalada, se conserva la selección singular anterior; no se recupera
+   la intención tras recargar. Un fallo de la consulta instalada bloquea el
+   envío. La recuperación sin configuración de ofertas queda en F1-142.
 3. RRHH registra la comunicación (`llamamientos/comunicaciones`). Este paso no
    envía correo: deja constancia y una intención de aviso.
 4. La aspirante responde en Mi Bolsa, o RRHH registra la respuesta recibida por

@@ -693,7 +693,11 @@ export function montarFormularioLlamamiento({
     }).catch((error) => {
       if (!montado || controlador.signal.aborted || generacion !== paso.generacion
         || estado.seleccion.valores.expediente_ref !== expedienteRef) return;
-      paso.estado = error?.envelopeValido === true && [401, 403].includes(error.estado) ? "denegado" : "error";
+      const rutaNoMontada = estado.numeroPersonasSolicitadas === 1 && !estado.seleccion.solicitud
+        && error?.envelopeValido === true && error.estado === 404 && error.codigo === "recurso_no_encontrado"
+        && error.claveI18n === "api.vec.ruta_exacta.error.recurso_no_encontrado";
+      paso.estado = rutaNoMontada ? "ausente"
+        : error?.envelopeValido === true && [401, 403].includes(error.estado) ? "denegado" : "error";
       repintar();
     }).finally(() => {
       if (generacion === paso.generacion) paso.controlador = null;

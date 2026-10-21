@@ -283,6 +283,53 @@ test("N singular con GET fallido bloquea el envío", async () => {
   cerrar();
 });
 
+test("solo el 404 catalogado de ruta ausente conserva la selección singular nueva", async () => {
+  for (const [numero_personas, fallo, permitido] of [
+    [1, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+      claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" }, true],
+    [2, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+      claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" }, false],
+    [1, { estado: 503, codigo: "servicio_no_disponible", envelopeValido: true,
+      claveI18n: "api.vec.ruta_exacta.error.servicio_no_disponible" }, false],
+    [1, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+      claveI18n: "api.contratacion_temporal.llamamiento.error.recurso_no_encontrado" }, false],
+    [1, { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: false,
+      claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" }, false],
+  ]) {
+    const raiz = raizPrueba(), escritas = [];
+    const cerrar = montar(raiz, {
+      consultarEstadoSeleccionOferta: async () => { throw Object.assign(new Error("consulta fallida"), fallo); },
+      seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas } });
+    await asentarse();
+    assert.equal(escritas.length, 0);
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(escritas.length, permitido ? 1 : 0);
+    cerrar();
+  }
+});
+
+test("la desaparición de la ruta no permite sustituir una intención singular ya recuperada", async () => {
+  const raiz = raizPrueba(), escritas = [];
+  let consultas = 0;
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => {
+      if (++consultas === 1) return intencionSingular();
+      throw Object.assign(new Error("ruta ausente"), { estado: 404, codigo: "recurso_no_encontrado",
+        envelopeValido: true, claveI18n: "api.vec.ruta_exacta.error.recurso_no_encontrado" });
+    },
+    seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no generar clave nueva"); } });
+  await asentarse();
+  await click(raiz, "data-ct-llamamiento-estado-oferta-reintentar");
+  await asentarse();
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(consultas, 2);
+  assert.deepEqual(escritas, []);
+  cerrar();
+});
+
 test("N plural con S2 sin configurar bloquea POST hasta consulta válida", async () => {
   const raiz = raizPrueba();
   let consultas = 0, post = 0;
