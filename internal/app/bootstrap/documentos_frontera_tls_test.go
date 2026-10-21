@@ -19,6 +19,7 @@ import (
 
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	dochttp "vec-diputacion-granada/internal/vec/documentos/adapters/httpinterno"
 	docpg "vec-diputacion-granada/internal/vec/documentos/adapters/postgres"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -197,6 +198,37 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 	if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrCapacidadNoDisponible) || len(incidencias.emitidas) != 1 {
 		t.Fatalf("indisponibilidad V3 mal clasificada: err=%v incidencias=%d", err, len(incidencias.emitidas))
 	}
+	// Ruta final de la consulta, montada como en la composición: la
+	// denegación explícita registrada sale como 403 «acceso_denegado», sin
+	// incidencia técnica y sin llegar al servicio; la fuente caída, como 503.
+	servicioLectura := &servicioLecturaNoLlamadoPrueba{}
+	rutasLectura, err := dochttp.NuevasRutas(dochttp.Configuracion{
+		Servicio:  servicioLecturaVigilado{servicio: servicioLectura, incidencias: incidencias},
+		Autoridad: consulta, Incidencias: incidencias,
+	})
+	if err != nil || len(rutasLectura) != 1 {
+		t.Fatalf("rutas de lectura: %v (%d)", err, len(rutasLectura))
+	}
+	consultarRuta := func() *httptest.ResponseRecorder {
+		r := httptest.NewRequestWithContext(capturado, http.MethodPost, dochttp.RutaConsultaExpediente,
+			strings.NewReader(`{"expediente_ref":"`+expediente+`","limite":5}`))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		rutasLectura[0].Manejador.ServeHTTP(w, r)
+		return w
+	}
+	incidencias.emitidas = nil
+	emisor.err = vecports.ErrDenegacionExplicitaAutorizacionLigadaV3
+	if w := consultarRuta(); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), `"codigo":"acceso_denegado"`) ||
+		len(incidencias.emitidas) != 0 || servicioLectura.llamadas != 0 {
+		t.Fatalf("ruta final con denegación explícita: estado=%d cuerpo=%s incidencias=%d servicio=%d",
+			w.Code, w.Body.String(), len(incidencias.emitidas), servicioLectura.llamadas)
+	}
+	emisor.err = vecports.ErrFuenteAutorizacionNoDisponible
+	if w := consultarRuta(); w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), `"codigo":"servicio_no_disponible"`) ||
+		len(incidencias.emitidas) == 0 || servicioLectura.llamadas != 0 {
+		t.Fatalf("ruta final con fuente caída: estado=%d cuerpo=%s incidencias=%d", w.Code, w.Body.String(), len(incidencias.emitidas))
+	}
 
 	// Sujeto TLS y cuenta cruzados: 403 sin actor y sin llegar al manejador.
 	cuenta.Sujeto = "desarrollo:otro-sujeto"
@@ -274,4 +306,18 @@ func (exportadorNoLigadoPrueba) LogValue() slog.Value {
 }
 func (exportadorNoLigadoPrueba) ExportarMaterialParaConsumidor() (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, nil
+}
+
+// servicioLecturaNoLlamadoPrueba cuenta las llamadas: una consulta denegada
+// por la autoridad nunca debe alcanzar el servicio de lectura.
+type servicioLecturaNoLlamadoPrueba struct{ llamadas int }
+
+func (s *servicioLecturaNoLlamadoPrueba) ListarExpediente(context.Context, docports.ConsultaExpediente) (docports.PaginaDocumentos, error) {
+	s.llamadas++
+	return docports.PaginaDocumentos{}, nil
+}
+
+func (s *servicioLecturaNoLlamadoPrueba) DescargarOriginal(context.Context, docports.ConsultaDocumento) (docports.Original, error) {
+	s.llamadas++
+	return docports.Original{}, nil
 }
