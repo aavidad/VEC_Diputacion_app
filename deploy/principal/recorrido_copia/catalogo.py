@@ -18,7 +18,12 @@ ACTOS = (
     (12, 'sustituir', 'bolsa_origen_ct_rrhh_v2.json',
      '239b0dd9dab236396f675247f344c91863c839ab56d2d068165bd45cd930bd9b'),
 )
-DIRECTORIOS = {11: 'organizacion', 12: 'origen_ct'}
+ACTOS_DIETAS = (
+    (13, 'fuentes', 'personal_relacion_propia_dietas_v1.json', '764a9eccf4e871da59e57e17479af3a35beaba51c278be21b5c8bdbe73c1fe14'),
+    (14, 'fuentes', 'dietas_comision_propia_itinerarios_v1.json', '8400c4972a4d149b8173de2683ece39559367d2de5bfbf1780195cc5ec933ea5'),
+)
+DIRECTORIOS = {11: 'organizacion', 12: 'origen_ct',
+               13: 'personal_dietas', 14: 'dietas'}
 HEX = re.compile(r'[0-9a-f]{64}\Z')
 SID = re.compile(r'[0-9]{15,20}\Z')
 LOGIN = re.compile(r'vec_caa_[0-9a-f]{16}\Z')
@@ -57,7 +62,7 @@ def respuesta(resultado):
     return value
 
 
-def copia_y_fuentes(c):
+def copia_y_fuentes(c, actos=ACTOS):
     estado = c.copia.leer()
     sid = estado.get('sid_copia')
     exigir(estado.get('admin_preparada') is True and estado.get('nombre') == c.copia.nombre
@@ -84,7 +89,7 @@ def copia_y_fuentes(c):
            and c.sha(preimagen) == backup_sha,
            'Preimagen ADMIN o contrato ajenos a la copia')
     fuentes = c.fuente / 'deploy/principal/fuentes'
-    for _, _, nombre, huella in ACTOS:
+    for _, _, nombre, huella in actos:
         path = fuentes / nombre
         exigir(path.is_file() and not path.is_symlink() and c.sha(path) == huella,
                'Fuente AUT58 alterada o ausente')
@@ -299,4 +304,20 @@ def preparar(c):
                 'actos': [first, second], 'recibos_reales': 2,
                 'replays_cotejados': 2}
     c.guardar(c.carpeta / 'catalogo/admisiones.json', metadata)
+    return metadata
+
+
+def preparar_dietas(c):
+    """Añade solo las cinco acciones nominales si se pide la etapa Dietas."""
+    from .roles_admin import _admisiones
+    anterior = _admisiones(c)
+    _, sid, backup, fuentes = copia_y_fuentes(c, ACTOS_DIETAS)
+    cli = c.cli('vec-catalogo-acciones-admitir')
+    resultados = []
+    for spec in ACTOS_DIETAS:
+        anterior = acto(c, cli, spec, sid, backup, fuentes, anterior)
+        resultados.append(anterior)
+    metadata = {'version': 1, 'copia_ref': c.copia.nombre, 'sid_copia': sid,
+                'actos': resultados, 'recibos_reales': 2, 'replays_cotejados': 2}
+    c.guardar(c.carpeta / 'catalogo/admisiones-dietas.json', metadata)
     return metadata

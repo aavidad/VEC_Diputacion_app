@@ -1052,6 +1052,15 @@ administradores inventados se sustituyen por personas reales.
 | OSRM | Motor de rutas por carretera (Open Source Routing Machine) para los kilómetros de Dietas | Contenedor propio con el mapa de Granada y 15 km alrededor, sin servicio público. Cinco variables `VEC_OSRM_*` que van juntas; si falta una, el cálculo no se habilita (`deploy/osrm-granada/README.md`) | Preparado. Dietas está aparcado hasta cerrar Bolsa y Contratación temporal |
 | Almacén S3 | Custodia de documentos | `deploy/almacen_s3_ceph/` | En uso con `VEC_DOCUMENTOS_ENABLED` |
 
+La receta de copia incluye en desarrollo una etapa opcional `--dietas`, solo
+junto a `crear --recorrido-completo`. Prepara las fuentes nominales de Personal
+y Dietas y diez conexiones privadas; no activa el módulo por defecto. Se
+ha ensayado con dos roles publicados por Administración y diez conexiones TLS,
+también tras reiniciar aplicación y PostgreSQL. La conexión
+de asignación de Personal se ha aplazado con el tramo detenido. El recorrido
+web sigue pendiente: faltan la asignación gobernada de Personal y los manifiestos. La causa y las condiciones están en
+`deploy/principal/recorrido_copia/LEEME_dietas.md`.
+
 Conectores previstos que todavía no tienen puerto: fuente presupuestaria y
 validación de la retención de crédito (RC), cálculo del coste de personal, oferta
 al SAE, registro electrónico y notificación, calendario de días hábiles y sello

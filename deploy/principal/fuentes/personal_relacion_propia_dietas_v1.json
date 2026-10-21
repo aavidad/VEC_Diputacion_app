@@ -1,0 +1,45 @@
+{
+  "modulo_id": "personal",
+  "referencia": "fuente:personal:relacion_propia_dietas",
+  "version": 1,
+  "huella_sha256": "17a14e9bac164404e2d558df8e823153e2c5dcda04d74225e0257671ad8296d2",
+  "entradas_canon": "[{\"referencia\":\"accion:personal.relacion.propia.consultar_dietas\",\"version\":1,\"fuente_ref\":\"fuente:personal:relacion_propia_dietas\",\"fuente_version\":1,\"concesion\":{\"accion\":\"personal.relacion.propia.consultar_dietas\",\"modulo_id\":\"personal\",\"tipo_recurso\":\"relacion_empleado_dietas\",\"finalidades\":[\"preparar_borrador_dietas\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"desde\",\"empleado_ref\",\"estado\",\"fuente_ref\",\"fuente_version\",\"hasta\",\"persona_ref\",\"procedencia_acto_ref\",\"relacion_ref\",\"unidad_ref\",\"version\"]},\"dimensiones_ambito\":[\"empleado_ref\",\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-21T00:00:00Z\",\"vigente_hasta\":\"2027-01-19T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:personal.relacion.propia.consultar_dietas",
+      "version": 1,
+      "fuente_ref": "fuente:personal:relacion_propia_dietas",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "17a14e9bac164404e2d558df8e823153e2c5dcda04d74225e0257671ad8296d2",
+      "concesion": {
+        "accion": "personal.relacion.propia.consultar_dietas",
+        "modulo_id": "personal",
+        "tipo_recurso": "relacion_empleado_dietas",
+        "finalidades": [
+          "preparar_borrador_dietas"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "desde",
+          "empleado_ref",
+          "estado",
+          "fuente_ref",
+          "fuente_version",
+          "hasta",
+          "persona_ref",
+          "procedencia_acto_ref",
+          "relacion_ref",
+          "unidad_ref",
+          "version"
+        ]
+      },
+      "dimensiones_ambito": [
+        "empleado_ref",
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-21T00:00:00Z",
+      "vigente_hasta": "2027-01-19T00:00:00Z"
+    }
+  ]
+}
