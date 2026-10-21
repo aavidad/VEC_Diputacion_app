@@ -134,7 +134,13 @@ La semilla repone la fila técnica `(true, 0)` del contador externo que creó
 CTX15. Se verifica su propietario y seguridad por filas después de comprobar
 las 662 tablas vacías. Repone también la fila inicial del cerrojo de punteros
 actuales de CTX2, sin la cual ninguna prueba puede mover la cuenta, la persona,
-el perfil o el vínculo de un contexto. La prueba de contexto usa datos ficticios y termina en
+el perfil o el vínculo de un contexto. Repone además la fila `(true, 0)` del
+punto de control de los motivos V2 de autorización (`autorizacion/000003`),
+sin la cual no se publica ningún catálogo de motivos, como el de Cronos. Su
+disparador prohíbe insertarla, así que se añade como superusuario con
+`session_replication_role = replica` solo para esa fila, tras comprobar que la
+tabla está vacía, su propietario y la seguridad por filas forzada; después se
+exige exactamente una fila con secuencia 0. La prueba de contexto usa datos ficticios y termina en
 `ROLLBACK`, incluidas sus dos cuentas técnicas de ejecución. Su positivo
 comprueba el contexto externo; no acredita una autenticación con certificado
 ni una decisión completa de autorización. El SQL existente conserva fechas

@@ -35,6 +35,10 @@ llamarse desde `crear --recorrido-completo --cronos` (corte C1b).
 - `material/identidad/cronos-empleado.json` (modo 0600) con su cuenta, las
   conexiones y los motivos del catálogo `motivos_cronos_v1` que publica CRN18.
   El motivo de denegación es una entrada distinta de las demás.
+  Ese catálogo es **sintético, de desarrollo**: no se instala en producción
+  tal cual. Antes de una instalación real hay que retirarlo o dejar CRN18
+  fuera de la lista, y publicar el catálogo que apruebe RRHH. Repetir CRN18
+  sobre una base que ya lo tiene no falla: termina sin efectos.
 - `VEC_CRONOS_EMPLEADO_ENABLED=true`. La resolución y las notificaciones siguen
   apagadas porque faltan sus migraciones.
 

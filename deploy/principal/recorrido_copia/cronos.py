@@ -103,7 +103,7 @@ def persona_empleada(c):
     if (identidad.get('autoridad') != 'no_autoritativo'
             or manifiesto.get('sujeto') != identidad.get('subject')
             or not re.fullmatch(r'[0-9a-f]{64}', identidad.get('certificate_sha256', ''))
-            or any(not REF.fullmatch(str(manifiesto.get(k))) for k in ('persona_ref', 'cuenta_ref'))):
+            or any(not REF.fullmatch(str(manifiesto.get(k))) for k in ('persona_ref', 'cuenta_ref', 'perfil_ref'))):
         raise ValueError('Identidad técnica adicional de la copia incoherente')
     persona, cuenta = manifiesto['persona_ref'], manifiesto['cuenta_ref']
     origen = c.consultar(f"""SELECT jsonb_build_object('ref',v.procedencia_ref,'version',v.procedencia_version,
@@ -111,7 +111,7 @@ def persona_empleada(c):
       FROM vec_contexto_actor_v1.vinculo_contexto_actual a
       JOIN vec_contexto_actor_v1.vinculo_contexto_versiones v USING(vinculo_ref,version)
       WHERE v.cuenta_ref='{cuenta}' AND v.persona_ref='{persona}'
-        AND v.perfil_ref='{manifiesto.get('perfil_ref', '')}' AND v.estado='activo'
+        AND v.perfil_ref='{manifiesto['perfil_ref']}' AND v.estado='activo'
         AND clock_timestamp() < v.vigente_hasta - interval '60 days';""").splitlines()
     if len(origen) != 1:
         raise ValueError('La persona técnica adicional no tiene un vínculo de cuenta inequívoco')
@@ -228,7 +228,9 @@ BEGIN
   WHERE a.version_rol_ref={lit(ROL)};
  IF c.estado IS DISTINCT FROM 'habilitada'
   OR NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE version_rol_ref={lit(ROL)}
-   AND documento->>'estado'='publicada' AND jsonb_array_length(documento->'concesiones')=8)
+   AND documento->>'estado'='publicada' AND jsonb_array_length(documento->'concesiones')=8
+   AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(documento->'concesiones') x
+    WHERE jsonb_typeof(x->'accion') IS DISTINCT FROM 'string' OR left(x->>'accion',7)<>'cronos.'))
   OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref={lit(perfil)})
  THEN RAISE EXCEPTION 'semilla Cronos: preimagen incompatible' USING ERRCODE='55000'; END IF;
  doc:=jsonb_build_object('asignacion_id',{lit(refs['asignacion_id'])},'version',1,

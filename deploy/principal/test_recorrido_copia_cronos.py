@@ -140,6 +140,7 @@ class EtapaCronosTest(unittest.TestCase):
         self.assertIn("set_config('vec.cronos.empleado_ref'", sentencia)
         self.assertIn("'rol:cronos_empleado_sintetico:v1'", sentencia)
         self.assertIn("'clave','empleado_ref'", sentencia)
+        self.assertIn("left(x->>'accion',7)<>'cronos.'", sentencia)
         self.assertNotIn('emp_cae2338320061380b9ae00c5f6ab1fed', sentencia.split('vec_autorizacion_propietario')[1])
         semilla = json.loads((self.c.carpeta / 'cronos/semilla.json').read_text())
         self.assertFalse(semilla['gobierno_real_acreditado'])
@@ -152,6 +153,15 @@ class EtapaCronosTest(unittest.TestCase):
             'sujeto': 'otra', 'cuenta_ref': CUENTA, 'persona_ref': PERSONA, 'perfil_ref': PERFIL_ORIGEN})
         with self.assertRaisesRegex(ValueError, 'incoherente'):
             cronos.persona_empleada(self.c)
+        self.c.sql.assert_not_called()
+
+    def test_perfil_ref_malformado_sin_efectos(self):
+        self._json(self.material / 'identidad/tecnico-rrhh-adicional.json', {
+            'sujeto': 'desarrollo:rrhh:adicional:prueba', 'cuenta_ref': CUENTA,
+            'persona_ref': PERSONA, 'perfil_ref': "prf_' OR true --"})
+        with self.assertRaisesRegex(ValueError, 'incoherente'):
+            cronos.persona_empleada(self.c)
+        self.c.consultar.assert_not_called()
         self.c.sql.assert_not_called()
 
     def test_configuracion_motivo_denegado_distinto_y_privada(self):
