@@ -22,7 +22,8 @@ class CopiaFalsa:
         self.material.mkdir()
         (self.material / "identidad").mkdir()
         self._estado = {"nombre": self.nombre, "raiz": str(raiz), "fuente": str(fuente),
-                        "sid_copia": "1234567890123456789", "preparada": False, "material_modo": "nuevo", "puerto_pg": 15432}
+                        "sid_copia": "1234567890123456789", "preparada": False, "material_modo": "nuevo", "puerto_pg": 15432,
+                        "recorrido_completo": True}
         self.estado.write_text(json.dumps(self._estado))
         self.sentencias = []
 
@@ -43,6 +44,28 @@ class DatosCopiaTest(unittest.TestCase):
         self.raiz = Path(self.tmp.name)
         self.repo = Path(__file__).resolve().parents[2]
         self.copia = CopiaFalsa(self.raiz, self.repo)
+
+    def test_limpieza_no_se_ejecuta_en_una_copia_preparada_o_sin_recorrido(self):
+        from recorrido_copia.limpieza_bolsa import preparar
+        for cambio in ({'preparada': True}, {'recorrido_completo': False},
+                       {'sid_copia': "1'; SELECT 1; --"}):
+            with self.subTest(cambio=cambio):
+                estado = self.copia.leer()
+                original = dict(estado)
+                estado.update(cambio)
+                self.copia.estado.write_text(json.dumps(estado))
+                with self.assertRaisesRegex(ValueError, 'copia nueva'):
+                    preparar(self.copia)
+                self.assertEqual(self.copia.sentencias, [])
+                self.copia.estado.write_text(json.dumps(original))
+
+    def test_limpieza_rechaza_otro_volcado_sin_enviar_sql(self):
+        from recorrido_copia.limpieza_bolsa import preparar
+        (self.raiz / 'fuentes.json').write_text(json.dumps({
+            'principal-hz37-20261014.dump': '0' * 64}))
+        with self.assertRaisesRegex(ValueError, 'lote versionado'):
+            preparar(self.copia)
+        self.assertEqual(self.copia.sentencias, [])
 
     def test_reglas_disponibles_antes_de_preparar_la_identidad_del_aspirante(self):
         from recorrido_copia import bolsa

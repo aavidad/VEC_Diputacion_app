@@ -127,3 +127,5 @@ def preparar_datos(copia) -> None:
         _privado(ruta, identidad)
     preparar_intentos(copia)
     preparar_bolsa(copia)
+    from .limpieza_bolsa import preparar as limpiar_lote_versionado
+    limpiar_lote_versionado(copia)

@@ -38,8 +38,7 @@ deben estar libres y ser distintos. Las carpetas comunes `/dev/shm/vec` y
 faltan y rechaza otras condiciones sin cambiar permisos compartidos.
 
 La secuencia restaura la referencia y sus permisos, registra el identificador
-de PostgreSQL y aplica la lista SQL indicada. Prepara Bolsa, el aspirante,
-dos técnicos de RRHH y los dos actores del centro seleccionado en el catálogo.
+de PostgreSQL y aplica la lista SQL indicada. Prepara Bolsa, dos técnicos de RRHH y los dos actores del centro seleccionado en el catálogo.
 Compila la aplicación y Administración desde la misma revisión.
 
 Después confirma fuentes, unidad y dos cuentas de Administración con sus
@@ -65,6 +64,30 @@ usa su cuarto certificado propio; la hoja original se reserva a tramitación.
 Personal usa las referencias
 de la identidad propia y la unidad confirmada. Los empleados de los cuatro
 firmantes se preparan con el guion de datos versionado existente.
+
+Antes del primer arranque, retira de la copia el lote ficticio de Administrativo
+de septiembre que ya contiene el mismo XLS versionado. La limpieza exige la
+huella fijada de HZ37, el identificador de PostgreSQL y una copia nueva; elimina
+solo ese lote y su historia ficticia. Conserva la bolsa vigente y sus entradas.
+Las guardas de inmutabilidad de las tablas afectadas se restauran en la misma
+transacción; las claves foráneas siguen activas. Este guion es preparación de
+datos de desarrollo y no se instala en otra base.
+El recibo de constitución de la bolsa que se conserva mantiene en
+`sustituye_a` la referencia de septiembre retirada. Esa entrada de su historial
+queda sin bolsa de destino dentro de la copia. La limpieza no reescribe ese
+recibo; no debe usarse para acreditar la historia completa de una bolsa.
+
+Al terminar los actos, carga por la API normal el XLS de Administrativo de
+`data/demo/bolsa/convoca/administrativo/resumen.xls`. La confirmación sustituye
+la bolsa anterior sin borrar su historia. Después prepara la identidad y el
+contacto de Yago Lozano Hidalgo, primera persona del listado, con las referencias
+nativas de esa carga y un certificado nuevo. El justificante queda en
+`recorrido/carga-bolsa/recibo.json`; `caso40-seleccion.json` conserva las referencias
+propias de esa copia. No reutiliza el staging cifrado de HZ37 ni una clave ajena.
+Ensayo del 21/10: copia completa en 238,59 segundos desde `d0b03ab71`;
+carga confirmada con 41 personas, correo y Mi Bolsa consultados desde Chrome
+con respuesta 200 antes y después del reinicio de PostgreSQL y la aplicación.
+El detalle y los límites están en [el registro del ensayo](ensayo_carga_f1_27.md).
 
 Los certificados de desarrollo pueden cubrir 400 días. Cargos, admisiones,
 asignaciones y autoridades nuevos cubren de 60 a 90 días. La ventana fija
