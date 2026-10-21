@@ -2,18 +2,18 @@
 
 from datetime import timedelta
 import secrets
+import subprocess
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from copia_local_conexiones import _nombre_instancia, _privado, _rol
 from copia_local_usuarios import sql as sql_logins
 
 
-# Contrato de las once identidades acreditadas por comprobar-dietas.
-# Índices 110–120, posteriores a Usuarios, Organización y Personal.
+# Diez conexiones preparables; la asignación de Personal sigue detenida.
+# Índices 110–119, posteriores a Usuarios, Organización y Personal.
 ENTORNO = {
     'VEC_DIETAS_BORRADORES_DATABASE_URL': 'vec_dietas_ejecutor',
     'VEC_DIETAS_PERSONAL_RELACIONES_DATABASE_URL': 'vec_dietas_ejecutor',
-    'VEC_DIETAS_PERSONAL_ASIGNACION_DATABASE_URL': 'vec_personal_d7_ejecutor',
     'VEC_DIETAS_PERSONAL_AUDITORIA_FRONTERA_DATABASE_URL': 'vec_personal_registrador_frontera',
 }
 MANIFIESTO = {
@@ -86,20 +86,22 @@ def conexiones(c):
                 raise ValueError('Conexión Dietas ajena a la copia o sin TLS verificado')
         return valores
     if pendiente.exists() or pendiente.is_symlink():
-        raise ValueError('Alta Dietas incierta; conciliar las once cuentas originales')
+        raise ValueError('Alta Dietas incierta; consulte dietas-conexiones.log antes de conciliar las cuentas originales')
     claves = [secrets.token_hex(32) for _ in nombres]
     vence = (c.ahora() + timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
     c.guardar(pendiente, {'version': 1, 'copia_ref': copia.nombre,
                          'sid_copia': estado['sid_copia'], 'logins': nombres})
-    # F4b acredita este CONNECT nominal: Personal D7 no lo concede en roles_up.
-    # Va en la misma transacción que las altas; la guarda común de grupos sigue
-    # intacta y cualquier fallo revierte también este permiso de conexión.
     sentencia = sql_logins(nombres, claves, list(grupos.values()), vence)
-    if not sentencia.startswith(b'BEGIN;\n'):
-        raise ValueError('Aprovisionador de conexiones Dietas incompatible')
-    sentencia = (b'BEGIN;\nGRANT CONNECT ON DATABASE postgres TO vec_personal_d7_ejecutor;\n'
-                 + sentencia[len(b'BEGIN;\n'):])
-    c.sql(sentencia, 'dietas-conexiones.log')
+    try:
+        c.sql(sentencia, 'dietas-conexiones.log')
+    except subprocess.CalledProcessError as error:
+        # psql con ON_ERROR_STOP devuelve 3 ante un error del guion SQL.
+        # La desconexión (2) o un fallo del cliente no confirma el resultado.
+        if error.returncode == 3:
+            raise ValueError('La transacción de conexiones Dietas se revirtió; '
+                             'consulte dietas-conexiones.log antes de conciliar') from error
+        raise ValueError('Alta Dietas incierta; consulte dietas-conexiones.log '
+                         'antes de conciliar las cuentas originales') from error
     valores = {campo: 'postgresql://' + quote(login) + ':' + quote(clave)
                + '@localhost:' + str(puerto) + '/postgres?' + urlencode({
                    'sslmode': 'verify-full', 'sslrootcert': str(ca)})

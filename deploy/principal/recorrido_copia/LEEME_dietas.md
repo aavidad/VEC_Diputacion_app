@@ -4,7 +4,7 @@ Tarea: F4-DIETAS-COPIA. Preparación comprobada; la comisión desde la web sigue
 La copia habitual conserva el recorrido de Bolsa y Contratación sin activar Dietas.
 
 `copia_local.py crear --recorrido-completo --dietas` añade, al terminar la
-preparación común, dos admisiones del catálogo y once conexiones privadas.
+preparación común, dos admisiones del catálogo y diez conexiones privadas.
 Reutiliza el publicador del catálogo, sus comprobaciones de copia, las huellas,
 los recibos y su recuperación. Las cinco acciones ya declaradas por Dietas se
 reparten entre una fuente de Personal y otra de Dietas; sus ámbitos y campos
@@ -31,15 +31,18 @@ La aplicación arranca y reinicia con esta preparación y Dietas desactivado. No
   Dirección confirmó el 21 de octubre a las 09:58 que ese tramo debe detenerse.
 - El manifiesto de comisiones selecciona un perfil de dos dimensiones. La
   consulta de asignación necesita cuatro; no se amplía ese perfil para cubrirla.
-- El grupo técnico de asignación necesita la conexión a la base que acredita
-  el procedimiento F4b. La etapa concede solo ese permiso de conexión dentro
-  de la transacción de alta, conservando las guardas del aprovisionador común.
-  No se ejecuta el preparador histórico.
+- La conexión del ejecutor de asignación de Personal y su permiso de conexión
+  a la base se aplazan con ese tramo, por la revisión de dirección del 21 de
+  octubre a las 15:05. No se ejecuta el preparador histórico.
+- Un error SQL confirmado por psql (salida 3) informa de la reversión de la
+  transacción y remite a `dietas-conexiones.log` antes de conciliar. Una pérdida
+  de conexión conserva el resultado como incierto; nunca afirma una reversión.
 
-## Ensayo de la receta
+## Primer ensayo y corrección de revisión
 
 El 21 de octubre, la cabeza `0477a5ab8`, con main `3796cf010` incorporada,
-completó `crear --recorrido-completo --dietas` en **275,82 segundos**, con
+completó la versión anterior de `crear --recorrido-completo --dietas` en
+**275,82 segundos**, con
 salida 0 y material nuevo. No se reutilizó la copia del intento anterior.
 El ejecutable GrxFirma se declaró con su huella mediante las opciones de la
 [receta común](LEEME.md); no se descargó software ni se cambió el instalado.
@@ -56,7 +59,9 @@ El ejecutable GrxFirma se declaró con su huella mediante las opciones de la
 - La copia se borró con la fábrica, salida 0. Los recibos y registros quedan
   en la evidencia privada del equipo; no se incorporan conexiones a Git.
 
-Las veinte pruebas Python focales de Dietas, catálogo y conductor pasan.
+Las pruebas Python focales de Dietas, catálogo y conductor pasan.
+La revisión posterior aplaza la conexión de asignación de Personal: quedan
+diez conexiones. Su nuevo ensayo está pendiente.
 Cubren conexiones, recuperación, contratos y la parada de actos inciertos,
 aunque una lectura encuentre el rol. Semgrep local: tres reglas sobre los
 cinco archivos Python modificados, sin hallazgos. La revisión focal de

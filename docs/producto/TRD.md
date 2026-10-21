@@ -1054,9 +1054,10 @@ administradores inventados se sustituyen por personas reales.
 
 La receta de copia incluye en desarrollo una etapa opcional `--dietas`, solo
 junto a `crear --recorrido-completo`. Prepara las fuentes nominales de Personal
-y Dietas y sus once conexiones privadas; no activa el módulo por defecto. La
-preparación se ha ensayado con dos roles publicados por Administración y once
-conexiones TLS, también tras reiniciar aplicación y PostgreSQL. El recorrido
+y Dietas y diez conexiones privadas; no activa el módulo por defecto. La
+primera versión se ha ensayado con dos roles publicados por Administración y
+conexiones TLS, también tras reiniciar aplicación y PostgreSQL. La conexión
+de asignación de Personal se ha aplazado con el tramo detenido. El recorrido
 web sigue pendiente: faltan la asignación gobernada de Personal y los manifiestos. La causa y las condiciones están en
 `deploy/principal/recorrido_copia/LEEME_dietas.md`.
 

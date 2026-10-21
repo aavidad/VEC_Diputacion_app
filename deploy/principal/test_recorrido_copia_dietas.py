@@ -35,21 +35,23 @@ class ConexionesDietasTest(unittest.TestCase):
         self.c.consultar.return_value = self.estado['sid_copia']
         self.c.ahora.return_value = datetime(2026, 10, 21, tzinfo=timezone.utc)
 
-    def test_once_identidades_tls_separadas_y_recuperacion_sin_otra_alta(self):
+    def test_diez_identidades_tls_separadas_y_recuperacion_sin_otra_alta(self):
         valores = dietas.conexiones(self.c)
-        self.assertEqual(len(valores), 11)
+        self.assertEqual(len(valores), 10)
         urls = [urlsplit(v) for v in valores.values()]
-        self.assertEqual(len({u.username for u in urls}), 11)
-        self.assertEqual(len({u.password for u in urls}), 11)
+        self.assertEqual(len({u.username for u in urls}), 10)
+        self.assertEqual(len({u.password for u in urls}), 10)
         for u in urls:
             self.assertEqual((u.hostname, u.port, u.path), ('localhost', 55581, '/postgres'))
             self.assertEqual(parse_qs(u.query), {'sslmode': ['verify-full'],
                 'sslrootcert': [str(self.c.material / 'ca/ca.crt')]})
         sentencia = self.c.sql.call_args.args[0].decode()
-        self.assertEqual(sentencia.count('CREATE ROLE '), 11)
-        self.assertEqual(sentencia.count('WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;'), 11)
-        self.assertEqual(sentencia.count("VALID UNTIL '2027-01-19T00:00:00Z'"), 11)
-        self.assertIn('GRANT CONNECT ON DATABASE postgres TO vec_personal_d7_ejecutor;', sentencia)
+        self.assertEqual(sentencia.count('CREATE ROLE '), 10)
+        self.assertEqual(sentencia.count('WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;'), 10)
+        self.assertEqual(sentencia.count("VALID UNTIL '2027-01-19T00:00:00Z'"), 10)
+        self.assertNotIn('vec_personal_d7_ejecutor', sentencia)
+        self.assertNotIn('VEC_DIETAS_PERSONAL_ASIGNACION_DATABASE_URL', valores)
+        self.assertNotIn('GRANT CONNECT', sentencia)
         self.assertIn("has_database_privilege(r.oid,'postgres','CONNECT')", sentencia)
         self.assertNotIn('INSERT', sentencia)
         self.assertNotIn('VEC_DIETAS_BORRADORES_ENABLED', valores)
@@ -62,6 +64,24 @@ class ConexionesDietasTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'respuesta incierta'):
             dietas.conexiones(self.c)
         with self.assertRaisesRegex(ValueError, 'conciliar'):
+            dietas.conexiones(self.c)
+        self.c.sql.assert_called_once()
+
+    def test_error_sql_explica_rollback_y_no_repite_alta(self):
+        self.c.sql.side_effect = subprocess.CalledProcessError(3, ['psql'])
+        with self.assertRaisesRegex(ValueError, 'se revirtió; consulte dietas-conexiones.log'):
+            dietas.conexiones(self.c)
+        with self.assertRaisesRegex(ValueError, 'dietas-conexiones.log antes de conciliar'):
+            dietas.conexiones(self.c)
+        self.c.sql.assert_called_once()
+
+    def test_perdida_de_conexion_no_afirma_rollback_ni_expone_orden(self):
+        self.c.sql.side_effect = subprocess.CalledProcessError(2, ['psql', 'secreto'])
+        with self.assertRaisesRegex(ValueError, 'Alta Dietas incierta; consulte dietas-conexiones.log') as error:
+            dietas.conexiones(self.c)
+        self.assertNotIn('secreto', str(error.exception))
+        self.assertNotIn('revirtió', str(error.exception))
+        with self.assertRaisesRegex(ValueError, 'antes de conciliar'):
             dietas.conexiones(self.c)
         self.c.sql.assert_called_once()
 
@@ -90,7 +110,7 @@ class ConexionesDietasTest(unittest.TestCase):
             resultado = dietas.preparar(self.c)
         admitir.assert_called_once_with(self.c)
         self.assertFalse(resultado['activada'])
-        self.assertEqual(resultado['conexiones_entorno'], 4)
+        self.assertEqual(resultado['conexiones_entorno'], 3)
         self.assertEqual(resultado['conexiones_manifiesto'], 7)
         self.assertIn('perfil_asignado', resultado['pendiente'])
         self.c.copia.arrancar.assert_not_called()
