@@ -1,9 +1,9 @@
 # Recorrido de J — F1-27
 
-En curso, 21 de octubre de 2026. Fuente de ejecución:
-`5abbbcaae5c47c65dc6954daf92015b7aad08aeb`, main con el diagnóstico de
-selección nativa de F1-27. Dirección autorizó esta copia a las 09:37,
-tras integrar el registro de errores fijos.
+En curso, 21 de octubre de 2026. Fuente actual de ejecución:
+`014dc27e8f0fe04c4d983f0ba053cc629001672c`. La copia se creó desde
+`5abbbcaae5c47c65dc6954daf92015b7aad08aeb`, autorizada por dirección a
+las 09:37. Las actualizaciones posteriores se detallan debajo.
 
 La [receta completa](../recorrido_copia/LEEME.md) crea una copia nueva con
 material e identidades propios. I se ha parado con su gestor y se conserva
@@ -19,15 +19,17 @@ no se reintentó. No se añaden ramas.
 | Análisis, vía, asignación e informe (4–7) | Actuaciones 201 hasta versión 5 |
 | Dos firmas del informe y fiscalización (7b–8) | Dos firmas 201 y fiscalización favorable 201; versión 6 |
 | Selección, aviso, contacto y aceptación (9–11) | Selección 200; aviso, contacto, aceptación, vínculo y resolución portal 201 |
-| Propuesta, resolución, documentos y tres firmas (12–15) | Paso 12 bloqueado en interfaz; no se envía la propuesta |
+| Propuesta y resolución (12–13) | Ambas registradas; versión 8 |
+| Documentos (14) | Diez archivos descargados y abiertos; contenido incompleto |
+| Tres firmas de resolución (15) | Bloqueado antes de preparar el original; ninguna firma registrada |
 | Incorporación, Personal, GINPIX, cese, vuelta a Bolsa y cierre (17–21) | Pendiente |
 | Reinicio y recuperación de lecturas y recibos | Pendiente |
 
 La causa del 503 de I sigue sin identificarse. El diagnóstico integrado solo
 amplía el registro con errores fijos reconocidos; conserva los desconocidos
 como tipo. No modifica el error devuelto, la autorización ni las reglas.
-Si J confirma la selección, el recorrido continuará; si falla, se conservarán
-su petición, correlación y causa observada antes de proponer una corrección.
+J confirmó la selección; esto no identifica la causa del fallo de I.
+Las secciones siguientes conservan la secuencia y las revisiones de cada tramo.
 Los materiales privados quedan fuera de Git. Esta hoja no cierra F1-27 ni F1-28.
 
 La primera apertura del programa de firma se detuvo en la conexión TLS, antes
@@ -66,7 +68,7 @@ del expediente (201), revisó la aceptación y su plazo y la confirmó (201 a
 las 10:11:55). CT permanece en versión 6. No se aportó un correo ficticio
 para sustituir esa respuesta ni se modificaron permisos.
 
-## Paso 12: propuesta sin petición
+## Antecedente del paso 12: propuesta sin petición
 
 La ficha muestra la candidatura aceptada y el formulario «Guardar la
 propuesta», con las cuatro publicaciones cargadas. Pulsarlo no envía una
@@ -220,9 +222,61 @@ La consulta de solo lectura encontró una única propuesta con esa clave.
 Hay tres envíos en total, con resultados 503, 503 y 201. No se han creado
 otros antecedentes para repetir el trámite.
 
-La resolución todavía no está registrada. Al preparar su revisión, el
-perfil técnico recibe 403 en el panel de Documentos general. Esa lectura
-requiere una autorización propia de Documentos; los borradores de
-Contratación tienen otras rutas y permisos. Se ha comunicado a dirección
-y se comprueba la descarga de Contratación que ofrece la ficha de Gestión,
-sin añadir roles ni ampliar la lectura general.
+## Paso 13: resolución registrada
+
+A las 13:29:18 de Madrid se envió una única resolución, tras revisar el
+borrador y confirmar las dos comprobaciones del formulario. Respondió 201,
+versión 8, con recibo `recibo:6f28c32c-33d1-4ade-a645-5e374c643d46`.
+La resolución conserva el número `2026/95034` y la fecha `2026-10-21`.
+La pantalla indica validación manual, sin firma oficial ni eficacia
+administrativa. No se ha repetido este acto.
+
+El perfil técnico recibe 403 en el panel de Documentos general. Dirección
+indicó a las 13:26 continuar por las rutas y el permiso documental propios
+de Contratación, y tratar ese panel como una tarea aparte. La lectura de
+Documentos requiere su autorización independiente; no se han añadido roles
+ni ampliado permisos. El informe firmado de Contratación sí se recupera.
+
+## Paso 14: formatos abiertos y contenido pendiente
+
+Se descargaron los cinco documentos en PDF y Word: resolución, diligencia,
+toma de posesión, notificación y comunicación al centro. Las diez descargas
+por las rutas documentales de Contratación respondieron 200. Los cinco PDF
+se abren y contienen el membrete; los cinco Word se abrieron y convirtieron
+con LibreOffice en un perfil aislado. Sus paquetes contienen imagen y XML
+válidos, sin relaciones externas.
+
+Los documentos conservan datos del expediente, categoría y periodo, pero
+omiten la identidad de la persona. La resolución mantiene el número en
+blanco y el centro aparece como `centro-520`. Su PDF publicado tiene la
+misma huella antes y después del paso 13:
+`bdfed79778967b1b8e48e914aca89a2f5d9a587fcdddf1b156356463b61c70f2`.
+Por tanto, la apertura de los formatos está comprobada; el contenido del
+paso 14 sigue pendiente.
+
+## Paso 15: bloqueo antes de preparar el original
+
+No se ha preparado el original ni registrado ninguna firma de resolución.
+El plan conserva el orden Jefatura → Diputación → Secretaría General.
+El mapa de campos de `informejuridico/campos_borrador.go` excluye identidad
+y número de resolución; tanto el borrador publicado como el original
+firmable dependen de ese mapa, aunque usan renderizadores diferentes.
+No se debe confundir la huella del borrador publicado con la del original.
+
+El acto del paso 13 conserva `DocumentoVersion=7` y la huella del original
+`2bd134ba36db69c099f9423af4b04f4d5129166abe8725b621a7375c2cc8a571`.
+Cambiar sus bytes bajo esa misma referencia rompería el vínculo del acto.
+Contratación ya conserva número y fecha, pero su incorporación al documento
+requiere resolver ese vínculo. La etiqueta del centro procede del catálogo.
+
+El inventario no encontró una lectura nominal autorizada para formalizar o
+descargar documentos de Contratación. La consulta B113 de Persona devuelve
+referencia y versión, sin nombre, y su finalidad es preparar la incorporación.
+Las fuentes de nombre de correo y Mi Bolsa tienen otros consumidores y
+ámbitos. No se han reutilizado esas concesiones para documentos.
+
+Se comunicó el bloqueo a dirección a las 13:39 y el contrato pendiente a las
+13:46: decidir la lectura nominal y el tratamiento del documento ligado al
+acto antes de programar. No se ha cambiado código, SQL, datos ni permisos
+para eludirlo. Las descargas, aperturas y respuestas quedan en la evidencia
+privada; esta hoja no acredita los pasos 15–21 ni el reinicio final.
