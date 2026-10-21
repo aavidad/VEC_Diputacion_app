@@ -11,8 +11,13 @@ Usar una copia local nueva de la principal y la lista SQL canónica de esta rama
 CT260 debe quedar después de CT259 y del resto de las migraciones de main.
 La preimagen instalada de la función anterior tiene SHA256
 `49cf7bf45eb803baf87abee9556fe1417c61de4cf6daa8b0865f208e25ee6bd0`.
-La reconstrucción requiere su cuerpo instalado, propietario, permisos y
-configuración cotejados; esos metadatos están pedidos a dirección.
+El cuerpo preparado reproduce exactamente la huella de `pg_get_functiondef`
+que se leyó en la copia propia antes de retirarla. Se ha cotejado desde CT209
+normalizando solo las comillas de `search_path` y el terminador externo, como
+los representa PostgreSQL; no es una nueva extracción de una base viva.
+La migración comprobará propietario, permisos y configuración antes de cambiar
+la función y rechazará cualquier divergencia. El ensayo independiente debe
+confirmar esos metadatos.
 
 No necesita configuración, actos ni datos nuevos. El arranque conserva la
 configuración existente. Dirección organiza el ensayo y dos revisiones
@@ -32,3 +37,10 @@ historia.
 
 La prueba histórica de CT219 se ajustará a las postimágenes vigentes de ambas
 funciones. Conserva el resto de los cotejos de permisos y del plan de firma.
+
+Postimagen prevista de v2: SHA256
+`e25c5f2396341320420d8dced263eaff3d7c50114db1b784751368a242fdbac0`.
+Prueba registrada: `deploy/postgresql/contratacion_temporal/pruebas_sql/ct260_canon_fecha_historica_firma_v2.sql`,
+con los siete casos equivalentes, diferentes, nulos y ausentes de CT259.
+La prueba histórica CT219 conserva su dependencia de un plan publicado; no se
+añade al registro de la base vacía ni se afirma ejecutada por esa puerta.
