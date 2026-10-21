@@ -39,7 +39,10 @@ class GobiernoDietasTest(unittest.TestCase):
     def test_rol_ya_publicado_con_mas_campos_se_rechaza(self):
         self.ejecutar_publicacion(True)
 
-    def ejecutar_publicacion(self, ampliar):
+    def test_respuesta_incierta_no_se_oculta_aunque_el_rol_exista(self):
+        self.ejecutar_publicacion(False, incierto=True)
+
+    def ejecutar_publicacion(self, ampliar, incierto=False):
         repo = Path(__file__).parents[2]
         with tempfile.TemporaryDirectory() as temporal:
             raiz = Path(temporal)
@@ -66,6 +69,9 @@ class GobiernoDietasTest(unittest.TestCase):
                 roles[propuesta['rol_id']] = {'ref': 'rol:' + propuesta['rol_id'] + ':v1',
                     'version': 1, 'control_estado': 'habilitada', 'huella': 'a' * 64,
                     'documento': {'concesiones': concesiones}}
+                if incierto:
+                    Contexto.guardar(carpeta / 'roles-cierre-pendiente.json', {'operacion_ref': 'original'})
+                    raise ValueError('respuesta incierta')
                 return {'recibo_ref': 'referencia-ficticia-del-doble'}
 
             if ampliar:
@@ -86,6 +92,13 @@ class GobiernoDietasTest(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'contrato exacto'):
                         gobierno.publicar(c, admisiones)
                     self.assertEqual(propuestas, [])
+                    return
+                if incierto:
+                    with self.assertRaisesRegex(ValueError, 'respuesta incierta'):
+                        gobierno.publicar(c, admisiones)
+                    with self.assertRaisesRegex(ValueError, 'conciliar operación original'):
+                        gobierno.publicar(c, admisiones)
+                    self.assertEqual(len(propuestas), 1)
                     return
                 primero = gobierno.publicar(c, admisiones)
                 self.assertEqual([p['rol_id'] for p in propuestas], [r['rol_id'] for r in contratos])

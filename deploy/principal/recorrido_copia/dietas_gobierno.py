@@ -60,13 +60,24 @@ def publicar(c, admisiones):
         carpeta = c.carpeta / 'dietas/roles' / rol_id
         carpeta.mkdir(mode=0o700, parents=True, exist_ok=True)
         existente = roles_admin._rol(c, rol_id)
+        for fase in ('propuesta', 'cierre'):
+            if (carpeta / ('roles-' + fase + '-pendiente.json')).exists() and not (
+                    carpeta / ('roles-' + fase + '-respuesta.json')).exists():
+                raise ValueError('Acto ADMIN Dietas incierto; conciliar operación original')
         guardado = None
         if anterior is not None:
             propios = [r for r in anterior['roles'] if r['rol_ref'] == 'rol:' + rol_id + ':v1']
             if len(propios) != 1 or not existente or propios[0]['huella_sha256'] != existente['huella']:
                 raise ValueError('Rol Dietas distinto del recibo original')
             guardado = propios[0]
-        cierre = None
+        final = carpeta / 'roles-cierre-respuesta.json'
+        cierre = c.leer(final) if final.exists() else None
+        if cierre is not None:
+            original = c.leer(carpeta / 'roles-propuesta.json')
+            if (original.get('rol_id') != rol_id
+                    or cierre.get('propuesta_ref') != original.get('operacion_ref')
+                    or not (cierre.get('recibo_ref') or cierre.get('recibo', {}).get('auditoria_ref'))):
+                raise ValueError('Cierre ADMIN Dietas distinto de la propuesta original')
         if existente is None:
             ruta = carpeta / 'roles-propuesta.json'
             propuesta = c.leer(ruta) if ruta.exists() else {

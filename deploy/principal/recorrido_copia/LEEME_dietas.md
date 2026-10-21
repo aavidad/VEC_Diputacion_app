@@ -36,11 +36,12 @@ recibo y reinicio. No se enciende el selector de Dietas.
   de la transacción de alta, conservando las guardas del aprovisionador común.
   No se ejecuta el preparador histórico.
 
-Pruebas focales: diecinueve casos Python positivos sobre conexiones, catálogo y
+Pruebas focales: veinte casos Python positivos sobre conexiones, catálogo y
 conductor, incluidos el parser real de las fuentes y su vigencia. Los actos
 usan dobles en esas pruebas: no acreditan publicación ni recibos PostgreSQL.
 Las pruebas de publicación usan dobles: comprueban los contratos y que una
-recuperación conserva el material sin otra propuesta. No acreditan actos reales.
+recuperación conserva el material sin otra propuesta. Un acto incierto se
+detiene aunque la lectura encuentre el rol, hasta conciliar su operación original. No acreditan actos reales.
 Semgrep local comprueba TLS, ejecución por shell y deserialización. El ensayo de esta etapa y el recorrido web siguen pendientes.
 No se crea una copia para repetir el bloqueo ya identificado.
 
