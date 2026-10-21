@@ -129,3 +129,12 @@ desconocida. Se conserva la petición, respuesta y registro en el material
 privado. Dirección encargó localizar la causa y corregirla o añadir un
 diagnóstico limitado a errores reconocidos. Los pasos 12–21 y el reinicio
 final siguen pendientes.
+
+El diagnóstico preparado en la PR #1426, revisión `57697a62a`, distingue
+las etapas con textos fijos sin cambiar resultados ni permisos. Las pruebas
+focales de propuesta, antecedente portal y privacidad han pasado, y la
+revisión independiente de seguridad es favorable. Semgrep no encontró
+hallazgos. El adaptador oficial local de GoSec completó el paquete: ninguno
+en los cuatro archivos Go cambiados; sus 79 avisos están en archivos cuyos
+bytes coinciden con la base `963bab91a`. La puerta completa de calidad
+continúa en curso. El diagnóstico todavía no está instalado en J.
