@@ -83,7 +83,29 @@ aunque la aceptación procede de Mi Bolsa. El código de preparación ya
 conserva la resolución y su recibo como antecedente nominal del portal.
 
 Se ha comunicado a dirección para asignar la corrección mínima. No se han
-fabricado solicitudes ni alterado la selección del navegador. Las capturas a
+fabricado solicitudes ni modificado el código que prepara el envío. Las capturas a
 1440 y 390 px y el registro de peticiones quedan en el material privado;
 a 390 px el contenido mide 375 px y no desborda. Los pasos 12–21 y el
 reinicio final siguen pendientes.
+
+## Actualización autorizada de la aplicación
+
+Dirección integró la corrección de propuesta en main
+`0ed5c5e5e2609fc1dff336e3c526c7b63ef5a77e` y autorizó actualizar J sobre
+su misma base. El árbol avanzó limpio por fast-forward. Se compiló
+`vec-server` por la receta habitual, con dos procesos y el límite de memoria
+acordado; terminó en 1,35 segundos. SHA-256 del binario compilado:
+`03342a2500a8d2789d3a1ad0e01190f807182169721873a81fc372af023bb973`.
+Sus bytes coinciden con el anterior, pues no cambia Go. La revisión y la
+huella reales se registraron conservando la preimagen para vuelta atrás.
+No se aplicó SQL ni se sustituyeron certificados.
+
+Solo se cerró la aplicación anterior, comprobando su PID y ejecutable, y se
+arrancó la nueva con el gestor. PostgreSQL conserva el mismo identificador
+de contenedor y el mismo instante de arranque. El proceso nuevo de la
+aplicación consta activo. El gestor devolvió después «ADMIN no preparado o ya
+activo» al intentar arrancar de nuevo Administración, que se había conservado
+activa con su mismo PID. Se comunicó esa guarda a dirección y se detuvo el
+recorrido, como había indicado: todavía no se ha pulsado «Guardar la
+propuesta» con el parche. Falta comprobar la recuperación de los recibos y
+continuar los pasos 12–21.
