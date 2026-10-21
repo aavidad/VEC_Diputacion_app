@@ -85,6 +85,98 @@ func TestRegistroDiagnosticoClasificaComposicionIncorporacionSinExponerCausa(t *
 	}
 }
 
+type causaPrivadaSeleccionDiagnosticoPrueba struct{}
+
+func (*causaPrivadaSeleccionDiagnosticoPrueba) Error() string {
+	return "CONTENIDO_PRIVADO: referencia y conexión"
+}
+
+type envoltorioCentinelaSeleccionPrueba struct{ causa error }
+
+func (*envoltorioCentinelaSeleccionPrueba) Error() string   { return "CONTENIDO_PRIVADO: envoltorio" }
+func (e *envoltorioCentinelaSeleccionPrueba) Unwrap() error { return e.causa }
+func (*envoltorioCentinelaSeleccionPrueba) Is(objetivo error) bool {
+	return objetivo == ports.ErrIntegracionBolsaNoDisponible
+}
+
+func TestDiagnosticoSeleccionReconoceEnvoltorioConIsYCadenaProfunda(t *testing.T) {
+	anterior := slog.Default()
+	defer slog.SetDefault(anterior)
+	privada := &causaPrivadaSeleccionDiagnosticoPrueba{}
+	profunda := error(privada)
+	for range 40 {
+		profunda = fmt.Errorf("CONTENIDO_PRIVADO: %w", profunda)
+	}
+	for _, caso := range []struct {
+		nombre, esperado string
+		causa            error
+	}{
+		{"envoltorio_con_Is", "integracion_bolsa_no_disponible",
+			errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada,
+				&envoltorioCentinelaSeleccionPrueba{causa: privada})},
+		{"cadena_profunda", "*httpinterno.causaPrivadaSeleccionDiagnosticoPrueba",
+			errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, profunda)},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var registro bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+			registrarFalloContratacion(httptest.NewRequest(http.MethodPost, RutaSeleccionLlamamiento, nil),
+				http.StatusServiceUnavailable, "servicio_no_disponible", "corr_prueba", caso.causa)
+			var entrada map[string]any
+			if err := json.Unmarshal(registro.Bytes(), &entrada); err != nil ||
+				entrada["causa_interna"] != caso.esperado ||
+				strings.Contains(registro.String(), "CONTENIDO_PRIVADO") {
+				t.Fatalf("diagnóstico profundo o privacidad incorrectos: %s %v", registro.String(), err)
+			}
+		})
+	}
+}
+
+func TestDiagnosticoSeleccionIndeterminadaUsaCausaInternaSegura(t *testing.T) {
+	anterior := slog.Default()
+	defer slog.SetDefault(anterior)
+	privada := &causaPrivadaSeleccionDiagnosticoPrueba{}
+	for _, caso := range []struct {
+		nombre, ruta, esperado string
+		causa                  error
+	}{
+		{"envoltorio", RutaSeleccionLlamamiento, "integracion_bolsa_no_disponible",
+			fmt.Errorf("CONTENIDO_PRIVADO: %w", errors.Join(
+				application.ErrEjecucionSeleccionLlamamientoIndeterminada,
+				fmt.Errorf("CONTENIDO_PRIVADO: %w", ports.ErrIntegracionBolsaNoDisponible)))},
+		{"múltiples con causa CT más profunda", RutaSeleccionLlamamiento, "evidencia_bolsa_no_autenticada",
+			errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada,
+				ports.ErrRespuestaBolsaNoConfiable,
+				fmt.Errorf("CONTENIDO_PRIVADO: %w", fmt.Errorf("%w", ports.ErrEvidenciaBolsaNoAutenticada)))},
+		{"desconocida", RutaSeleccionLlamamiento, "*httpinterno.causaPrivadaSeleccionDiagnosticoPrueba",
+			errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada,
+				fmt.Errorf("CONTENIDO_PRIVADO: %w", privada))},
+		{"desconocida unida al estado público", RutaSeleccionLlamamiento,
+			"*httpinterno.causaPrivadaSeleccionDiagnosticoPrueba",
+			errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, privada)},
+		{"otra ruta", RutaAltaSolicitudes, "",
+			errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, privada)},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var registro bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+			registrarFalloContratacion(httptest.NewRequest(http.MethodPost, caso.ruta, nil),
+				http.StatusServiceUnavailable, "servicio_no_disponible", "corr_prueba", caso.causa)
+			var entrada map[string]any
+			if err := json.Unmarshal(registro.Bytes(), &entrada); err != nil {
+				t.Fatal(err)
+			}
+			valor, presente := entrada["causa_interna"]
+			if (caso.esperado == "" && presente) ||
+				(caso.esperado != "" && valor != caso.esperado) ||
+				strings.Contains(registro.String(), "CONTENIDO_PRIVADO") ||
+				strings.Contains(registro.String(), privada.Error()) {
+				t.Fatalf("causa técnica incorrecta o dato privado expuesto: %s", registro.String())
+			}
+		})
+	}
+}
+
 func TestFronterasContratacionCorrelacionanFalloSinContenidoPrivado(t *testing.T) {
 	anterior := slog.Default()
 	defer slog.SetDefault(anterior)

@@ -3,6 +3,7 @@ package httpinterno
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -116,10 +117,83 @@ func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion
 	if etapa == "desconocida" && errors.Is(causa, ports.ErrComposicionIncorporacionAplicacion) {
 		etapa = "incorporacion_ejercicio.composicion"
 	}
-	slog.Error("operación de Contratación fallida", "operacion", operacion, "ruta", ruta,
+	atributos := []any{"operacion", operacion, "ruta", ruta,
 		"estado_http", estado, "codigo", codigo,
 		"etapa", etapa, "sqlstate", sqlstate,
-		"centinela", centinelaSeguroContratacion(causa), "correlacion_ref", correlacion)
+		"centinela", centinelaSeguroContratacion(causa), "correlacion_ref", correlacion}
+	if ruta == RutaSeleccionLlamamiento &&
+		errors.Is(causa, application.ErrEjecucionSeleccionLlamamientoIndeterminada) {
+		atributos = append(atributos, "causa_interna", causaInternaSeleccionIndeterminada(causa))
+	}
+	slog.Error("operación de Contratación fallida", atributos...)
+}
+
+// El resultado público indeterminado es un envoltorio: el diagnóstico busca
+// la causa CT más profunda. Una causa desconocida aporta solo su tipo Go.
+func causaInternaSeleccionIndeterminada(causa error) string {
+	conocidos := []struct {
+		error
+		codigo string
+	}{
+		{ports.ErrPeticionIntegracionBolsaInvalida, "peticion_integracion_bolsa_invalida"},
+		{ports.ErrRespuestaBolsaNoConfiable, "respuesta_bolsa_no_confiable"},
+		{ports.ErrIntegracionBolsaNoDisponible, "integracion_bolsa_no_disponible"},
+		{ports.ErrEstadoExpedienteNoSeleccionable, "expediente_no_seleccionable"},
+		{ports.ErrLimiteIntegracionBolsaExcedido, "limite_integracion_bolsa_excedido"},
+		{ports.ErrEvidenciaBolsaNoAutenticada, "evidencia_bolsa_no_autenticada"},
+		{ports.ErrAutorizacionDenegada, "autorizacion_denegada"},
+		{ports.ErrEjecucionSeleccionLlamamientoInvalida, "ejecucion_seleccion_invalida"},
+		{ports.ErrEjecucionSeleccionLlamamientoPendiente, "ejecucion_seleccion_pendiente"},
+		{application.ErrServicioSeleccionLlamamientoInvalido, "servicio_seleccion_invalido"},
+		{application.ErrSolicitudSeleccionLlamamientoInvalida, "solicitud_seleccion_invalida"},
+		{application.ErrSeleccionLlamamientoNoDisponible, "seleccion_no_disponible"},
+		{application.ErrResultadoSeleccionLlamamientoNoConfiable, "resultado_seleccion_no_confiable"},
+		{application.ErrClaveSeleccionLlamamientoEnColision, "clave_seleccion_en_colision"},
+		{application.ErrEjecucionSeleccionLlamamientoConcurrente, "ejecucion_seleccion_concurrente"},
+	}
+	mejor, profundidadConocida := "", -1
+	var interno error
+	profundidadInterna := -1
+	var visitar func(error, int)
+	visitar = func(actual error, profundidad int) {
+		if actual == nil {
+			return
+		}
+		descendio := false
+		switch envuelto := actual.(type) {
+		case interface{ Unwrap() []error }:
+			for _, siguiente := range envuelto.Unwrap() {
+				if siguiente != nil {
+					descendio = true
+					visitar(siguiente, profundidad+1)
+				}
+			}
+		case interface{ Unwrap() error }:
+			if siguiente := envuelto.Unwrap(); siguiente != nil {
+				descendio = true
+				visitar(siguiente, profundidad+1)
+			}
+		}
+		if !descendio && (profundidad > profundidadInterna ||
+			(profundidad == profundidadInterna &&
+				errors.Is(interno, application.ErrEjecucionSeleccionLlamamientoIndeterminada) &&
+				!errors.Is(actual, application.ErrEjecucionSeleccionLlamamientoIndeterminada))) {
+			interno, profundidadInterna = actual, profundidad
+		}
+		if profundidad > profundidadConocida {
+			for _, conocido := range conocidos {
+				if errors.Is(actual, conocido.error) {
+					mejor, profundidadConocida = conocido.codigo, profundidad
+					break
+				}
+			}
+		}
+	}
+	visitar(causa, 0)
+	if mejor != "" {
+		return mejor
+	}
+	return fmt.Sprintf("%T", interno)
 }
 
 func codigoSQLSeguro(codigo string) bool {
