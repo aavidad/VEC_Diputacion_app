@@ -348,12 +348,12 @@ class Copia:
             if not args.portal_externo:
                 # F1-99: datos del caso 4.0 e identidad de Mi Bolsa de Antonio.
                 import copia_local_caso40 as caso40
-                caso40.aplicar_guiones(self, REPO)
+                caso40.aplicar_guiones(self, REPO, bolsa_historica=not completo)
             from copia_local_ambito_bolsas import declarar as declarar_ambito_bolsas
             declarar_ambito_bolsas(self)
-            if not args.portal_externo:
+            if not args.portal_externo and not completo:
                 entorno_modulos = json.loads((self.raiz / 'entorno_modulos.json').read_text())
-                entorno_modulos = caso40.entorno_portal(entorno_modulos, caso40.preparar_antonio(self, REPO))
+                entorno_modulos = caso40.entorno_portal(entorno_modulos, caso40.preparar_aspirante(self, REPO))
                 guardar(self.raiz / 'entorno_modulos.json', entorno_modulos)
                 estado = self.leer()
                 estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
@@ -399,7 +399,7 @@ class Copia:
         if completo:
             from recorrido_copia.conductor import provisionar_perfiles
             provisionar_perfiles(self)
-        if args.modulos and not args.portal_externo:
+        if args.modulos and not args.portal_externo and not completo:
             caso40.registrar_contacto(self, REPO)
         if admin or completo:
             from copia_local_administracion import ejecutar as ejecutar_admin, huella_ejecutor

@@ -5,6 +5,7 @@ import json
 import hashlib
 import re
 import secrets
+import uuid
 from pathlib import Path
 
 from .actos import perfiles_admin, _recibo as recibo_acto
@@ -144,15 +145,16 @@ def preparar_plan(c):
         cfg = c.leer(config_archivo)
     else:
         token = secrets.token_hex(12)
+        referencia = str(uuid.uuid4())
         copia_ref = m['copia_ref']
         cfg = {'version': 1, 'copia_ref': copia_ref, 'circuito_archivo': str(circuito),
                'circuito_archivo_sha256': sha(raw_circuito), 'entradas_archivo': str(entradas_archivo),
                'entradas_archivo_sha256': sha(entradas_archivo.read_bytes()),
-               'fuente_ref': 'fuente:plan:l:f131:' + token,
+               'fuente_ref': 'fuente:plan:' + referencia,
                'creado_por': actos['admin_personas'][0], 'creado_perfil_ref': perfiles[0],
                'publicado_por': actos['admin_personas'][1], 'publicado_perfil_ref': perfiles[1],
-               'aprobacion_ref': 'aprobacion:plan:l:f131:b:' + token,
-               'preparacion_ref': 'preparacion:plan:l:f131:' + token,
+               'aprobacion_ref': 'aprobacion:plan:' + referencia,
+               'preparacion_ref': 'preparacion:plan:' + referencia,
                'clave_operacion_crear': 'plan-firma-hz39-v1-' + copia_ref + '-crear-' + token,
                'clave_operacion_publicar': 'plan-firma-hz39-v1-' + copia_ref + '-publicar-' + token,
                'correlacion_crear': 'correlacion:plan-firma-hz39-v1:' + token + ':crear',
