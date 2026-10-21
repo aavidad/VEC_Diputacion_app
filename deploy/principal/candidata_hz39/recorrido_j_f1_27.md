@@ -18,8 +18,8 @@ no se reintentó. No se añaden ramas.
 | Petición, ratificación y alta (1–3) | 200, 200 y 201; expediente 2026/95034, versión 1 |
 | Análisis, vía, asignación e informe (4–7) | Actuaciones 201 hasta versión 5 |
 | Dos firmas del informe y fiscalización (7b–8) | Dos firmas 201 y fiscalización favorable 201; versión 6 |
-| Selección, contacto y aceptación (9–11) | Pendiente; se observará el registro si falla |
-| Propuesta, resolución, documentos y tres firmas (12–15) | Pendiente |
+| Selección, aviso, contacto y aceptación (9–11) | Selección 200; aviso, contacto, aceptación, vínculo y resolución portal 201 |
+| Propuesta, resolución, documentos y tres firmas (12–15) | Paso 12 bloqueado en interfaz; no se envía la propuesta |
 | Incorporación, Personal, GINPIX, cese, vuelta a Bolsa y cierre (17–21) | Pendiente |
 | Reinicio y recuperación de lecturas y recibos | Pendiente |
 
@@ -44,3 +44,46 @@ firmante. El PDF descargado desde la ficha contiene 49.314 bytes y su SHA-256,
 coincide con el resultado de la segunda firma. Intervención confirmó después
 el resultado favorable con su recibo y la versión resultante 6. Hasta este
 tramo no se ha solicitado selección ni registrado contacto en J.
+
+## Selección, contacto y aceptación
+
+La selección devolvió 200 en su único envío, a las 10:02:08 de Madrid, con
+recibo confirmado. El aviso se anotó después con respuesta 201. El resultado
+de J no permite atribuir la causa del 503 de I al código ni darla por resuelta.
+
+«Abrir llamamiento en Bolsa» llevó al asistente de otro llamamiento; no se
+confirmó nada allí. Al volver a la ficha, el bloque de contacto de CT no se
+muestra para una comunicación recuperada. La vía existente que sí se usó es
+el seguimiento del llamamiento en Bolsa: «Ver ficha y llamar» abre la ficha de
+Yago y el registro telefónico. Se confirmó «Contactado» una sola vez, con
+respuesta 201 a las 10:08:51 y la hora automática del servidor. No hubo otra
+selección ni un llamamiento nuevo.
+
+Mi Bolsa mostró ese contacto y el plazo hasta el 23 de octubre a las 00:00,
+hora de Madrid. Yago aceptó con su certificado; la respuesta firme devolvió
+201 a las 10:09:34. RRHH vinculó por pantalla la emisión ofrecida como propia
+del expediente (201), revisó la aceptación y su plazo y la confirmó (201 a
+las 10:11:55). CT permanece en versión 6. No se aportó un correo ficticio
+para sustituir esa respuesta ni se modificaron permisos.
+
+## Paso 12: propuesta sin petición
+
+La ficha muestra la candidatura aceptada y el formulario «Guardar la
+propuesta», con las cuatro publicaciones cargadas. Pulsarlo no envía una
+petición ni cambia el mensaje «Documentos cargados. Revise y guarde la
+propuesta». Seleccionar después la comunicación existente en su lista hace
+desaparecer ese formulario. No se ha enviado ningún POST de propuesta.
+
+El inventario de código y una comprobación independiente localizan una
+contradicción: `formulario-llamamiento.js:411` muestra la propuesta de Mi Bolsa
+separada cuando no hay comunicación de CT seleccionada; el envío exige esa
+selección en las líneas 801–805. La guarda de consulta de respuesta de las
+líneas 806–807 también depende de un antecedente de comunicación de CT,
+aunque la aceptación procede de Mi Bolsa. El código de preparación ya
+conserva la resolución y su recibo como antecedente nominal del portal.
+
+Se ha comunicado a dirección para asignar la corrección mínima. No se han
+fabricado solicitudes ni alterado la selección del navegador. Las capturas a
+1440 y 390 px y el registro de peticiones quedan en el material privado;
+a 390 px el contenido mide 375 px y no desborda. Los pasos 12–21 y el
+reinicio final siguen pendientes.
