@@ -20,6 +20,27 @@ Se declaran los cinco puertos locales y los dos binarios de firma con sus
 huellas. El volcado se lee del material privado de referencia; certificados,
 conexiones, recibos y registros permanecen fuera de Git.
 
+## Datos y actuaciones del tramo recorrido
+
+En una copia nueva, el centro selecciona Administrativo de la RPT, grupo C1,
+puesto 9 y plaza 2026/0033. La necesidad es una vacante para una persona,
+con jornada de 37:30 y periodo del 2 de noviembre al 31 de diciembre de 2026.
+La clasificación orgánica es 151, la funcional 920, el proyecto P-1 y la
+financiación el 100 %. La petición declara la operación de crédito
+220260004524, de 21 de octubre de 2026, por 8.450,32 euros.
+
+Otra persona del centro revisa y ratifica. RRHH crea el expediente con un
+número MOAD libre; en F fue 2026/95030. En el análisis conserva los datos de
+la petición, elige «Necesidad temporal» y «Retención de crédito 001», e indica
+37 horas y 30 minutos. Después confirma bolsa vigente, asignación e informe.
+
+La técnica y Jefatura firman el informe desde sus paneles y confirman cada
+firma en GrxFirma. Se comprueba el recibo y la verificación técnica antes de
+pasar a la siguiente persona. Intervención abre el expediente en versión 5 y
+registra «Favorable»; esa opción no lleva observaciones. RRHH pulsa «Llamar a
+la siguiente persona» y, confirmado el llamamiento, «Anotar el aviso».
+Cada copia genera sus propias claves y recibos desde los formularios.
+
 ## Resultado
 
 | Tramo | Estado |
