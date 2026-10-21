@@ -146,7 +146,7 @@ No admite sesiones reanudadas ni identidad por cabeceras. Solo arranca en
 | Jefatura de RRHH, administrativo | `jefatura_rrhh`, `administrativo` | `/portal-empleado/` | Sin menú propio: lo que ven lo decide cada API | Falta definir |
 | Intervención | `intervencion` | `/portal-empleado/` | Entra en CT y fiscaliza desde la ficha; no tiene bandeja propia | En cidonia |
 | Firmantes (Jefatura de Servicio, Diputado/a, Secretaría General, Dirección de RRHH, persona nombrada) | perfiles lógicos `perfil:ct:*` | Ficha del expediente, panel de firma | Firmar o devolver con motivo | Falta (#1099) |
-| Empleado | `personal_interno` | `/portal-empleado/` | Mis trámites, Personal, Cronos y Dietas por accesos de Inicio | Oculto: módulos aparcados |
+| Empleado | `personal_interno` | `/portal-empleado/` | Cronos en el menú si el servidor le permite leer su saldo; Mis trámites, Personal y Dietas por accesos de Inicio | Cronos en la copia local; el resto oculto |
 | Administrador de aplicación | rol `administracion_perfiles` | `admin.*` | Usuarios, asignar y retirar perfiles | En cidonia, parcial |
 | Administrador de sistemas | perfil de sistemas | `admin.*` | Instalación, versiones, copias | Copias por línea de órdenes |
 
@@ -170,11 +170,17 @@ El lateral se arma así (`web/static/portal-empleado/index.html`,
 1. **Inicio.** Para RRHH, cuadro de mando con pendientes vencidos, vencen hoy,
    incidencias, reparto por fase y bolsas (`portal-inicio.js`). Cada cifra abre
    su lista filtrada.
-2. **Módulos**, desde `GET /api/vec/modules`. Hoy solo se ofrecen Bolsa y
-   Contratación temporal; Personal, Cronos, Dietas y Documentos se ocultan del
-   menú (`CLAVES_SIN_ENTRADA_PORTAL`) y se llega a ellos por dirección directa o
-   por los accesos de Inicio. `VEC_PORTAL_MODULOS_VISIBLES` limita además qué
-   módulos se cargan en cada despliegue; no es un permiso.
+2. **Módulos**, desde `GET /api/vec/modules`. Se ofrecen Bolsa y Contratación
+   temporal. Cronos aparece en el menú y en Inicio solo cuando el servidor
+   responde 200 a la lectura del saldo propio del día
+   (`CLAVES_ENTRADA_SEGUN_ACCESO`); con 401, 403 o 404 no se ofrece, y con un
+   5xx, un plazo agotado o un fallo de carga sale como «No disponible ·
+   Reintentar». Hasta ese 200 el portal solo descarga el cliente de saldo. Sus pestañas de avisos y de comunicaciones a RRHH se quitan cuando su
+   servicio responde 404 (apagado en la configuración). Personal, Dietas y
+   Documentos se ocultan del menú (`CLAVES_SIN_ENTRADA_PORTAL`) y se llega a
+   ellos por dirección directa o por los accesos de Inicio.
+   `VEC_PORTAL_MODULOS_VISIBLES` limita además qué módulos se cargan en cada
+   despliegue; no es un permiso.
 3. **Plantillas de documentos**, solo si RRHH tiene permiso y
    `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` está activa. El portal no consulta
    ese permiso al cargar: el enlace del menú aparece después de abrir una vez

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
+import { CLAVES_ENTRADA_SEGUN_ACCESO, CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
 import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=VEC_WEB_VERSION";
@@ -50,11 +50,13 @@ const recursosCronos = () => ({
   movimientos: { montarVistaMovimientosCronos() {} },
   movimientosPropios: { montarMovimientosPropiosCronos() {} },
   permisosPropios: { montarPermisosPropiosCronos() {} },
-  clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({}) },
+  clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({ consultar: async () => ({}) }) },
   clienteRemoto: { crearClienteRemotoCronosHTTP: () => ({}) },
   clienteSolicitudes: { crearClienteSolicitudesCronosHTTP: () => ({}) },
   i18n: { crearTraductorCronos: () => (clave) => clave },
 });
+// Acceso a Cronos: el cliente de saldo responde «permitido» sin red.
+const ACCESO_CRONOS = async () => ({ clienteSaldo: { crearClienteSaldoCronosHTTP: () => ({ consultar: async () => ({}) }) } });
 const recursosPersonal = () => ({
   contrato: { CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" },
   cliente: { crearClienteHTTPCategoriasPersonal: () => ({}) },
@@ -69,29 +71,29 @@ const recursosDietas = () => ({
   recorridos: { montarVistaRecorridosDietas() {} },
 });
 
-test("Mi espacio publica navegación diferida sin cargar ni consultar módulos propios", async () => {
+test("Mi espacio publica navegación diferida sin consultar módulos propios; Cronos entra en el catálogo al confirmar su acceso", async () => {
   const cargados = [];
   const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
     cargarCatalogoInterno: async () => CATALOGO.filter(({ clave }) => clave !== "contratacion_temporal"),
     entorno: { fetch: () => assert.fail("los accesos no deben sondear APIs propias") },
     cargadoresInternos: {
       contratacion_temporal: () => assert.fail("CT no está en el catálogo"),
-      cronos: async () => { cargados.push("cronos"); return recursosCronos(); },
+      cronos_acceso: ACCESO_CRONOS, cronos: async () => { cargados.push("cronos"); return recursosCronos(); },
       personal: () => assert.fail("Personal no se ha abierto"), dietas: () => assert.fail("Dietas no se ha abierto"),
     },
   });
   await coordinador.cargarInterno();
-  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" }, "mis-tramites": { estado: "diferido" } });
-  assert.deepEqual(cargados, []);
+  // Cronos ya no figura entre los accesos propios: tiene su entrada en el catálogo.
+  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, dietas: { estado: "diferido" }, "mis-tramites": { estado: "diferido" } });
+  assert.deepEqual(cargados, ["cronos"]);
+  assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), ["cronos"]);
   for (const vista of ["personal-registro", "cronos-bandeja", "cronos-bandeja-notificaciones"]) assert.equal(VISTAS_AUTOSERVICIO_EMPLEADO.has(vista), false);
   assert.match(crearVistaInicioPortal({ encabezadoVista: () => "", escaparHTML: String,
     obtenerCatalogo: () => coordinador.obtenerCatalogo(), resolverAcceso: coordinador.resolverAcceso,
     obtenerAccesosEmpleado: coordinador.obtenerAccesosEmpleado })(), /Mi espacio/);
-  assert.deepEqual(cargados, []);
-  await coordinador.prepararVista("cronos");
+  assert.equal(coordinador.prepararVista("cronos"), null, "Cronos ya está cargado");
   assert.deepEqual(cargados, ["cronos"]);
   assert.equal(coordinador.vistaDisponible("cronos"), true);
-  assert.equal(coordinador.obtenerAccesosEmpleado().cronos.estado, "disponible");
 });
 
 /** Cada cargador espera a que la prueba lo libere: se controla el orden de llegada. */
@@ -111,7 +113,7 @@ function coordinadorControlado({ limite = 10_000 } = {}) {
     entorno: { fetch: async () => { throw new Error("sin red"); } },
     cargadoresInternos: {
       contratacion_temporal: cargador("contratacion_temporal"),
-      cronos: cargador("cronos"),
+      cronos_acceso: ACCESO_CRONOS, cronos: cargador("cronos"),
       personal: cargador("personal"),
       dietas: cargador("dietas"),
     },
@@ -141,8 +143,9 @@ test("el catálogo se publica al llegar con los módulos en «cargando» y cada 
   });
   await esperarTurnos();
   assert.deepEqual(avisos, [["catalogo", "cargando"]]);
-  // Personal, Cronos y Dietas se cargan pero no se ofrecen en menú ni Inicio.
-  assert.deepEqual(coordinador.obtenerCatalogo(), CATALOGO.filter(({ clave }) => !CLAVES_SIN_ENTRADA_PORTAL.includes(clave)));
+  // Personal y Dietas se cargan pero no se ofrecen; Cronos, solo con acceso confirmado.
+  assert.deepEqual(coordinador.obtenerCatalogo(), CATALOGO.filter(({ clave }) => !CLAVES_SIN_ENTRADA_PORTAL.includes(clave)
+    && !CLAVES_ENTRADA_SEGUN_ACCESO.includes(clave)));
   for (const clave of ["contratacion_temporal", "cronos", "personal", "dietas"]) {
     assert.equal(coordinador.resolverAcceso(clave).estado, "cargando", clave);
     assert.equal(coordinador.resolverAcceso(clave).disponible, false, clave);
@@ -155,6 +158,7 @@ test("el catálogo se publica al llegar con los módulos en «cargando» y cada 
   assert.equal(coordinador.resolverAcceso("cronos").estado, "cargando");
   pendientes.cronos.resolver(recursosCronos());
   await esperarTurnos();
+  assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), ["contratacion_temporal", "cronos"]);
   pendientes.personal.rechazar(new Error("falla"));
   await esperarTurnos();
   pendientes.contratacion_temporal.rechazar(new Error("falla"));
@@ -310,7 +314,7 @@ test("dos cargas seguidas: los módulos tardíos de la primera no alteran la com
     cargadoresInternos: {
       contratacion_temporal: async () => { throw new Error("sin CT"); },
       // La primera carga recibe módulos tardíos; la segunda, fallos inmediatos.
-      cronos: () => (carga === 1 ? modulosPrimera.cronos.promesa : Promise.reject(new Error("no"))),
+      cronos_acceso: ACCESO_CRONOS, cronos: () => (carga === 1 ? modulosPrimera.cronos.promesa : Promise.reject(new Error("no"))),
       dietas: () => (carga === 1 ? modulosPrimera.dietas.promesa : Promise.reject(new Error("no"))),
       personal: async () => { throw new Error("no"); },
     },
@@ -377,7 +381,7 @@ test("Inicio con contratación temporal lenta: estado neutro hasta conocer el pe
   await carga;
   assert.equal(coordinador.inicioPendiente(), false);
   assert.equal(coordinador.vistaPendiente("personal-registro"), false);
-  assert.match(vista(), /data-inicio-sin-modulos/, "sin CT ni módulos ofrecidos: Inicio del empleado sin módulos");
+  assert.match(vista(), /data-modulo-catalogo="cronos"/, "sin CT: Inicio del empleado con Cronos, cuyo acceso se ha confirmado");
   assert.doesNotMatch(vista(), /nota-seguridad|representa el acceso interno/u);
 });
 
@@ -387,7 +391,7 @@ test("empleado sin contratación temporal en el catálogo: su Inicio en cuanto l
     escaparHTML: String,
     modulosDiferidos: [],
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "cronos" }]),
-    cargadoresInternos: { contratacion_temporal: async () => ({}), cronos: () => pendiente.promesa },
+    cargadoresInternos: { contratacion_temporal: async () => ({}), cronos_acceso: ACCESO_CRONOS, cronos: () => pendiente.promesa },
   });
   const carga = coordinador.cargarInterno();
   await esperarTurnos();
@@ -479,7 +483,7 @@ test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async ()
 // Recorrido en Chrome del 25/09/2026 (fallo 1): Personal no tiene entrada en el
 // portal y aun así se descargaba su código en cada Inicio (y un fichero ausente
 // del paquete daba 404). Ahora los módulos sin entrada se cargan al pedir su vista.
-test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los carga", async () => {
+test("Personal y Dietas no se cargan al arrancar; su vista directa los carga. Cronos sí, para comprobar el acceso", async () => {
   const iniciados = [];
   const personal = diferido();
   const coordinador = crearCoordinadorModulosPortal({
@@ -488,14 +492,15 @@ test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los c
     entorno: { fetch: async () => { throw new Error("sin red"); } },
     cargadoresInternos: {
       contratacion_temporal: async () => { iniciados.push("contratacion_temporal"); throw new Error("sin CT"); },
-      cronos: async () => { iniciados.push("cronos"); return recursosCronos(); },
+      cronos_acceso: ACCESO_CRONOS, cronos: async () => { iniciados.push("cronos"); return recursosCronos(); },
       personal: async () => { iniciados.push("personal"); return personal.promesa; },
       personal_catalogos_publicos: async () => { iniciados.push("personal_catalogos_publicos"); throw new Error("no"); },
       dietas: async () => { iniciados.push("dietas"); return recursosDietas(); },
     },
   });
   await coordinador.cargarInterno();
-  assert.deepEqual(iniciados, ["contratacion_temporal", "contratacion_temporal"], "solo el módulo con entrada; su importación se reintenta una vez");
+  assert.deepEqual([...iniciados].sort(), ["contratacion_temporal", "contratacion_temporal", "cronos"],
+    "los módulos con entrada; la importación de CT se reintenta una vez");
   assert.equal(coordinador.resolverAcceso("personal").estado, "diferido");
   assert.equal(coordinador.vistaPendiente("personal"), true, "su URL directa dice «Comprobando», no «no disponible»");
   const carga = coordinador.prepararVista("personal");
@@ -506,9 +511,10 @@ test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los c
   personal.resolver(recursosPersonal());
   await carga;
   assert.equal(coordinador.vistaDisponible("personal"), true);
-  assert.deepEqual(iniciados.filter((clave) => clave !== "personal_catalogos_publicos"),
-    ["contratacion_temporal", "contratacion_temporal", "personal"], "Cronos y Dietas siguen sin cargarse");
-  assert.equal(coordinador.vistaPendiente("cronos"), true);
+  assert.deepEqual(iniciados.filter((clave) => !["personal_catalogos_publicos", "cronos", "contratacion_temporal"].includes(clave)),
+    ["personal"], "Dietas sigue sin cargarse");
+  assert.equal(coordinador.vistaPendiente("dietas"), true);
+  assert.equal(coordinador.vistaDisponible("cronos"), true);
 });
 
 test("el shell arranca la carga diferida al pintar o al llegar el catálogo", async () => {

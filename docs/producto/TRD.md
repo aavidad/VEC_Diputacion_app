@@ -569,6 +569,12 @@ nueva, con plan y aprobación ligados a una huella (AUT45, AUT48, AUT64 en
 asignado por Administración, no un acto por persona. El gobierno de perfiles está
 en `docs/plan_modulos/administracion.md`.
 
+En la composición de desarrollo de un solo proceso, las peticiones de una misma
+identidad sintética esperan turno por su perfil canónico hasta que termina el
+manejador HTTP. Así una publicación dinámica no sustituye la asignación de otra
+petición antes del consumo. La espera es cancelable y dura como máximo 30 segundos;
+la autorización y sus revalidaciones siguen en PostgreSQL (F1-150b).
+
 La administración de sistema (cuentas, claves, conectores, despliegue) y el
 gobierno funcional de RRHH (catálogos, reglas, plantillas) son
 responsabilidades distintas. Operar la plataforma no da acceso a expedientes ni a

@@ -25,7 +25,7 @@
   "ui.permission.usuarios.contacto_consultar": "Consultar el correo de contacto autorizado",
   "ui.vec.module.personal.description": "Datos personales, puestos, situaciones administrativas y servicios prestados",
   "ui.vec.module.cronos.name": "Cronos",
-  "ui.vec.module.cronos.description": "Fichajes, horarios, permisos, vacaciones, turnos y calendario laboral",
+  "ui.vec.module.cronos.description": "Su jornada, saldo de horas, permisos y vacaciones",
   "ui.vec.module.dietas.name": "Dietas",
   "ui.vec.module.dietas.description": "Comisiones de servicio, kilometraje, gastos, validaciones y liquidaciones",
   "modules.documentos.name": "Documentos",

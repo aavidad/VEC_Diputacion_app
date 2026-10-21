@@ -26,6 +26,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 	if dependenciaEsNulaContratacionTemporalDesarrollo(e.resultadoEmisionNativo) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(e.aceptacionNativa) || e.actorAceptacionNativa == nil {
 		if a.Portal != nil {
+			registrarFalloPropuestaCT(ctx, "fuentes_nativas", nil)
 			return vacio, application.ErrPropuestaFormalizacionNoDisponible
 		}
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
@@ -58,6 +59,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 		if ctx.Err() != nil {
 			return vacio, ctx.Err()
 		}
+		registrarFalloPropuestaCT(ctx, "resultado_emision", err)
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	if r.BolsaRef != bolsa || r.LlamamientoRef != s.LlamamientoRef ||
@@ -97,6 +99,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 		if ctx.Err() != nil {
 			return vacio, ctx.Err()
 		}
+		registrarFalloPropuestaCT(ctx, "actor_anclaje", err)
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	anclaje, err := e.aceptacionNativa.ConsultarAnclajeAceptacionNativaCT(ctx,
@@ -105,6 +108,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 		if ctx.Err() != nil {
 			return vacio, ctx.Err()
 		}
+		registrarFalloPropuestaCT(ctx, "consulta_anclaje", err)
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	if anclaje.Estado != "acreditado" || anclaje.Anclaje == nil ||

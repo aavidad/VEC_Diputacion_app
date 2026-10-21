@@ -118,6 +118,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	}
 	if dependenciaEsNulaContratacionTemporalDesarrollo(e.lector) || dependenciaEsNulaContratacionTemporalDesarrollo(e.registro) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(e.bolsa) || dependenciaEsNulaContratacionTemporalDesarrollo(e.servicio) {
+		registrarFalloPropuestaCT(ctx, "dependencias", nil)
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	// La preimagen que habilita este intento es la versión OCC de la solicitud.
@@ -130,6 +131,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	// La recuperación conserva la misma preimagen N aunque la propuesta ya haya
 	// avanzado el expediente. PostgreSQL decide OCC o recuperación.
 	if err != nil || !expedienteFiscalizadoParaPropuestaDesarrollo(expediente, s) {
+		registrarFalloPropuestaCT(ctx, "preimagen", err)
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
@@ -139,6 +141,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 		return vacio, ctx.Err()
 	}
 	if err != nil {
+		registrarFalloPropuestaCT(ctx, "antecedente", err)
 		return vacio, errorPreparacionPropuestaDesarrollo(err)
 	}
 	if a.Portal != nil {
@@ -157,7 +160,11 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 		}
 		ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
 		ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
-		return e.servicio.PrepararYConfirmar(ctx, s)
+		resultado, err := e.servicio.PrepararYConfirmar(ctx, s)
+		if err != nil {
+			registrarFalloPropuestaCT(ctx, "confirmacion", err)
+		}
+		return resultado, err
 	}
 	if a.ValidarPara(s) != nil || a.Resolucion.Politica != politicaManualDesarrollo() ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, a.Resolucion.Solicitud) {

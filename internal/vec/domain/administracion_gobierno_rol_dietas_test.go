@@ -75,23 +75,23 @@ func TestGobiernoRolDietasContratosNominalesYCierre(t *testing.T) {
 			plan, instante, err := PrepararPlanGobiernoRolNuevoDesdeCatalogo(c, s, ahora,
 				"per_"+strings.Repeat("a", 24))
 			if err != nil || !instante.Equal(ahora) || !planRolDietasExacto(plan) ||
-				!cierreGobiernoRolNuevoAdmitido(plan) ||
+				!PlanGobiernoRolNuevoAdmitido(plan) ||
 				!reflect.DeepEqual(plan.DefinicionNueva.Concesiones, s.Publicacion.RolPropuesto.Concesiones) {
 				t.Fatalf("contrato %s: plan=%+v instante=%v error=%v", rolID, plan, instante, err)
 			}
 			otro := plan.Copia()
 			otro.DefinicionNueva.RolID = "otro_rol"
-			if cierreGobiernoRolNuevoAdmitido(otro) {
+			if PlanGobiernoRolNuevoAdmitido(otro) {
 				t.Fatal("cierre aceptó otro rol compuesto")
 			}
 			otro = plan.Copia()
 			otro.DefinicionNueva.Concesiones[0].CamposPermitidos = []string{"campo_ajeno"}
-			if cierreGobiernoRolNuevoAdmitido(otro) {
+			if PlanGobiernoRolNuevoAdmitido(otro) {
 				t.Fatal("cierre aceptó concesión ampliada")
 			}
 			otro = plan.Copia()
 			otro.Selecciones[1] = otro.Selecciones[0]
-			if cierreGobiernoRolNuevoAdmitido(otro) {
+			if PlanGobiernoRolNuevoAdmitido(otro) {
 				t.Fatal("cierre aceptó selección repetida")
 			}
 		})
@@ -202,5 +202,36 @@ func TestGobiernoRolDietasReplaySoloConIntervaloComun(t *testing.T) {
 		c.VigenteHasta.Add(time.Hour), "per_"+strings.Repeat("a", 24))
 	if err == nil || plan.DefinicionNueva != nil {
 		t.Fatalf("intervalos sin intersección admitidos: %+v, error %v", plan, err)
+	}
+}
+
+func TestGobiernoRolNuevoIntencionAcotadaAntesDelCatalogo(t *testing.T) {
+	_, ordinaria, _ := escenarioRolNuevoOrdinario(t)
+	if !IntencionGobiernoRolNuevoAdmitida(ordinaria) {
+		t.Fatal("rechazó la concesión ordinaria única")
+	}
+	for _, rolID := range []string{RolIDPersonaDietasComisiones, RolIDPersonaDietasRutas} {
+		_, s, _ := escenarioRolDietas(t, rolID)
+		if !IntencionGobiernoRolNuevoAdmitida(s) {
+			t.Fatalf("%s: rechazó el contrato exacto", rolID)
+		}
+		ajeno := s
+		pub := *s.Publicacion
+		pub.RolPropuesto.RolID = "otro_rol"
+		ajeno.Publicacion = &pub
+		if IntencionGobiernoRolNuevoAdmitida(ajeno) {
+			t.Fatalf("%s: admitió un rol compuesto ajeno", rolID)
+		}
+		corto := s
+		pub = *s.Publicacion
+		pub.Selecciones = pub.Selecciones[:1]
+		pub.RolPropuesto.Concesiones = pub.RolPropuesto.Concesiones[:1]
+		corto.Publicacion = &pub
+		if IntencionGobiernoRolNuevoAdmitida(corto) {
+			t.Fatalf("%s: admitió Dietas con una sola concesión", rolID)
+		}
+	}
+	if IntencionGobiernoRolNuevoAdmitida(SolicitudPlanGobiernoPerfil{}) {
+		t.Fatal("admitió una intención sin publicación")
 	}
 }
