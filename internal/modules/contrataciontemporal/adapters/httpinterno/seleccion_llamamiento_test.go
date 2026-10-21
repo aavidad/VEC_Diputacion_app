@@ -199,6 +199,9 @@ func TestManejadorSeleccionLlamamientoDistingueRecuperacionColisionYDenegacion(
 		{application.ErrEjecucionSeleccionLlamamientoConcurrente, http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{application.ErrEjecucionSeleccionLlamamientoIndeterminada, http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, context.DeadlineExceeded), http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, ports.ErrCriteriosOfrecimientoPendientesRRHH), http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, application.ErrClaveSeleccionLlamamientoEnColision), http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, ports.ErrAutorizacionDenegada), http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{ports.ErrAutorizacionDenegada, http.StatusForbidden, "acceso_denegado"},
 	}
 	for indice, caso := range casos {
