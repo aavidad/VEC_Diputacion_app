@@ -460,6 +460,7 @@ test("conflicto de contenido en inglés bloquea otro POST y remite al expediente
 
 test("el expediente fiscalizado seleccionado rellena el formulario sin POST y sin enseñar referencia, versión ni clave", async () => {
   const montaje = await montarExpedienteSeleccionado(estadoSeleccionado());
+  await new Promise(setImmediate);
   const html = montaje.formulario().innerHTML;
   assert.match(html, /Llamamiento de este expediente/u); assert.match(html, /Llamar a la siguiente persona de la bolsa/u);
   assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:001"[^>]*type="hidden"/u); assert.match(html, /id="ct-llamamiento-seleccion-version_esperada"[^>]*value="6"[^>]*type="hidden"/u);
@@ -494,6 +495,7 @@ test("abrir otro expediente no reutiliza referencias ni clave del formulario ant
   const anterior = montaje.formulario();
   anterior.preparar("seleccion", seleccion());
   await montaje.abrir("expediente:ct:sintetico:002");
+  await new Promise(setImmediate);
   const actual = montaje.formulario();
   assert.notEqual(actual, anterior); assert.equal(anterior.eventos.size, 0); assert.match(actual.innerHTML, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:002"/u); assert.doesNotMatch(actual.innerHTML, /clave_idempotencia/u);
   assert.doesNotMatch(actual.innerHTML, /expediente:ct:sintetico:001/u); assert.equal(montaje.peticiones(), 0);
@@ -504,7 +506,9 @@ test("enlaza fiscalización y exige confirmación sin inventar candidato ni auto
   const raiz = raizPrueba(); let llamadas = 0;
   const desmontar = montar(raiz, { seleccionarLlamamiento: () => { llamadas += 1; } },
     { confirmarOperacion: () => false });
-  assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 }), true); assert.match(raiz.innerHTML, /Llamamiento de este expediente/u); assert.match(raiz.innerHTML, /value="expediente:ct:sintetico:001"/u);
+  assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 }), true);
+  await new Promise(setImmediate);
+  assert.match(raiz.innerHTML, /Llamamiento de este expediente/u); assert.match(raiz.innerHTML, /value="expediente:ct:sintetico:001"/u);
   await raiz.enviar("seleccion", seleccion());
   assert.equal(llamadas, 0); assert.doesNotMatch(raiz.innerHTML, /candidatura_ref|name="actor_ref"/u);
   desmontar();
@@ -603,6 +607,7 @@ test("desmontar cancela la espera y una respuesta tardía no repinta", async () 
     return new Promise((resolve) => { resolver = resolve; });
   } });
   const vuelo = raiz.enviar("seleccion", seleccion());
+  await new Promise(setImmediate);
   cerrar();
   assert.equal(signal.aborted, true);
   resolver(recibo);
@@ -617,6 +622,9 @@ test("encadenado selección y replay autorrellenan comunicación local sin trans
     const raiz = raizPrueba();
     const cliente = crearClienteHTTPContratacionTemporal({
       fetchImpl: async (ruta, opciones) => {
+        if (opciones.method === "GET" && ruta.includes("/seleccion/estado")) return new Response(JSON.stringify({ data: {
+          esquema: "vec.contratacion-temporal.estado-seleccion-oferta.v1", estado: "ausente", expediente_ref: EXPEDIENTE,
+        } }), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } });
         if (opciones.method === "GET") return new Response(JSON.stringify({ error: {
           codigo: "recurso_no_encontrado",
           clave_i18n: "api.contratacion_temporal.respuesta_recibida.error.recurso_no_encontrado",

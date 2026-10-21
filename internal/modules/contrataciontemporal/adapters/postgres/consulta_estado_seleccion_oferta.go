@@ -71,6 +71,7 @@ func (r *RegistroSeleccionOfertaPostgreSQL) ConsultarEstadoPorExpediente(
 	}
 	var salida struct {
 		Situacion         string          `json:"situacion"`
+		TipoSeleccion     string          `json:"tipo_seleccion"`
 		IntencionOriginal json.RawMessage `json:"intencion_original"`
 		Estado            json.RawMessage `json:"estado"`
 	}
@@ -78,10 +79,17 @@ func (r *RegistroSeleccionOfertaPostgreSQL) ConsultarEstadoPorExpediente(
 		return vacio, errRegistroSeleccionOfertaPostgreSQL
 	}
 	if salida.Situacion == "ausente" {
-		if len(salida.IntencionOriginal) != 0 || len(salida.Estado) != 0 {
+		if salida.TipoSeleccion != "" || len(salida.IntencionOriginal) != 0 || len(salida.Estado) != 0 {
 			return vacio, errRegistroSeleccionOfertaPostgreSQL
 		}
 		return vacio, nil
+	}
+	if salida.TipoSeleccion == "llamamiento" {
+		return decodificarIntencionSingularPendiente(salida.Situacion,
+			salida.IntencionOriginal, salida.Estado, q)
+	}
+	if salida.TipoSeleccion != "" {
+		return vacio, errRegistroSeleccionOfertaPostgreSQL
 	}
 	if salida.Situacion != "propietaria" && salida.Situacion != "indeterminada" &&
 		salida.Situacion != "confirmada" && salida.Situacion != "descartada" {
@@ -117,4 +125,36 @@ func (r *RegistroSeleccionOfertaPostgreSQL) ConsultarEstadoPorExpediente(
 		return vacio, errRegistroSeleccionOfertaPostgreSQL
 	}
 	return ports.EstadoSeleccionOfertaPorExpedienteCT{Encontrada: true, Intencion: i, Estado: estado}, nil
+}
+
+func decodificarIntencionSingularPendiente(situacion string, original, estadoRaw []byte,
+	q ports.SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT,
+) (ports.EstadoSeleccionOfertaPorExpedienteCT, error) {
+	vacio := ports.EstadoSeleccionOfertaPorExpedienteCT{}
+	if situacion != "propietaria" && situacion != "indeterminada" {
+		return vacio, errRegistroSeleccionOfertaPostgreSQL
+	}
+	var datos struct {
+		OrganizacionRef   string `json:"organizacion_ref"`
+		ExpedienteRef     string `json:"expediente_ref"`
+		VersionExpediente uint64 `json:"version_expediente"`
+		Clave             string `json:"clave_idempotencia"`
+	}
+	var estado struct {
+		Efecto         string `json:"efecto"`
+		VentanaAbierta bool   `json:"ventana_abierta"`
+	}
+	if json.Unmarshal(original, &datos) != nil || json.Unmarshal(estadoRaw, &estado) != nil {
+		return vacio, errRegistroSeleccionOfertaPostgreSQL
+	}
+	i := ports.IntencionSingularPendienteCT{OrganizacionRef: datos.OrganizacionRef,
+		ExpedienteRef: datos.ExpedienteRef, VersionExpediente: datos.VersionExpediente,
+		ClaveIdempotencia: datos.Clave, Efecto: ports.EfectoSeleccionLlamamiento(estado.Efecto),
+		VentanaAbierta: estado.VentanaAbierta}
+	if i.Validar() != nil || i.OrganizacionRef != q.OrganizacionRef ||
+		i.ExpedienteRef != q.ExpedienteRef || i.VersionExpediente != q.VersionObservada ||
+		(situacion == "indeterminada" && !i.VentanaAbierta) {
+		return vacio, errRegistroSeleccionOfertaPostgreSQL
+	}
+	return ports.EstadoSeleccionOfertaPorExpedienteCT{Encontrada: true, Singular: &i}, nil
 }
