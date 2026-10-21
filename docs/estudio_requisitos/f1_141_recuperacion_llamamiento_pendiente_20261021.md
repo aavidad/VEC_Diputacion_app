@@ -95,7 +95,7 @@ controladas no acreditan recuperación pendiente con autorización real.
 
 Las dos revisiones independientes sobre `2c1a585dd` ensayaron cada una 140
 migraciones, 24 casos antes y después de reiniciar y dos concurrencias. CT257
-conserva los mismos bytes. Main añadió CT253 y CT256; ahora se registran 27 casos.
+conserva los mismos bytes. Main añadió CT253, CT256 y CT255; ahora se registran 28 casos.
 Pasan el contador focal y cinco casos web de integración de aceptación y
 recuperación. La línea base refleja las 1388 líneas reales del formulario.
 
@@ -105,3 +105,8 @@ Semgrep local no detecta hallazgos. GoSec señala G706 en el registro estructura
 revisado como falso positivo por usar códigos cerrados o tipos Go, sin suprimir
 la regla; los otros dos avisos pertenecen a archivos sin cambios. La CI de la
 cabeza documental final debe completarse antes de dar la entrega por lista.
+
+La integración final conserva también CT255 de main antes de CT257 y la
+corrección de sus pruebas de semilla. No añade cambios Go ni de interfaz sobre
+483931b0c; CT257 mantiene su huella. La composición SQL completa queda sujeta a
+la CI final; no se ha vuelto a ejecutar la selección nativa por esta unión.

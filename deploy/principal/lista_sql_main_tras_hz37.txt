@@ -244,5 +244,8 @@ deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respu
 # F1-127: CT256; tras CT249.
 deploy/postgresql/contratacion_temporal/migraciones/000256_resolucion_portal_detalle_rrhh.up.sql 8a600c2f711104790d28cc48a9934974be6775bb41253166f3921b60f814944c
 
+# F1-134 — CT255: después de CT249/CT253/CT256 en esta composición.
+deploy/postgresql/contratacion_temporal/migraciones/000255_antecedente_b2_respuesta_portal.up.sql f13aea2d7c914de14981ba47e0bb72da020ae677cb9bac78e27e5848f5922b0e
+
 # F1-141 — CT257: lectura de intención singular pendiente con la autorización y auditoría de CT225; tras CT241.
 deploy/postgresql/contratacion_temporal/migraciones/000257_recuperar_intencion_singular_pendiente.up.sql b8834e208a4bd0d42c77d6086bd9eec7077a76121bb8fb783beeb39333437654
