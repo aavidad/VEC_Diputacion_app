@@ -805,6 +805,10 @@ Telemetría por petición (`internal/shared/telemetria/`):
   petición (`telemetria/bd.go`) si la consulta usa el contexto de la petición.
 - Consultas para Sistemas: `deploy/principal/consultas_observabilidad.sql`.
   Pruebas de carga: `scripts/carga/`.
+- Si una selección de llamamiento queda indeterminada, el registro añade
+  `causa_interna`: el código de una causa conocida del módulo o, si no la
+  reconoce, solo el tipo Go del error más interno. No incluye mensajes, datos
+  de la solicitud ni referencias; la respuesta pública conserva su contenido.
 
 **Lo que falta.** El cuadro de Contratación temporal medía entre 363 y 372 ms de
 p95 el 08/10, por encima del objetivo. Falta medir todas las lecturas en la
