@@ -146,3 +146,35 @@ la aplicación al main que contenga ambas y se hará un único reintento desde
 el formulario con la misma clave. El primer intento se ejecutó en `0ed5c5e5e`,
 sin esa corrección de concurrencia; se anotará la revisión exacta del segundo.
 J aún conserva el binario anterior y no se ha repetido la petición.
+
+## Segundo intento con diagnóstico y autorización serializada
+
+J avanzó limpia a `295a0a1461cf3720906245badb7d89b35dda8181`, con las PR
+#1426 y #1428 integradas. La compilación real terminó en 24,36 segundos;
+SHA-256: `8f6bbb37bea62f8d13b3c2528ea233a7dce58013bfde3c7a4587c8ab4e98d21c`.
+Se sustituyó solo el binario de la aplicación y se registraron su revisión y
+huella reales. El gestor volvió a terminar con código 1 por Administración
+ya activa; la comprobación posterior de aplicación y Administración terminó
+con código 0. PostgreSQL conserva su identificador y arranque. El detalle
+respondió 200, con versión 6 y las mismas seis referencias de recibo.
+No se aplicó SQL ni se cambiaron certificados o configuración.
+
+A las 12:22:44 del 21 de octubre, hora de Madrid, se pulsó una sola vez
+«Volver a intentar» en la página conservada. El cuerpo completo y la clave
+coinciden con el primer envío. Respondió 503, correlación
+`corr_26b96ed0e5d4084687d2588009f8726e`. El diagnóstico identifica
+`actor_anclaje`, con causa fija «contratacion temporal: autorizacion denegada».
+Hay dos envíos en total; no se ha hecho un tercero.
+
+La incompatibilidad está en la sesión nominal del perfil fijo de Bolsa:
+la guarda privada permite consultar el anclaje desde la propuesta, pero la
+sesión comprueba después que ese perfil figure en la frontera pública de
+Contratación. Esa frontera solo enumera su perfil ordinario. La acción
+`bolsa.aceptacion_ct.anclaje.consultar`, el recurso `anclaje_aceptacion_ct`,
+la finalidad `preparar_incorporacion_ct` y su ámbito de unidad ya están
+concedidos. Se prepara una corrección de la ligadura interna, sin ampliar
+esa frontera ni añadir concesiones. Los pasos 12–21 siguen pendientes.
+
+La denegación se presenta como 503, aunque debería conservar la
+clasificación 403/404 que corresponda según la política del módulo.
+Dirección ha pedido anotarlo por separado y mantenerlo fuera de este corte.
