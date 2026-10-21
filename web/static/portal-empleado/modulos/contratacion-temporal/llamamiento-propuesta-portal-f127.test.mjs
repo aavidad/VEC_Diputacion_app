@@ -123,3 +123,85 @@ test("avanzar el mismo expediente cancela la preparación pendiente sin otra pro
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
   cerrar();
 });
+
+const comunicacionCT = () => ({ organizacion_ref: "organizacion:ct:001", expediente_ref: EXPEDIENTE,
+  llamamiento_ref: "llamamiento:otra-comunicacion", comunicacion_ref: "comunicacion:ct:001", version: 2,
+  estado: "registrada_localmente", registrada_en: "2026-10-20T09:00:00Z",
+  recibo_comunicacion_ref: "recibo:comunicacion:ct:001", antecedente_tipo: "seleccion_confirmada",
+  recibo_antecedente_ref: `recibo:${LLAMAMIENTO}`, estado_respuesta: "sin_respuesta" });
+const elegirComunicacion = (raiz) => raiz.eventos.get("click")({ preventDefault() {}, target: {
+  closest: (selector) => selector === "[data-ct-comunicacion-indice]"
+    ? { dataset: { ctComunicacionIndice: "0" } } : null,
+} });
+
+for (const seleccionar of [false, true]) for (const rechazar of [false, true]) test(`propuesta portal con lista CT${seleccionar ? " seleccionada" : " sin seleccionar"}: ${rechazar ? "rechazo" : "confirmación"} del servidor`, async () => {
+  const raiz = raizPrueba(), peticiones = [];
+  const cerrar = montar(raiz, {
+    resolverLlamamiento: async () => recibo(),
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [comunicacionCT()] }),
+    prepararPropuestaFormalizacion: async (s) => {
+      peticiones.push(s);
+      if (rechazar) throw Object.assign(new Error("sin permiso"), { estado: 403, codigo: "acceso_denegado",
+        envelopeValido: true, resultadoIndeterminado: false });
+      return { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1", estado_local: "confirmado",
+        propuesta_ref: "propuesta:portal:001", recibo_local_ref: "recibo:propuesta:portal:001",
+        version_resultante: 7, confirmada_en: "2026-10-20T10:05:00Z" };
+    },
+  }, { contexto: contexto(resultado()), fetchPublicaciones: publicaciones });
+  await esperar();
+  await enviar(raiz, formulario());
+  if (seleccionar) { elegirComunicacion(raiz); await esperar(); }
+  assert.equal((raiz.innerHTML.match(/data-ct-llamamiento-form="propuesta"/gu) ?? []).length, 1);
+  assert.equal(peticiones.length, 0);
+  await raiz.enviar("propuesta", { clave_idempotencia: CLAVE,
+    resolucion_llamamiento_aceptada_ref: "resolucion:ajena", recibo_resolucion_aceptada_ref: "recibo:ajeno" });
+  assert.equal(peticiones.length, 1,
+    raiz.innerHTML.match(/data-ct-llamamiento-estado="propuesta"[\s\S]*?<\/div>/u)?.[0]);
+  assert.equal(peticiones[0].resolucion_llamamiento_aceptada_ref, recibo().resolucion_ref);
+  assert.equal(peticiones[0].recibo_resolucion_aceptada_ref, recibo().recibo_local_ref);
+  if (rechazar) {
+    assert.match(raiz.innerHTML, /No se ha guardado\. Revise los datos y vuelva a intentarlo\./u);
+    assert.doesNotMatch(raiz.innerHTML, /Propuesta guardada/u);
+  } else {
+    assert.match(raiz.innerHTML, /Propuesta guardada/u);
+    await raiz.enviar("propuesta", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174099" });
+    assert.equal(peticiones.length, 1);
+  }
+  cerrar();
+});
+
+test("una aceptación portal sin resolución no habilita la propuesta al haber comunicaciones CT", async () => {
+  const raiz = raizPrueba(); let peticiones = 0;
+  const cerrar = montar(raiz, {
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [comunicacionCT()] }),
+    prepararPropuestaFormalizacion: async () => { peticiones++; },
+  }, { contexto: contexto(resultado()), fetchPublicaciones: publicaciones });
+  await esperar();
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  await raiz.enviar("propuesta", { clave_idempotencia: CLAVE });
+  assert.equal(peticiones, 0);
+  cerrar();
+});
+
+for (const estado of [403, 503]) test(`la propuesta portal resuelta no depende de una lectura CT ${estado}`, async () => {
+  const raiz = raizPrueba(), peticiones = [];
+  const cerrar = montar(raiz, {
+    resolverLlamamiento: async () => recibo(),
+    consultarComunicacionesExpediente: async () => { throw Object.assign(new Error("lectura CT no disponible"),
+      { estado, codigo: estado === 403 ? "acceso_denegado" : "servicio_no_disponible", envelopeValido: true }); },
+    prepararPropuestaFormalizacion: async (s) => {
+      peticiones.push(s);
+      return { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1", estado_local: "confirmado",
+        propuesta_ref: "propuesta:portal:001", recibo_local_ref: "recibo:propuesta:portal:001",
+        version_resultante: 7, confirmada_en: "2026-10-20T10:05:00Z" };
+    },
+  }, { contexto: contexto(resultado()), fetchPublicaciones: publicaciones });
+  await esperar();
+  await enviar(raiz, formulario());
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  await raiz.enviar("propuesta", { clave_idempotencia: CLAVE });
+  assert.equal(peticiones.length, 1);
+  assert.equal(peticiones[0].recibo_resolucion_aceptada_ref, recibo().recibo_local_ref);
+  assert.match(raiz.innerHTML, /Propuesta guardada/u);
+  cerrar();
+});
