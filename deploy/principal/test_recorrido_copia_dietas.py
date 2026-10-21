@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import subprocess
 import sys
 from urllib.parse import parse_qs, urlsplit
@@ -82,7 +82,9 @@ class ConexionesDietasTest(unittest.TestCase):
         self.assertFalse((self.c.carpeta / 'dietas').exists())
 
     def test_preparar_no_activa_ni_anuncia_un_recorrido(self):
-        resultado = dietas.preparar(self.c)
+        with patch('recorrido_copia.catalogo.preparar_dietas', return_value={'recibos_reales': 2}) as admitir:
+            resultado = dietas.preparar(self.c)
+        admitir.assert_called_once_with(self.c)
         self.assertFalse(resultado['activada'])
         self.assertEqual(resultado['conexiones_entorno'], 4)
         self.assertEqual(resultado['conexiones_manifiesto'], 7)
