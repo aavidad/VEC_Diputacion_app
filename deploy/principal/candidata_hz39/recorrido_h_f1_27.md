@@ -49,6 +49,11 @@ con `.123456Z` coincide. La revisión independiente confirma ese defecto de
 contrato. La fecha interna exacta del envío rechazado no quedó guardada, por
 lo que esta reproducción no demuestra todavía la causa de aquel envío.
 
+Dirección asignó la corrección F1-148 el 21/10 a las 07:16 y ordenó
+conservar H sin reintentar el expediente 2026/95032. La siguiente comprobación
+de la segunda firma se hará en otra copia, creada con la receta completa
+cuando la corrección esté integrada en main.
+
 La comprobación usa las funciones instaladas y no ejecuta ningún registro:
 
 ```sql
