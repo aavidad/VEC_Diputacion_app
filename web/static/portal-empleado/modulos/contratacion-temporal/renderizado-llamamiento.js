@@ -512,6 +512,6 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
-    ${propuesta()}
+    ${estado.propuesta.portal ? "" : propuesta()}
   </section>`}`}`;
 }
