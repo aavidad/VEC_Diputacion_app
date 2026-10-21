@@ -30,3 +30,8 @@ del consumidor quedan pendientes del montaje y de sus actos de activación.
 La migración comprueba la huella del escritor nativo instalado que determina
 el formato conservado de la propuesta. No reconstruye ese escritor ni consulta
 tablas de Bolsa. La huella se cotejó con la función instalada en la copia J.
+
+Ensayo de instalación: PostgreSQL 18.4 propio, sin red y limitado a 2 GiB,
+restaurado del volcado coherente de J con sus roles y permisos. Instalación
+CT262 y comprobación del contrato terminan con código 0 en 76a3544ff.
+No se ejecutó una lectura nominal real. J no recibió SQL ni actos nuevos.
