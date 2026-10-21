@@ -360,8 +360,10 @@ export function montarFormularioLlamamiento({
     const expedienteRef = estado.seleccion.valores.expediente_ref;
     const versionEsperada = estado.seleccion.valores.version_esperada;
     clearTimeout(temporizadorPlazo);
-    documentacion?.desmontar();
-    documentacion = crearDocumentacion();
+    if (!estado.propuesta.portal) {
+      documentacion?.desmontar();
+      documentacion = crearDocumentacion();
+    }
     estado.seleccion = { ...nuevoPaso(), valores: { expediente_ref: expedienteRef, version_esperada: versionEsperada } };
     estado.comunicacion = nuevoPaso();
     estado.respuesta = nuevoPaso();
@@ -374,8 +376,9 @@ export function montarFormularioLlamamiento({
     estado.respuesta_siguiente = { ...nuevoPaso(), claveConservada: false };
     estado.resolucion = nuevoPasoResolucion();
     estado.resolucion_siguiente = nuevoPasoResolucion();
-    estado.propuesta = { ...nuevoPaso(), aceptacion: null, disponible: false, claveConservada: false,
-      actualizando: false, actualizacionPendiente: false, mensaje: "llamamiento_propuesta_no_disponible" };
+    if (!estado.propuesta.portal) estado.propuesta = { ...nuevoPaso(), aceptacion: null,
+      disponible: false, claveConservada: false, actualizando: false,
+      actualizacionPendiente: false, mensaje: "llamamiento_propuesta_no_disponible" };
     estado.comunicacionAbierta = false;
     lista.seleccionada = fila;
     if (fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO) {
@@ -413,7 +416,7 @@ export function montarFormularioLlamamiento({
     raiz.innerHTML = (sinFlujoCT && estado.comunicaciones.estado === "sin_contexto" ? ""
       : renderizarLlamamiento(estado, t, fecha, ahora(), { soloConsulta: sinFlujoCT }))
       + renderizarAceptacionPortal(estado.origenPortal, t, fecha, estado.portalPasos)
-      + (sinFlujoCT && estado.propuesta.portal
+      + (estado.propuesta.portal
         ? renderizarLlamamiento(estado, t, fecha, ahora(), { soloPropuesta: true }) : "");
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
@@ -798,12 +801,15 @@ export function montarFormularioLlamamiento({
     if (operacion === "seleccion" && estado.estadoOferta.estado === "pendiente"
       && estado.estadoOferta.tipoSeleccion !== "llamamiento") return;
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
-    if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
-    if (estado.comunicaciones.estado === "lista"
+    // La propuesta del portal conserva su resolución nominal; la consulta de
+    // una respuesta por correo de CT no es su antecedente.
+    const propuestaPortal = operacion === "propuesta" && estado.propuesta.portal === true && puedeProponer();
+    if (!propuestaPortal && ["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
+    if (!propuestaPortal && estado.comunicaciones.estado === "lista"
       && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente",
         "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion)
         && !(operacion === "comunicacion" && estado.comunicaciones.seleccionada.estado === ESTADO_SELECCION_PENDIENTE_AVISO))) return;
-    if (estado.consultaRespuesta.referencias !== null
+    if (!propuestaPortal && estado.consultaRespuesta.referencias !== null
       && (estado.consultaRespuesta.estado !== "ausente" || !antecedenteConsultaDisponible())) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null
       && estado.comunicaciones.seleccionada?.estado !== ESTADO_SELECCION_PENDIENTE_AVISO) return;
