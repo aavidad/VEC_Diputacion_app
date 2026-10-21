@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from recorrido_copia.actos import preparar_actos
 from recorrido_copia.materiales_actos import PASOS, verificar_materiales
@@ -242,6 +243,19 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(antes, 2)
         self.assertEqual(preparar_plan(self.c), meta)
         self.assertEqual(len([x for x in self.c.llamadas if x[2].endswith('/plan-firma/gobierno')]), 2)
+
+    def test_referencias_publicadas_usan_formato_opaco_del_lector(self):
+        import uuid
+        from recorrido_copia import plan
+        preparar_actos(self.c)
+        with patch.object(plan.secrets, 'token_hex', return_value='123456789012345678901234'):
+            preparar_plan(self.c)
+        cfg = self.c.leer(self.c.carpeta / 'plan/config.json')
+        for campo in ('fuente_ref', 'aprobacion_ref', 'preparacion_ref'):
+            prefijo, opaca = cfg[campo].rsplit(':', 1)
+            self.assertLessEqual(prefijo.count(':') + 1, 3)
+            self.assertEqual(str(uuid.UUID(opaca)), opaca)
+            self.assertEqual(uuid.UUID(opaca).version, 4)
 
     def test_plan_incierto_no_repite_publicacion(self):
         preparar_actos(self.c)

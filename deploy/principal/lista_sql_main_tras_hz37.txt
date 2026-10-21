@@ -234,3 +234,6 @@ deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_pr
 
 # F1-125, primer corte — CT250: origen O6 acreditado de la aceptación firme en la ficha; tras CT201 vigente.
 deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql ca303d6c59824044ef2635f3d4236b6db44c52c6159deea4459dfd20924b34e1
+
+# F1-125 B2 — CT249: activación de resolución de aceptación de Mi Bolsa; tras CT250.
+deploy/postgresql/contratacion_temporal/migraciones/000249_resolucion_respuesta_portal_rrhh.up.sql 5844af837bc7a9abef2874d2b6a0b6253cee892639b6761a74502c310e37c0b4
