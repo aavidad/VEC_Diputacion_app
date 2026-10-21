@@ -136,5 +136,13 @@ focales de propuesta, antecedente portal y privacidad han pasado, y la
 revisión independiente de seguridad es favorable. Semgrep no encontró
 hallazgos. El adaptador oficial local de GoSec completó el paquete: ninguno
 en los cuatro archivos Go cambiados; sus 79 avisos están en archivos cuyos
-bytes coinciden con la base `963bab91a`. La puerta completa de calidad
-continúa en curso. El diagnóstico todavía no está instalado en J.
+bytes coinciden con la base `963bab91a`. Las seis puertas de CI han pasado;
+calidad completa terminó en 32 minutos y 50 segundos. Dirección integró el
+diagnóstico en `bf0580bcb2e4d2911b70727bd752f96f4b0c84b5`.
+
+La orden de las 12:02 exige esperar además la integración de la corrección
+de concurrencia de autorización de la PR #1428. Después se actualizará solo
+la aplicación al main que contenga ambas y se hará un único reintento desde
+el formulario con la misma clave. El primer intento se ejecutó en `0ed5c5e5e`,
+sin esa corrección de concurrencia; se anotará la revisión exacta del segundo.
+J aún conserva el binario anterior y no se ha repetido la petición.
