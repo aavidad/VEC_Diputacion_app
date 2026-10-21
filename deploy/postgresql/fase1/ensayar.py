@@ -50,6 +50,7 @@ PRUEBAS_SQL = (
     'deploy/postgresql/contratacion_temporal/pruebas_sql/ct257_intencion_singular_pendiente.sql',
     'deploy/postgresql/contratacion_temporal/pruebas_sql/ct259_canon_fecha_historica_firma.sql',
     'deploy/postgresql/contratacion_temporal/pruebas_sql/ct260_canon_fecha_historica_firma_v2.sql',
+    'deploy/postgresql/autorizacion/pruebas_sql/000106_canon_retirada_cargos_firma.sql',
     'deploy/postgresql/autorizacion/pruebas_sql/000107_gobierno_roles_dietas.sql',
     # El último caso es el fixture de la concurrencia de contexto externo.
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',

@@ -1119,6 +1119,14 @@ no concede permiso. La consulta de modalidades necesita además AUT104, B138 y
 la API de preferencias. No se reconstruye el consumidor central. Orden: AD295, AD296
 y AD291. Activación en `deploy/principal/proyecciones_preferencias_f1_13_20261018.md`.
 
+F1-118 adapta el normalizador del censo de roles (AUT106). Cuando un rol
+publicado omite `retirada_en`, el cotejo añade el instante cero que serializa
+Go. Conserva los valores explícitos y los roles retirados. No modifica los
+documentos publicados, sus huellas, las concesiones ni el control de vigencia.
+El cambio sirve a las admisiones de catálogo AUT58 y AUT61 y a los consumidores
+existentes del normalizador. Activación y comprobaciones en
+[`f1_118_censo_cargos_firma.md`](../../deploy/principal/f1_118_censo_cargos_firma.md).
+
 ### 9.7 Rendimiento
 
 Lecturas por debajo de 300 ms p95 con volumen real y sin N+1: listas con una
