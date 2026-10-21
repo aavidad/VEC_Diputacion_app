@@ -24,13 +24,19 @@ conexiones, recibos y registros permanecen fuera de Git.
 
 | Tramo | Estado |
 | --- | --- |
-| Creación completa y carga de Bolsa | En ejecución |
-| Petición, ratificación y alta (1–3) | Pendiente |
-| Análisis, vía, asignación e informe (4–7) | Pendiente |
-| Dos firmas del informe y fiscalización (7b–8) | Pendiente |
+| Creación completa y carga de Bolsa | Correcta, 254,43 segundos; Yago disponible, 1 de 41 |
+| Petición, ratificación y alta (1–3) | 200, 200 y 201; expediente 2026/95030, versión 1 |
+| Análisis, vía, asignación e informe (4–7) | Cuatro respuestas 201; versiones 2, 3, 4 y 5 |
+| Dos firmas del informe y fiscalización (7b–8) | Primera firma 201, verificación técnica válida; faltan Jefatura e Intervención |
 | Llamamiento, contacto, aceptación y resolución (9–11) | Pendiente |
 | Propuesta, resolución, documentos y tres firmas (12–15) | Pendiente |
 | Reinicio y recuperación de las mismas lecturas y recibos | Pendiente |
 
 E conserva su evidencia hasta el paso 8 y sigue parada. Este ensayo continúa
 el caso único de FLUJO_APP.md, apartado 4.0, con la persona y la bolsa de F.
+
+Antes de abrir Chrome, se prepara la confianza local de los cuatro firmantes
+con el lanzador de su entorno y `--install-local-tls-trust`. Después se inicia
+el navegador con la confianza limitada a los certificados propios de la copia.
+La primera firma conserva `firma_eficaz=false`; la verificación técnica válida
+no acredita por sí sola eficacia jurídica.
