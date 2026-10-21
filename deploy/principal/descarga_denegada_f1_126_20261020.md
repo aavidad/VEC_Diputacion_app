@@ -46,13 +46,21 @@ La prueba de la fábrica real comprueba intento, contexto, recurso,
 correlación y resultado denegado, y mantiene cerradas otras rutas o acciones.
 La prueba HTTP comprueba que un selector denegado no consulta el registro ni
 lee el PDF: devuelve 404 con acuse válido, y 503 si falla la orden, el registro
-o la validación del acuse. Pasaron ambas pruebas y `go vet` de los dos paquetes,
-con Go 1.26.9 y sin acceso a la red.
+o la validación del acuse. Una tercera prueba monta el manejador real con la
+fábrica nominal real: el Técnico sin paso recibe 404 y deja un apunte denegado
+de la descarga, sin leer historia ni PDF; Jefatura, con paso, recibe el PDF
+exacto con su recibo y sin apunte nuevo. Sin el cambio, el Técnico vuelve a
+recibir 503. Pasaron las tres pruebas, los paquetes completos con y sin
+detector de carreras y `go vet`, con Go 1.26.10.
 
-Semgrep local ejecutó 42 reglas sobre los tres archivos Go sin hallazgos.
-GoSec cargó ambos paquetes y no señaló el archivo de producción modificado;
-registró 83 diagnósticos en otros archivos, fuera del cambio. Su configuración
-oficial excluye los archivos de pruebas. Los informes completos son privados.
+El 404 es la misma respuesta que da el módulo cuando el expediente no existe
+o el cargo no tiene autorización en consulta, recuperación y descarga; no
+distingue un documento existente de uno inexistente.
+
+Semgrep local ejecutó 42 reglas sobre los cuatro archivos Go sin hallazgos.
+GoSec no señala ninguno de los archivos del cambio; sus avisos del paquete
+están en otros archivos. Su configuración oficial excluye los archivos de
+pruebas. Los informes completos son privados.
 
 CONFIG NUEVA: ninguna. SQL NUEVA: ninguna. La copia de aceptación debe usar
 su propia revisión, materiales y firmas reales; no se alterará la revisión
