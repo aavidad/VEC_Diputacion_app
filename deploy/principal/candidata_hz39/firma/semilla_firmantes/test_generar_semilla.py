@@ -18,6 +18,16 @@ class SemillaFirmantesTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        checkout = self.root / "checkout_publico"
+        checkout.mkdir(mode=0o700)
+        names = ("generar_semilla_p.py", "identidad.template.sql",
+                 "asignaciones.template.sql", "firmantes.template.json",
+                 "cargos-roles.template.json")
+        for name in names:
+            target = checkout / name
+            target.write_bytes(GENERATOR.with_name(name).read_bytes())
+            target.chmod(0o644)
+        self.generator = checkout / "generar_semilla_p.py"
         acuse = {"estado": "permitido", "recibo": {
             "esquema": "vec.personal.unidad-inicial.v1", "auditoria_ref": "audit1",
             "recibo_ref": "recibo1", "unidad": {"organismo_ref": "org_ficticia",
@@ -44,8 +54,8 @@ class SemillaFirmantesTest(unittest.TestCase):
         path.chmod(0o600)
         return path
 
-    def run_generator(self, output="salida", *extra, generator=GENERATOR):
-        return subprocess.run([sys.executable, str(generator),
+    def run_generator(self, output="salida", *extra):
+        return subprocess.run([sys.executable, str(self.generator),
             "--config", str(self.root / "config.json"),
             "--salida", str(self.root / output), *extra],
             capture_output=True, text=True, timeout=10)
@@ -64,13 +74,14 @@ module.dt.datetime = Future
 sys.argv = sys.argv[1:]
 module.main()
 """
-        return subprocess.run([sys.executable, "-c", bootstrap, str(GENERATOR),
+        return subprocess.run([sys.executable, "-c", bootstrap, str(self.generator),
             "--config", str(self.root / "config.json"),
             "--salida", str(self.root / output)],
             capture_output=True, text=True, timeout=10)
 
     def coherent_roles(self, end):
-        self.assertEqual(self.run_generator("base").returncode, 0)
+        base = self.run_generator("base")
+        self.assertEqual(base.returncode, 0, base.stderr)
         cargos = json.loads((self.root / "base" / "cargos-firma-fuente.json").read_text())
         for row in cargos["cargos"]:
             row["vigente_hasta"] = end
@@ -90,26 +101,16 @@ module.main()
                 "--roles-fuente-publicada", str(source))
 
     def test_plantillas_publicas_generan_datos_privados_sin_asignaciones(self):
-        checkout = self.root / "checkout_publico"
-        checkout.mkdir(mode=0o700)
-        names = ("generar_semilla_p.py", "identidad.template.sql",
-                 "asignaciones.template.sql", "firmantes.template.json",
-                 "cargos-roles.template.json")
-        for name in names:
-            target = checkout / name
-            target.write_bytes(GENERATOR.with_name(name).read_bytes())
-            target.chmod(0o644)
-        generator = checkout / "generar_semilla_p.py"
-        writable = checkout / "identidad.template.sql"
+        writable = self.generator.with_name("identidad.template.sql")
         writable.chmod(0o664)
-        rejected = self.run_generator("salida_abierta", generator=generator)
+        rejected = self.run_generator("salida_abierta")
         self.assertNotEqual(rejected.returncode, 0)
         self.assertIn("plantilla pública inválida", rejected.stderr)
         self.assertFalse((self.root / "salida_abierta").exists())
         writable.chmod(0o644)
         for name in ("config.json", "acuse.json", "clave.bin"):
             self.assertEqual((self.root / name).stat().st_mode & 0o777, 0o600)
-        result = self.run_generator(generator=generator)
+        result = self.run_generator()
         self.assertEqual(result.returncode, 0, result.stderr)
         output = self.root / "salida"
         self.assertEqual({p.name for p in output.iterdir()}, {
@@ -147,7 +148,8 @@ module.main()
         self.assertFalse((self.root / "salida").exists())
 
     def test_recibo_o_plan_ajeno_no_emite_asignaciones(self):
-        self.assertEqual(self.run_generator("base").returncode, 0)
+        base = self.run_generator("base")
+        self.assertEqual(base.returncode, 0, base.stderr)
         source = self.root / "base" / "cargos-firma-fuente.json"
         cargos = json.loads(source.read_text())
         plan = {"cargos": [dict(row, version_rol_sha256="b" * 64)

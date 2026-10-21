@@ -182,6 +182,21 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 	if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrAccesoDenegado) || emisor.llamadas != 1 {
 		t.Fatalf("material no ligado aceptado: %v (emisiones=%d)", err, emisor.llamadas)
 	}
+	incidencias := &incidenciasDocumentosPrueba{}
+	a.incidencias = incidencias
+	for _, errDenegacion := range []error{
+		vecports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+		errors.Join(core.ErrAutorizacionDenegada, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3),
+	} {
+		emisor.err = errDenegacion
+		if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrAccesoDenegado) || len(incidencias.emitidas) != 0 {
+			t.Fatalf("denegación explícita V3 clasificada como 503: err=%v incidencias=%d", err, len(incidencias.emitidas))
+		}
+	}
+	emisor.err = vecports.ErrFuenteAutorizacionNoDisponible
+	if _, err := consulta.ResolverConsultaExpediente(capturado, docports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 5}); !errors.Is(err, docports.ErrCapacidadNoDisponible) || len(incidencias.emitidas) != 1 {
+		t.Fatalf("indisponibilidad V3 mal clasificada: err=%v incidencias=%d", err, len(incidencias.emitidas))
+	}
 
 	// Sujeto TLS y cuenta cruzados: 403 sin actor y sin llegar al manejador.
 	cuenta.Sujeto = "desarrollo:otro-sujeto"
@@ -201,10 +216,14 @@ type emisorDocumentosPrueba struct {
 	t        *testing.T
 	ahora    time.Time
 	llamadas int
+	err      error
 }
 
 func (e *emisorDocumentosPrueba) EmitirMaterialAutorizacionAtestadaV3(_ context.Context, s core.SolicitudAutorizacionLigadaV3, _ core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	e.llamadas++
+	if e.err != nil {
+		return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, e.err
+	}
 	datos, err := s.Datos()
 	if err != nil {
 		e.t.Fatal(err)

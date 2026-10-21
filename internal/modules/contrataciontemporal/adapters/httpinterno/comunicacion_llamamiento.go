@@ -153,7 +153,7 @@ func (h *manejadorComunicacionLlamamiento) resolver(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	solicitud, err := solicitudResolucionLlamamientoDesdePeticion(w, r)
+	solicitud, portal, esPortal, err := leerVarianteResolucion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorComunicacionLlamamiento(
 			w, r, clasificarErrorComunicacionLlamamientoHTTP(errContexto), errContexto,
@@ -164,6 +164,10 @@ func (h *manejadorComunicacionLlamamiento) resolver(
 		responderErrorComunicacionLlamamiento(
 			w, r, errorEntradaComunicacionLlamamiento(err), err,
 		)
+		return
+	}
+	if esPortal {
+		h.resolverPortal(w, r, portal)
 		return
 	}
 
@@ -194,6 +198,33 @@ func (h *manejadorComunicacionLlamamiento) resolver(
 		w, r, estadoHTTP,
 		envoltorioResolucionComunicacionLlamamiento{Data: salida},
 	)
+}
+
+func (h *manejadorComunicacionLlamamiento) resolverPortal(
+	w http.ResponseWriter, r *http.Request, solicitud ports.SolicitudResolucionPortal,
+) {
+	ejecutor, ok := h.ejecutor.(interface {
+		ResolverPortal(context.Context, ports.SolicitudResolucionPortal) (ports.ResultadoResolucionPortal, error)
+	})
+	if !ok {
+		responderErrorComunicacionLlamamiento(w, r, errorServicioComunicacionLlamamientoNoDisponible)
+		return
+	}
+	resultado, err := ejecutor.ResolverPortal(r.Context(), solicitud)
+	if errContexto := r.Context().Err(); errContexto != nil {
+		responderErrorComunicacionLlamamiento(w, r, clasificarErrorComunicacionLlamamientoHTTP(errContexto), errContexto)
+		return
+	}
+	if err != nil {
+		responderErrorComunicacionLlamamiento(w, r, clasificarErrorComunicacionLlamamientoHTTP(err), err)
+		return
+	}
+	salida, estado, valida := proyectarResolucionPortal(solicitud, resultado)
+	if !valida {
+		responderErrorComunicacionLlamamiento(w, r, errorResultadoComunicacionLlamamientoNoConfiable)
+		return
+	}
+	responderJSONCobertura(w, r, estado, envoltorioResolucionComunicacionLlamamiento{Data: salida})
 }
 
 func rutaComunicacionLlamamientoExacta(r *http.Request) bool {

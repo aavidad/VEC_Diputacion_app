@@ -75,58 +75,58 @@ func (m *montajeFirmaVecR5CT) cerrarAuditoriaSiExiste() {
 func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c configuracionFirmasCT, alta *dependenciasAltaContratacionTemporalDesarrollo,
 	consultas dependenciasConsultasRRHHDesarrollo, resolvedor *resolvedorIdentidadDesarrollo, fuente, motivos *pgxpool.Pool, derivador *derivadorIdentidadOperacionDesarrollo) (*montajeFirmaVecR5CT, error) {
 	if ctx == nil || alta == nil || alta.soporte == nil || alta.postgresql.ejecucion == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || fuente == nil || motivos == nil || consultas.identidad == nil || consultas.motivos == nil || derivador == nil {
-		return nil, marcarFalloMontajeCT("firma_requisitos", marcarFalloComponenteArranque("ct_firma_vec_dependencias", &falloFuenteConfiguracionArranque{causa: errMontajeFirmaVecR5}))
+		return nil, marcarFalloComponenteArranque("ct_firma_vec_dependencias", &falloFuenteConfiguracionArranque{causa: errMontajeFirmaVecR5})
 	}
 	m := &montajeFirmaVecR5CT{cfg: cfg, configuracion: c, alta: alta, consultas: consultas, reloj: relojContratacionTemporalDesarrollo{}, cerrarAuditoria: func() {}}
 	var err error
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(m.reloj.Ahora())
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
 		[]core.ReferenciaEntradaCatalogo{motivoFirmaV2CTDesarrollo()}, desde) != nil {
-		return nil, marcarFalloMontajeCT("firma_catalogo_motivos", marcarFalloComponenteArranque("ct_firma_vec_motivo", errMontajeFirmaVecR5))
+		return nil, marcarFalloComponenteArranque("ct_firma_vec_motivo", errMontajeFirmaVecR5)
 	}
 	m.fuenteAutorizacion, err = pgvec.NuevoAlmacenAutorizacion(fuente)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_almacen_fuente", err)
+		return nil, err
 	}
 	m.registro, err = pgvec.NuevoAlmacenAutorizacion(alta.postgresql.registroAutorizacion)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_almacen_registro", err)
+		return nil, err
 	}
 	m.motivosFirma, err = pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivos, motivoFirmaV2CTDesarrollo().CatalogoID)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_motivos", err)
+		return nil, err
 	}
 	m.motivosOriginal, err = pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivos, motivoOriginalFirmableCTDesarrollo().CatalogoID)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_motivos_original", err)
+		return nil, err
 	}
 	m.motivosCustodia, err = pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivos, motivoFirmaDocumentoCTDesarrollo().CatalogoID)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_motivos_custodia", err)
+		return nil, err
 	}
 	motivoDetalle, err := consultas.motivos.ResolverMotivoDetalleRRHH(ctx, m.reloj.Ahora())
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_resolver_motivo_detalle", err)
+		return nil, err
 	}
 	m.motivosDetalle, err = pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivos, motivoDetalle.CatalogoID)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_motivos_detalle", err)
+		return nil, err
 	}
 	retirada, err := time.Parse(time.RFC3339, c.RetiradaEn)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_retirada", errMontajeFirmaVecR5)
+		return nil, errMontajeFirmaVecR5
 	}
 	// La sesión nominal necesita la proyección empleada de Personal. Usa el
 	// mismo origen y LOGIN de ContextoActor; las consultas CT conservan su
 	// resolvedor de alcance vacío y sus recibos anteriores.
 	dsnContexto, err := cfg.ContratacionTemporalPostgreSQL.DSNContextoActorConsultasSeparado()
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_dsn_contexto", errMontajeFirmaVecR5)
+		return nil, errMontajeFirmaVecR5
 	}
 	poolContextoFirma, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, dsnContexto,
 		"vec-ct-firma-vec-contexto-empleado", rolContextoActorConsultasDesarrollo)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_pool_contexto", errMontajeFirmaVecR5)
+		return nil, errMontajeFirmaVecR5
 	}
 	contextoPreparado := false
 	defer func() {
@@ -136,44 +136,44 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 	}()
 	resolutorFirma, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, poolContextoFirma)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_resolutor_contexto", errMontajeFirmaVecR5)
+		return nil, errMontajeFirmaVecR5
 	}
 	contextosFirma, err := nuevaAutoridadContextoEmpleadoFirmaVecR5(resolutorFirma, m.reloj)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_autoridad_contexto", errMontajeFirmaVecR5)
+		return nil, errMontajeFirmaVecR5
 	}
 	autoridad, err := nuevaAutoridadSesionFirmanteV2ConPuertos(resolvedor, consultas.identidad.registro,
 		consultas.identidad.revalidador, contextosFirma, m.reloj, retirada, huellaAltaContratacionTemporalDesarrollo("firma-vec-sesion-software-v1"),
 		c.PoliticaAutenticacionRef, c.PoliticaAutenticacionSHA256, c.CRLPath)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_autoridad_sesion", err)
+		return nil, err
 	}
 	m.nominal, err = nuevaFuenteNominalSesionFirmaCT(autoridad, m.fuenteAutorizacion, c.Firmantes, m.reloj)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_fuente_nominal", err)
+		return nil, err
 	}
 	consulta, err := fichero.NuevaConsultaCatalogoProvisionable(c.Plan.Archivo)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_catalogo_plan", err)
+		return nil, err
 	}
 	resolutor, err := reglas.NuevoResolutor(reglas.Configuracion{Consulta: consulta, Metadatos: consulta, CatalogoID: c.Plan.Referencia, ModuloID: ports.ModuloContratacion, Reloj: m.reloj, MunicipioSede: reglas.MunicipioSedeDiputacion})
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_resolutor_plan", err)
+		return nil, err
 	}
 	publicada, err := pgct.NuevaPublicacionPlanFirmaPostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_publicacion_plan", err)
+		return nil, err
 	}
 	m.plan, err = plannominal.NuevaFuente(resolutor, publicada, ctdomain.VersionPlanFirmaV2{Referencia: c.Plan.Referencia, Version: c.Plan.Version, HuellaSHA256: c.Plan.HuellaSHA256})
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_fuente_plan", err)
+		return nil, err
 	}
 	if _, err = m.plan.Plan(ctx); err != nil {
-		return nil, marcarFalloMontajeCT("firma_plan_publicado", marcarFalloComponenteArranque("ct_firma_vec_plan", &falloFuenteConfiguracionArranque{causa: err}))
+		return nil, marcarFalloComponenteArranque("ct_firma_vec_plan", &falloFuenteConfiguracionArranque{causa: err})
 	}
 	seleccion, err := pgct.NuevaSeleccionFirmantePostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_seleccion", err)
+		return nil, err
 	}
 	m.seleccion = seleccion
 	// AUT56 consulta CA25 y Personal dentro de su fachada autorizada, en una
@@ -218,33 +218,33 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 	}
 	selector, err := plannominal.NuevoSelectorCentralFirmanteV2(seleccion, motivoFirmaV2CTDesarrollo())
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_selector_central", err)
+		return nil, err
 	}
 	m.descriptor, err = plannominal.NuevaFuenteDescriptorFirmaV2(m.plan, selector)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_descriptor", err)
+		return nil, err
 	}
 	competencia, err := plannominal.NuevaFuenteCompetenciaFirmantePlanV2(m.plan, seleccion, m.reloj.Ahora)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_competencia_plan", err)
+		return nil, err
 	}
 	m.competencia, err = nuevaFuenteCompetenciaFirmaVecV2(competencia)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_competencia", err)
+		return nil, err
 	}
 	desConsulta, desRecuperacion := descriptoresMaterialFirmasR5V2CTDesarrollo()
 	desVec, _ := descriptoresMaterialFirmaV2EscrituraCTDesarrollo()
 	m.emisorConsulta, err = emisorMaterialFirmaR5Actual(ctx, alta, derivador, m.reloj, desConsulta)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_material_consulta", err)
+		return nil, err
 	}
 	m.emisorRecuperacion, err = emisorMaterialFirmaR5Actual(ctx, alta, derivador, m.reloj, desRecuperacion)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_material_recuperacion", err)
+		return nil, err
 	}
 	m.emisorRegistro, err = emisorMaterialFirmaR5Actual(ctx, alta, derivador, m.reloj, desVec)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_material_registro", err)
+		return nil, err
 	}
 	for _, d := range descriptoresMaterialAutorizacionContratacionTemporalDesarrollo() {
 		switch d.Audiencia {
@@ -256,34 +256,34 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 			continue
 		}
 		if err != nil {
-			return nil, marcarFalloMontajeCT("firma_material_lecturas", err)
+			return nil, err
 		}
 	}
 	if m.emisorCuadro == nil || m.emisorDetalle == nil || consultas.sesionOriginal == nil || consultas.motivos == nil {
-		return nil, marcarFalloMontajeCT("firma_requisitos_lecturas", errMontajeFirmaVecR5)
+		return nil, errMontajeFirmaVecR5
 	}
 	m.consulta, err = firmaemisorv2.NuevoEmisorConsultaFirmaVecDesarrollo(m.nominal, m.emisorConsulta, motivoFirmaV2CTDesarrollo(), m.reloj, m.fuenteAutorizacion)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_emisor_consulta", err)
+		return nil, err
 	}
 	m.recuperacion, err = firmaemisorv2.NuevoEmisorConsultaFirmaVecDesarrollo(m.nominal, m.emisorRecuperacion, motivoFirmaV2CTDesarrollo(), m.reloj, m.fuenteAutorizacion)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_emisor_recuperacion", err)
+		return nil, err
 	}
 	fuenteVec, err := firmavec.NuevaFuenteNominalFirmaVecV2(autoridad)
 	if err != nil {
-		return nil, marcarFalloMontajeCT("firma_fuente_vec", err)
+		return nil, err
 	}
 	m.firmas = &emisoresFirmaVecPorPerfilCT{fuente: fuenteVec, porPerfil: map[string]*firmaemisorv2.Emisor{}}
 	for _, aprobada := range c.Admisiones {
 		admision, err := vecapp.NuevaAdmisionGarantiaFirmaVecDesarrollo(vecapp.ConfiguracionAdmisionGarantiaFirmaVecDesarrollo{EntornoConfiable: vecapp.EntornoAdmisionFirmaDesarrollo,
 			Politica: politicaAdmisionFirmaCT(c, aprobada, retirada), Reloj: m.reloj})
 		if err != nil {
-			return nil, marcarFalloMontajeCT("firma_admision", err)
+			return nil, err
 		}
 		emisor, err := firmaemisorv2.NuevoEmisorFirmaVecDesarrollo(fuenteVec, m.emisorRegistro, motivoFirmaV2CTDesarrollo(), m.reloj, m.fuenteAutorizacion, admision)
 		if err != nil {
-			return nil, marcarFalloMontajeCT("firma_emisor_vec", err)
+			return nil, err
 		}
 		m.firmas.porPerfil[aprobada.PerfilRef] = emisor
 	}

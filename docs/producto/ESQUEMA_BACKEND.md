@@ -691,6 +691,30 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+La consulta del detalle añade `origen_ct_confirmado` a cada participación de
+Bolsa. Solo acredita una aceptación firme singular cuyo recibo y emisión
+corresponden a la selección confirmada de CT y a su versión fiscalizada
+histórica. La autorización y auditoría siguen en la lectura nominal existente;
+la marca no concede una escritura. El panel conserva el justificante original
+de Mi Bolsa; la resolución pertenece al segundo corte de F1-125.
+
+CT249 amplía `resolucion_manual_respuesta_rrhh` con `fuente_respuesta`,
+`respuesta_portal_ref`, `recibo_respuesta_portal_ref` y `participacion_ref`.
+Las filas anteriores quedan identificadas como `correo_rrhh`. En la variante `portal`,
+`comunicacion_ref` y `justificante_ref` quedan nulos; se guarda la referencia
+al recibo original de Bolsa. La unicidad por organización, expediente y
+llamamiento impide resolverlo dos veces entre ambas vías.
+
+El mismo POST de resoluciones admite el valor `portal` en `fuente_respuesta`;
+sin ese campo mantiene el contrato de correo. El servidor determina la
+organización. El acto consume su autorización en la transacción del asiento y
+el recibo, y verifica la aceptación original mediante B113. El estado `revision_manual_portal` conserva la revisión
+expresa del plazo por RRHH; no afirma un cómputo automático. Un reintento
+confirmado devuelve las mismas referencias y fecha. La ficha usa
+`resolucion_portal_disponible` para ofrecer el acto, separado de la marca de
+origen; el servidor vuelve a comprobar sus requisitos al ejecutarlo.
+El positivo de resolución desde la ficha sigue pendiente en una copia nueva.
+
 F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
 padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
 padre, plaza y recibo en una operación atómica. La ruta
@@ -1142,6 +1166,19 @@ opcional no concede permisos; ausente o incorrecta deja solo esta consulta en
 Falta completar el ensayo de lectura y reinicio de esta candidata.
 
 ### 11.2 Reglas de frontera
+
+F1-141 amplía `GET /api/vec/contratacion-temporal/llamamientos/seleccion/estado`
+para recuperar también la intención de un llamamiento singular pendiente.
+Conserva la autorización, la sesión y la auditoría de la consulta existente.
+La respuesta singular añade `tipo_seleccion: llamamiento`, la clave y la versión
+originales, el efecto pendiente y si queda una ventana abierta. La consulta no
+reanuda el acto; el formulario debe enviar expresamente la solicitud original
+por la ruta de selección existente. El contrato de las ofertas plurales se conserva.
+El GET solo se monta cuando existe su servicio. Para una persona, el 404
+`api.vec.ruta_exacta.error.recurso_no_encontrado` del enrutador conserva la
+selección anterior; un 404 de expediente, un 503 o una intención ya recuperada
+siguen bloqueando. Sin configuración de ofertas no hay recuperación después
+de recargar; F1-142 abordará esa lectura sin ampliar permisos en F1-141.
 
 - Rutas exactas registradas en una autoridad (`internal/vec/adapters/httpapi/rutas_exactas.go`
   y las composiciones de `internal/app/bootstrap/`); una ruta no registrada da 404.

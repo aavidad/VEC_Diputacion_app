@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Solo en clon H tras instalar CT219 una vez. Nunca sobre la principal.
+-- Solo en copia local tras CT219, CT259 y CT260. Nunca sobre la principal.
 -- Sin material real, acredita definición, ACL y plan publicado; no afirma firma.
 -- Para el negativo de punta a punta, dirección puede pasar
 -- -v ct219_material_real_sql=/ruta/privada/negativos.sql. Ese archivo se
@@ -36,9 +36,9 @@ DECLARE
 BEGIN
  IF v3 IS NULL OR v2 IS NULL OR v4 IS NULL
     OR encode(sha256(convert_to(pg_get_functiondef(v3),'UTF8')),'hex')
-       IS DISTINCT FROM '8f58548d20ef55314fa78e631cec10d0dd3a918e46e45de5b5b527758b6afb1a'
+       IS DISTINCT FROM '1bafd6a56b78830d97f41e746cfde20da54e68eff07117a19cf01a62ac0e3607'
     OR encode(sha256(convert_to(pg_get_functiondef(v2),'UTF8')),'hex')
-       IS DISTINCT FROM '49cf7bf45eb803baf87abee9556fe1417c61de4cf6daa8b0865f208e25ee6bd0'
+       IS DISTINCT FROM 'e25c5f2396341320420d8dced263eaff3d7c50114db1b784751368a242fdbac0'
     OR encode(sha256(convert_to(pg_get_functiondef(v4),'UTF8')),'hex')
        IS DISTINCT FROM '44b50bb77d26457a715eabbb101c9e65a69daa71ab2910a035ecafe8a9498a85'
     OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=v3

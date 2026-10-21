@@ -1,6 +1,6 @@
 # Recorrer Bolsa y Contratación temporal en una copia local
 
-Guía al 20 de octubre de 2026. Permite seguir el caso de aceptación desde la
+Guía al 21 de octubre de 2026. Permite seguir el caso de aceptación desde la
 petición del centro hasta el cese y la vuelta a la bolsa. La inscripción y los
 méritos del aspirante se pueden mostrar antes o después, como recorrido aparte.
 
@@ -21,7 +21,10 @@ Use Chrome y los datos ficticios preparados para esa copia. El caso de
 referencia usa la categoría Administrativo, el centro 520, el puesto 9 de la
 RPT y la plaza 2026/0033. Al crear la petición busque el puesto **9**; el puesto
 **9/01** se usa después, en Personal. La bolsa ya debe estar constituida y la
-persona candidata debe figurar como disponible en su orden.
+persona candidata debe figurar como disponible en su orden. El aspirante del caso es
+Yago Lozano Hidalgo, primera persona del listado de Administrativo. La receta
+carga ese listado por «Cargar desde CONVOCA» y prepara su certificado. Use la
+bolsa que identifica el justificante de esa carga; sustituye a la anterior.
 
 No prepare por adelantado el alta, la ocupación ni el cese: son resultados que
 se deben obtener desde las pantallas. Si los datos de partida no corresponden

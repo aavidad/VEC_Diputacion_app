@@ -30,17 +30,40 @@ func solicitudPropuestaDesarrolloIgual(a, b ports.SolicitudPropuestaFormalizacio
 	return err == nil && err2 == nil && bytes.Equal(primera, segunda)
 }
 
+func materialPropuestaDesarrolloIgual(a, b ports.MaterialPropuestaFormalizacion) bool {
+	if a.Validar() != nil || b.Validar() != nil || a.Etapa != b.Etapa ||
+		!solicitudPropuestaDesarrolloIgual(a.Solicitud, b.Solicitud) ||
+		(a.AceptacionBolsa == nil) != (b.AceptacionBolsa == nil) ||
+		(a.AceptacionBolsaNativa == nil) != (b.AceptacionBolsaNativa == nil) {
+		return false
+	}
+	if a.AceptacionBolsa != nil && *a.AceptacionBolsa != *b.AceptacionBolsa {
+		return false
+	}
+	return a.AceptacionBolsaNativa == nil || *a.AceptacionBolsaNativa == *b.AceptacionBolsaNativa
+}
+
+func materialPropuestaDesarrolloAcreditado(m ports.MaterialPropuestaFormalizacion, a ports.AntecedentePropuestaFormalizacion) bool {
+	if m.Etapa != "confirmacion" || m.Validar() != nil || a.ValidarPara(m.Solicitud) != nil ||
+		(a.Portal == nil && a.Resolucion.Politica != politicaManualDesarrollo()) {
+		return false
+	}
+	if m.AceptacionBolsa != nil {
+		return a.Portal == nil && m.AceptacionBolsa.ValidarPara(a) == nil
+	}
+	return m.AceptacionBolsaNativa != nil && m.AceptacionBolsaNativa.ValidarPara(a) == nil
+}
+
 func (p *proveedorPropuestaFormalizacionDesarrollo) PrepararPropuestaFormalizacion(ctx context.Context, s ports.SolicitudPropuestaFormalizacion) (ports.MaterialPropuestaFormalizacion, error) {
 	if contextoInterfazNulo(ctx) || p == nil || p.soporte == nil || !p.publicaciones.admite(s) {
 		return ports.MaterialPropuestaFormalizacion{}, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
 	l, ok := ctx.Value(clavePropuestaFormalizacionDesarrollo{}).(propuestaFormalizacionLigadaDesarrollo)
-	if !ok || l.material.Etapa != "confirmacion" || !solicitudPropuestaDesarrolloIgual(l.material.Solicitud, s) ||
-		l.antecedente.ValidarPara(s) != nil || l.material.Validar() != nil || l.material.AceptacionBolsa.ValidarPara(l.antecedente) != nil {
+	if !ok || !solicitudPropuestaDesarrolloIgual(l.material.Solicitud, s) ||
+		!materialPropuestaDesarrolloAcreditado(l.material, l.antecedente) {
 		return ports.MaterialPropuestaFormalizacion{}, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
-	b := *l.material.AceptacionBolsa
-	return ports.MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s.Clonar(), AceptacionBolsa: &b}, nil
+	return l.material.Clonar(), nil
 }
 
 func (p *proveedorPropuestaFormalizacionDesarrollo) AutorizarPropuestaFormalizacion(ctx context.Context, m ports.MaterialPropuestaFormalizacion) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -57,9 +80,7 @@ func (p *proveedorPropuestaFormalizacionDesarrollo) AutorizarPropuestaFormalizac
 		return vacio, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
 	esperado, ok := ctx.Value(claveMaterialPropuestaFormalizacionDesarrollo{}).(ports.MaterialPropuestaFormalizacion)
-	if !ok || esperado.Etapa != m.Etapa || !solicitudPropuestaDesarrolloIgual(esperado.Solicitud, m.Solicitud) ||
-		(esperado.AceptacionBolsa == nil) != (m.AceptacionBolsa == nil) ||
-		(m.AceptacionBolsa != nil && *esperado.AceptacionBolsa != *m.AceptacionBolsa) {
+	if !ok || !materialPropuestaDesarrolloIgual(esperado, m) {
 		return vacio, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
 	recurso, err := postgresct.RecursoPropuestaFormalizacion(m)
@@ -85,10 +106,8 @@ func solicitudAutorizacionPropuestaDesarrolloValida(ctx context.Context, d domin
 	}
 	if m.Etapa == "confirmacion" {
 		l, existe := ctx.Value(clavePropuestaFormalizacionDesarrollo{}).(propuestaFormalizacionLigadaDesarrollo)
-		if !existe || l.antecedente.ValidarPara(m.Solicitud) != nil ||
-			l.material.Validar() != nil || l.material.AceptacionBolsa == nil ||
-			!solicitudPropuestaDesarrolloIgual(l.material.Solicitud, m.Solicitud) || *l.material.AceptacionBolsa != *m.AceptacionBolsa ||
-			l.antecedente.Resolucion.Politica != politicaManualDesarrollo() || m.AceptacionBolsa.ValidarPara(l.antecedente) != nil {
+		if !existe || !materialPropuestaDesarrolloIgual(l.material, m) ||
+			!materialPropuestaDesarrolloAcreditado(m, l.antecedente) {
 			return false
 		}
 	}

@@ -154,6 +154,14 @@ Carmen Molina Ortega (usuario web `rrhh`) es la técnica de RRHH del recorrido y
 usa el perfil fijo de técnico de RRHH. La aspirante del recorrido es el usuario
 web `candidato`.
 
+Los perfiles de cargo firmante abren el cuadro y la ficha de Contratación
+temporal con su panel de firma. Esa vista no monta el análisis, la cancelación,
+la generación de borradores, la lista común de Documentos ni el contexto de
+Bolsa propios de la tramitación de RRHH. Conserva el resumen de Inicio y las
+descargas del panel de firma. El plan de alta en Personal y su vínculo con
+la categoría de la relación de puestos se consultan desde la vista de
+tramitación de RRHH, sin montarlos en la ficha del perfil firmante.
+
 ### 3.2 Portal interno de RRHH (`/portal-empleado/`)
 
 El lateral se arma así (`web/static/portal-empleado/index.html`,
@@ -258,7 +266,7 @@ una con su perfil:
 
 | Papel | Persona | Perfil |
 | --- | --- | --- |
-| Aspirante | Antonio Reyes Álvarez | Aspirante externo (usuario web `candidato`) |
+| Aspirante | Yago Lozano Hidalgo | Aspirante externo (usuario web `candidato`) |
 | Centro solicitante | Lucía Fernández Castillo, Jefatura de Servicio de Servicios Digitales y Asesoría Tecnológica a Municipios | Centro |
 | Ratificador | Manuel García Robles, del mismo centro | Centro, ratificador |
 | RRHH | Carmen Molina Ortega, técnica de RRHH (usuario web `rrhh`) | Técnico de RRHH |
@@ -275,11 +283,12 @@ puesto 9, plaza 2026/0033**. En el paso 1 el centro busca el puesto por su
 código en la RPT publicada, `9`; si escribe `9/01`, el buscador responde que
 ese puesto no aparece. `9/01` es el puesto con que Personal registra la
 ocupación en el paso 18. Los datos se cargan con un guion de datos
-repetible (no con código), sin tocar los demás puestos. La bolsa es
-`bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk` v1, ya constituida y con su orden. El alta,
-la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio ya
-figura en ella como disponible y en el puesto que le toca el llamamiento (lo deja así el guion
-de datos). Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
+repetible (no con código), sin tocar los demás puestos. La receta carga el [listado de Administrativo](../../data/demo/bolsa/convoca/administrativo/resumen.xls)
+por «Cargar desde CONVOCA». Esa carga constituye la bolsa y sustituye la anterior,
+conservando su historia. Su justificante identifica la bolsa y el acta; las referencias
+propias de la copia quedan en `caso40-seleccion.json`. Yago ocupa la primera posición
+del listado y figura como disponible, con su certificado propio. El alta, la ocupación
+y el cese se obtienen desde las pantallas del recorrido. Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
 
 **Variante de vacante para comprobar los criterios de ofrecimiento**
 (dirección, 15/10). Conserva la misma petición, expediente, puesto, bolsa y una
@@ -312,11 +321,11 @@ conveniente».
 
 | # | Quién | Pantalla | Qué hace | Resultado esperado |
 | --- | --- | --- | --- | --- |
-| e1 | Antonio (aspirante) | `/area-personal/?vista=inscripcion`, Inscribirme en una bolsa | Elige la convocatoria de Administrativo, declara que cumple cada requisito, revisa y presenta la solicitud | Recibo de presentación; solicitud `pendiente` («Pendiente de revisión» en Mis solicitudes) |
-| e2 | Antonio | `/area-personal/?vista=meritos`, Mis méritos | Pulsa «Añadir título o mérito» y declara sus títulos y méritos | Cada mérito queda «Declarado, pendiente de revisión» |
-| e3 | Carmen (RRHH) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, revisa la solicitud de Antonio y la admite | Solicitud `admitida_a_convocatoria`; Antonio ve «Admitida. Pendiente de incorporación a la bolsa» |
-| e4 | Carmen | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
-| e5 | Antonio, después Carmen | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Antonio presenta una alegación sobre su participación; Carmen la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
+| e1 | Yago (aspirante) | `/area-personal/?vista=inscripcion`, Inscribirme en una bolsa | Elige la convocatoria de Administrativo, declara que cumple cada requisito, revisa y presenta la solicitud | Recibo de presentación; solicitud `pendiente` («Pendiente de revisión» en Mis solicitudes) |
+| e2 | Yago | `/area-personal/?vista=meritos`, Mis méritos | Pulsa «Añadir título o mérito» y declara sus títulos y méritos | Cada mérito queda «Declarado, pendiente de revisión» |
+| e3 | Carmen (RRHH) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, revisa la solicitud de Yago y la admite | Solicitud `admitida_a_convocatoria`; Yago ve «Admitida. Pendiente de incorporación a la bolsa» |
+| e4 | Carmen | La misma pantalla | Incorpora a Yago a la bolsa de Administrativo del justificante de carga, ya constituida, con el número del acta | Solicitud `incorporada`; Yago aparece en Mi Bolsa como **Disponible** con su posición |
+| e5 | Yago, después Carmen | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Yago presenta una alegación sobre su participación; Carmen la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
 | 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto `9` de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
 | 2 | Manuel (ratificador) | La misma pantalla, bandeja del centro | Revisa y ratifica con motivo | Recibo de ratificación; petición `ratificada`, versión 2 |
 | 3 | Carmen (RRHH) | `peticiones-centro/?vista=rrhh` | Teclea el número de expediente de MOAD y crea el expediente | Recibo de alta; expediente `solicitud/en_curso`, v1, con la necesidad de la RPT conservada |
@@ -326,20 +335,20 @@ conveniente».
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
 | 7b | Carmen y después Jefatura (firmantes) | Ficha, Firma | Firman con sus certificados el informe de remisión a Intervención, en ese orden; la fiscalización exige ambas firmas verificadas | Un recibo por firma y el PDF con las dos firmas verificadas |
 | 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6. Con el resultado favorable explícito, la ficha orienta al llamamiento sin cambiar esa fase ni pedir otra fiscalización |
-| 9 | Carmen | Ficha, Llamamiento y comunicación; ficha de Antonio en Bolsa | Abre el llamamiento desde la bolsa Administrativo; tras la llamada, registra el contacto efectivo con Antonio | Recibo del llamamiento y del contacto; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas). El contacto efectivo abre la respuesta y su plazo según las reglas vigentes |
-| 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo que muestra el llamamiento abierto | Recibo de su respuesta |
-| 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
+| 9 | Carmen | Ficha, Llamamiento y comunicación; ficha de Yago en Bolsa | Abre el llamamiento desde la bolsa Administrativo; tras la llamada, registra el contacto efectivo con Yago | Recibo del llamamiento y del contacto; la fase no cambia; Yago recibe el aviso por correo (hoy, buzón de pruebas). El contacto efectivo abre la respuesta y su plazo según las reglas vigentes |
+| 10 | Yago (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo que muestra el llamamiento abierto | Recibo de su respuesta |
+| 10a (si renuncia con causa justificada) | Yago; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Yago adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
 | 11 | Carmen | Ficha, Llamamiento | Resuelve la aceptación | Recibo de resolución del llamamiento |
 | 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
 | 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
 | 14 | Carmen | Ficha, Documentos | Descarga en PDF y Word los borradores | Cada documento se abre con el logotipo y los datos del expediente |
-| 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman la resolución en el orden Jefatura → Diputación → Secretaría General y recuperan el informe ya firmado en 7b. Los otros cuatro documentos (incluida la toma de posesión de Antonio) se generan y descargan sin firma, marcados «firma pendiente», sin simularla | Cada firma con su justificante y el PDF verificado; los cuatro restantes, descargables en PDF y Word |
-| 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Antonio con fecha y documento | Recibo de incorporación acreditada del centro |
-| 18 | Carmen | Ficha, Paso a Personal | Revisa el plan de alta con categoría Administrativo, puesto 9/01 y plaza 2026/0033, y lo confirma | Antonio aparece en Personal con su relación y su ocupación; recibo de alta B2 confirmado |
+| 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman la resolución en el orden Jefatura → Diputación → Secretaría General y recuperan el informe ya firmado en 7b. Los otros cuatro documentos (incluida la toma de posesión de Yago) se generan y descargan sin firma, marcados «firma pendiente», sin simularla | Cada firma con su justificante y el PDF verificado; los cuatro restantes, descargables en PDF y Word |
+| 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Yago con fecha y documento | Recibo de incorporación acreditada del centro |
+| 18 | Carmen | Ficha, Paso a Personal | Revisa el plan de alta con categoría Administrativo, puesto 9/01 y plaza 2026/0033, y lo confirma | Yago aparece en Personal con su relación y su ocupación; recibo de alta B2 confirmado |
 | 16a | Carmen | Ficha, GINPIX | Descarga la ficha para la grabación manual, después del alta en Personal | Ficha descargada con las referencias del recibo B2 confirmado |
 | 16b | Carmen | Ficha, GINPIX | Confirma número y fecha de la grabación manual | Recibo local de confirmación GINPIX; no acredita una transmisión automática |
 | 19 | Carmen | Ficha, Cese | Registra el cese con causa y justificante | Recibo de cese |
-| 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
+| 20 | (automático) Bolsa | Mi Bolsa de Yago y Bolsas de RRHH | Bolsa recibe el cese | Yago vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
 | 21 | Carmen | Ficha, Cierre | Cierra el expediente | `nombramiento/completado` |
 
 La entrada externa propia a Mi Bolsa está comprobada en la copia local del
@@ -358,7 +367,7 @@ v7 o posterior (4.3.4; el informe definitivo, en v5 con el catálogo v4), y el o
 | Informe definitivo | Carmen (técnica de RRHH) y Jefatura del Servicio de RRHH |
 | Resolución | Jefatura del Servicio (visto bueno), Diputado/a delegado/a de RRHH y Secretaría General (toma de razón): los tres cargos |
 | Diligencia | Secretaría General |
-| Toma de posesión | Antonio, Jefatura y Secretaría General |
+| Toma de posesión | Yago, Jefatura y Secretaría General |
 | Notificación y comunicación al centro | Jefatura |
 
 **Contradicciones conocidas y cómo se resuelven para la presentación.** RRHH
@@ -377,7 +386,7 @@ esta tabla.
 
 **Variante de varias plazas, separada del caso de aceptación.** Dirección autorizó
 el 15/10 ensayar una petición del mismo puesto Administrativo para dos personas:
-Antonio y otra persona ficticia ya disponible en la bolsa. El ensayo previsto llega hasta la
+Yago y otra persona ficticia ya disponible en la bolsa. El ensayo previsto llega hasta la
 publicación, respuesta y adjudicación de las dos plazas en Bolsa, conservando
 los recibos de la oferta y de su vínculo con CT. La publicación desde CT N2
 sigue preparada en código, sin ensayo conjunto de SQL, configuración, Chrome
@@ -834,6 +843,17 @@ migraciones de `deploy/postgresql/contratacion_temporal/`):
 | Cierre | Técnico de RRHH | `cierres-expediente` (exige cese y GINPIX) | `nombramiento/completado` | En cidonia *(por verificar)* |
 | Cancelación | RRHH o centro | `cancelaciones-expediente` / `peticiones-centro/cancelaciones` | Fase actual con estado `cancelado` | Por verificar |
 
+**Propuesta desde Mi Bolsa (F1-127, preparada; falta activación y ensayo).**
+La aceptación firme requiere una resolución de RRHH. Su referencia y su recibo
+alimentan la propuesta desde la ficha del expediente, sin adjuntar un correo.
+El formulario también recupera esas referencias al volver a abrir la ficha;
+RRHH revisa las publicaciones y confirma el envío. Cargar la ficha no registra
+una propuesta y un expediente que ya avanzó no abre otra.
+La propuesta vuelve a comprobar la aceptación, la selección, el expediente y
+la autorización. La repetición debe recuperar el mismo recibo. La resolución
+por correo conserva su recorrido; este corte no resuelve ofertas de varias
+plazas ni sustituye el acto de RRHH.
+
 Estados que admite la tabla: `en_curso`, `completado`, `incidencia` y
 `cancelado`. El dominio nombra también `pendiente` y `espera_externa`, pero no
 se guardan. Las fases no son una lista cerrada en el código: son claves de
@@ -886,7 +906,14 @@ CT no tiene llamamiento propio: usa el de Bolsa sobre una bolsa constituida
    cuadra, se detiene y lo dice.
 2. CT pide a Bolsa el orden vigente y abre el llamamiento
    (`llamamientos/seleccion`). Si falla a medias, la misma operación lo
-   recupera con la misma clave, sin duplicar.
+   recupera con la misma clave, sin duplicar. Al volver a abrir la ficha,
+   consulta la intención singular pendiente y ofrece «Reanudar llamamiento».
+   RRHH revisa y confirma; abrir o recargar la ficha no repite el acto ni
+   genera otra clave. La consulta requiere el montaje de lectura de estado
+   de ofertas existente, también para una sola persona (F1-141). Si esa ruta no
+   está instalada, se conserva la selección singular anterior; no se recupera
+   la intención tras recargar. Un fallo de la consulta instalada bloquea el
+   envío. La recuperación sin configuración de ofertas queda en F1-142.
 3. RRHH registra la comunicación (`llamamientos/comunicaciones`). Este paso no
    envía correo: deja constancia y una intención de aviso.
 4. La aspirante responde en Mi Bolsa, o RRHH registra la respuesta recibida por
@@ -991,6 +1018,13 @@ falta su configuración o permiso, la selección conserva el expediente y queda
 sin completar. El montaje se ensaya en la copia local; todavía no acredita el
 ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
 del puesto.
+
+La candidata F1-107 conserva en el recibo verificable del llamamiento las
+referencias del recibo y de la auditoría de cada página consultada a Personal.
+Solo guarda esas referencias, sin copiar el contenido del puesto. Los recibos
+anteriores mantienen su formato; la repetición de una selección confirmada
+recupera su prueba original. Activación y comprobaciones en
+[`evidencia_personal_llamamiento_f1_107.md`](../../deploy/principal/evidencia_personal_llamamiento_f1_107.md).
 
 El segundo corte, **preparado en código y todavía sin ensayo integrado**, añade
 una respuesta distinta al mismo `POST /api/vec/contratacion-temporal/llamamientos/seleccion`.

@@ -186,6 +186,36 @@ func TestPropuestaFormalizacionPGDespachaNativaDesdeV6(t *testing.T) {
 	}
 }
 
+func TestPropuestaFormalizacionPGLeePortalEnCT211SinCambiarFuncion(t *testing.T) {
+	s, anterior, m, _ := datosPropuestaPGPrueba(t)
+	j := anterior.Justificante.Seleccion
+	p := ports.AntecedentePortalPropuesta{FuenteRespuesta: "portal", OrganizacionRef: s.OrganizacionRef,
+		ExpedienteRef: s.ExpedienteRef, LlamamientoRef: s.LlamamientoRef,
+		ResolucionRef: s.ResolucionLlamamientoAceptadaRef, ReciboResolucionRef: s.ReciboResolucionAceptadaRef,
+		ResueltaEn: anterior.Resolucion.ResueltaEn, VersionResultante: 1,
+		RespuestaPortalRef: "respuesta:portal", ReciboRespuestaPortalRef: "recibo:portal",
+		ParticipacionRef: "participacion:portal", RespondidaEn: anterior.Justificante.Respuesta.RegistradaEn,
+		EstadoPlazo: "revision_manual_portal", RevisionRespuestaRRHH: true, RevisionPlazoRRHH: true,
+		CriterioValidacionRef: anterior.Resolucion.Politica.Referencia,
+		Politica: ports.PoliticaPortalPropuesta{Referencia: anterior.Resolucion.Politica.Referencia,
+			Version: anterior.Resolucion.Politica.Version, HuellaSHA256: anterior.Resolucion.Politica.HuellaSHA256},
+		Seleccion: ports.SeleccionPortalPropuesta{ClaveCT: anterior.SeleccionClave,
+			UnidadRef: "unidad:rrhh", CategoriaRef: "categoria:uno", NecesidadRef: j.Necesidad.Referencia,
+			BolsaRef: j.Bolsa.Referencia, LlamamientoRef: s.LlamamientoRef,
+			ReciboEmisionRef: j.ReciboRef, ConfirmadaEn: j.ConfirmadaEn, VersionExpediente: s.VersionEsperada}}
+	entrada, _ := json.Marshal(map[string]any{"Portal": p})
+	tx := &transaccionEjecucionSeleccionO6Prueba{fila: filaEjecucionSeleccionO6Prueba{valores: []any{strings.ReplaceAll(string(entrada), "Z\"", "+00:00\"")}}}
+	proveedor := &proveedorPropuestaPGPrueba{material: m, autorizar: func(_ context.Context, material ports.MaterialPropuestaFormalizacion) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		return materialPropuestaPGPrueba(t, material, AccionPropuestaFormalizacion), nil
+	}}
+	repo := &RegistroPropuestaFormalizacionPostgreSQL{pool: &iniciadorEjecucionSeleccionO6Prueba{tx: tx}, proveedor: proveedor}
+	leido, err := repo.LeerAntecedente(context.Background(), s)
+	if err != nil || leido.Portal == nil || leido.ValidarPara(s) != nil || leido.Portal.FuenteRespuesta != "portal" ||
+		len(tx.consultas) != 1 || !strings.Contains(tx.consultas[0], "leer_antecedente_propuesta_formalizacion_ct211_v1(") {
+		t.Fatal("CT211 no entregó antecedente portal tipado", err)
+	}
+}
+
 func TestPropuestaFormalizacionPGSucesorNormalizaUTCNoTrunca(t *testing.T) {
 	s, a, _, _ := datosPropuestaPGPrueba(t)
 	_, _, c := datosContinuacionPG(t)

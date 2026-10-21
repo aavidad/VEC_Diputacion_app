@@ -58,6 +58,26 @@ class Caso40Test(unittest.TestCase):
         self.assertIn('organismo=' + caso40.seleccion(REPO)['organismo'], orden)
         self.assertTrue(all(c.kwargs['check'] for c in run.call_args_list))
 
+    def test_copia_completa_no_prepara_la_participacion_historica(self):
+        with patch.object(caso40.subprocess, 'run') as run:
+            caso40.aplicar_guiones(self.copia, self.repo, bolsa_historica=False)
+        self.assertEqual(run.call_count, 2)
+
+    def test_seleccion_nativa_exige_copia_y_sid_propios(self):
+        self.copia.leer.return_value['sid_copia'] = '12345678901234567'
+        nueva = {'copia_ref': self.copia.nombre, 'sid_copia': '12345678901234567',
+                 'seleccion': {'bolsa': 'bolsa:nueva', 'candidato': 'can_nuevo',
+                               'participacion': 'participacion:nueva',
+                               'nombre': 'Nombre del fichero', 'identidad': 'aspirante-caso40'}}
+        ruta = self.raiz / 'caso40-seleccion.json'
+        ruta.write_text(json.dumps(nueva))
+        ruta.chmod(0o600)
+        self.assertEqual(caso40.seleccion(self.repo, self.copia)['candidato'], 'can_nuevo')
+        nueva['sid_copia'] = '98765432109876543'
+        ruta.write_text(json.dumps(nueva))
+        with self.assertRaisesRegex(ValueError, 'ajena'):
+            caso40.seleccion(self.repo, self.copia)
+
     def test_antonio_queda_ligado_a_la_candidatura_vigente(self):
         sel = caso40.seleccion(self.repo)
 
@@ -69,7 +89,7 @@ class Caso40Test(unittest.TestCase):
                 json.dumps({'candidato_ref': sel['candidato']}))
 
         with patch.object(caso40.subprocess, 'run', side_effect=preparar):
-            entorno = caso40.preparar_antonio(self.copia, self.repo)
+            entorno = caso40.preparar_aspirante(self.copia, self.repo)
         # F1-109: el selector del portal nunca va sin el catálogo de reglas que
         # el servidor exige; sin él el arranque se para en selectores_bolsa_ct.
         self.assertEqual(entorno, {'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true',
@@ -83,7 +103,7 @@ class Caso40Test(unittest.TestCase):
                 json.dumps({'candidato_ref': caso40.seleccion(self.repo)['candidato']}))
 
         with patch.object(caso40.subprocess, 'run', side_effect=preparar) as run, self.assertRaises(ValueError):
-            caso40.preparar_antonio(self.copia, self.repo)
+            caso40.preparar_aspirante(self.copia, self.repo)
         run.assert_not_called()
 
     def test_el_catalogo_de_reglas_de_bolsa_existe_en_el_repositorio(self):
@@ -106,7 +126,7 @@ class Caso40Test(unittest.TestCase):
                 json.dumps({'candidato_ref': 'can_otra'}))
 
         with patch.object(caso40.subprocess, 'run', side_effect=preparar), self.assertRaises(ValueError):
-            caso40.preparar_antonio(self.copia, self.repo)
+            caso40.preparar_aspirante(self.copia, self.repo)
 
     def test_el_contacto_es_ficticio_y_va_al_buzon_de_la_copia(self):
         ruta, cuerpo = caso40.peticion_contacto(caso40.seleccion(self.repo))
@@ -128,6 +148,8 @@ class Caso40Test(unittest.TestCase):
                 else:
                     self.assertEqual(caso40.registrar_contacto(self.copia, self.repo), estado)
                 cabeceras = conexion.request.call_args.kwargs['headers']
+                self.assertEqual({k: cabeceras[k] for k in ('Sec-Fetch-Site', 'Sec-Fetch-Mode', 'Sec-Fetch-Dest')},
+                                 {'Sec-Fetch-Site': 'same-origin', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty'})
                 self.assertEqual(cabeceras['Idempotency-Key'], caso40.CLAVE_CONTACTO)
                 conexion.close.assert_called_once()
 

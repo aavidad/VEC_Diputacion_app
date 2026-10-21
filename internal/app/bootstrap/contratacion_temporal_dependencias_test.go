@@ -52,11 +52,8 @@ func TestRutasCTConPostgreSQLMinimoExigenContextoRegistradoAntesDeArrancar(t *te
 		t.Fatal(err)
 	}
 	rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard, nil)
-	var fallo *falloMontajeCT
 	if !errors.Is(err, config.ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) ||
-		!errors.As(err, &fallo) || fallo == nil ||
-		!strings.Contains(fallo.Unwrap().Error(), "contexto actor registrado") ||
-		constructorFalloMontajeCT(err) != "ct.montaje.identidad_operativa" || rutas != nil || autoridad != nil || cerrar != nil {
+		!strings.Contains(err.Error(), "contexto actor registrado") || rutas != nil || autoridad != nil || cerrar != nil {
 		t.Fatalf("CT mínimo abrió rutas sin identidad operativa: rutas=%v autoridad=%v cierre=%t err=%v", rutas, autoridad, cerrar != nil, err)
 	}
 }

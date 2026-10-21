@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js";
 
 function escenario(cliente, confirmarOperacion = async () => true, consultarPersonas = async () => new Map(),
-  { zona = { innerHTML: "", querySelector: () => ({ after() {} }) }, documento = {} } = {}) {
+  { zona = { innerHTML: "", querySelector: () => ({ after() {} }) }, documento = {},
+    traducir = (clave) => clave } = {}) {
   const eventos = new Map();
   const resultado = { vinculos: [], emisiones_vinculables: [{ bolsa_ref: "bolsa:prueba",
     llamamiento_ref: "llamamiento:prueba", recibo_emision_ref: "recibo:emision:prueba",
@@ -17,7 +18,7 @@ function escenario(cliente, confirmarOperacion = async () => true, consultarPers
     addEventListener: (nombre, funcion) => eventos.set(nombre, [...(eventos.get(nombre) ?? []), funcion]),
     removeEventListener: (nombre, funcion) => eventos.set(nombre, (eventos.get(nombre) ?? []).filter((f) => f !== funcion)) };
   const presentador = { obtenerEstado: () => estado, seleccionarExpediente: async () => {} };
-  const gestor = crearGestorResultadoBolsa({ raiz, presentador, cliente, t: (clave) => clave,
+  const gestor = crearGestorResultadoBolsa({ raiz, presentador, cliente, t: traducir,
     locale: "es-ES", zonaHoraria: "Europe/Madrid", confirmarOperacion,
     repintar() {}, generarClave: () => "clave-original-vinculo", consultarPersonas });
   gestor.actualizar();
@@ -82,6 +83,31 @@ test("confirma mediante el descriptor que consume el portal y cancela sin escrib
   assert.equal(descriptor.referencia, "2026/001");
   assert.equal(escrituras, 0);
   e.gestor.desmontar();
+});
+
+test("el diálogo de la emisión propia evita la referencia opaca sin alterar la solicitud", async () => {
+  let descriptor, escrituras = 0;
+  const traducir = (clave, datos = {}) => clave === "resultado_bolsa_emision_este_expediente"
+    ? `Llamamiento de este expediente · ${datos.fecha}`
+    : clave === "resultado_bolsa_confirmar_este_expediente"
+      ? `¿Vincular el llamamiento emitido el ${datos.fecha}?` : clave;
+  const e = escenario({ vincularLlamamientoBolsa: async () => { escrituras += 1; } },
+    async (entrada) => { descriptor = entrada; return false; }, async () => new Map(), { traducir });
+  e.estado.expediente.resultado_bolsa.emisiones_vinculables[0].referencia_visible = e.estado.expediente_ref;
+  await e.enviar();
+  assert.match(descriptor.referencia, /^Llamamiento de este expediente · /u);
+  assert.match(descriptor.advertencia, /^¿Vincular el llamamiento emitido el /u);
+  assert.doesNotMatch(`${descriptor.referencia} ${descriptor.advertencia}`, /expediente:prueba/u);
+  assert.equal(escrituras, 0);
+  e.gestor.desmontar();
+
+  const desviada = escenario({ vincularLlamamientoBolsa() {} },
+    async (entrada) => { descriptor = entrada; return false; }, async () => new Map(), { traducir });
+  desviada.estado.expediente.resultado_bolsa.emisiones_vinculables[0].referencia_visible = "expediente:otro";
+  await desviada.enviar();
+  assert.equal(descriptor.referencia, "expediente:otro");
+  assert.equal(descriptor.advertencia, "resultado_bolsa_confirmar");
+  desviada.gestor.desmontar();
 });
 
 test("el selector y la confirmación dicen a quién se llamó cuando Bolsa lo devuelve", async () => {

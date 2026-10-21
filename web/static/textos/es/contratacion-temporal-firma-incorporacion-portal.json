@@ -12,7 +12,7 @@
     "ficha_ginpix_exportacion_manual": "Exportación manual",
     "ficha_ginpix_exportacion_manual_disponible": "Ficha estructurada disponible para descargar.",
     "ficha_ginpix_transmision": "Transmisión externa",
-    "ficha_ginpix_transmision_pendiente": "Pendiente de integración con GINPIX.",
+    "ficha_ginpix_transmision_pendiente": "Sin envío automático. RRHH graba el alta en GINPIX con esta ficha y anota el número en el seguimiento del expediente.",
     "ficha_ginpix_nombre_archivo": "Nombre de archivo",
     "ficha_ginpix_descargar": "Descargar ficha GINPIX",
     "ficha_ginpix_aviso": "La descarga no envía ni firma la ficha.",

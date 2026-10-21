@@ -12,7 +12,7 @@
     "ficha_ginpix_exportacion_manual": "Manual export",
     "ficha_ginpix_exportacion_manual_disponible": "Structured record available to download.",
     "ficha_ginpix_transmision": "External transmission",
-    "ficha_ginpix_transmision_pendiente": "GINPIX integration pending.",
+    "ficha_ginpix_transmision_pendiente": "Not sent automatically. HR enters the record in GINPIX using this form and notes the number in the case follow-up.",
     "ficha_ginpix_nombre_archivo": "File name",
     "ficha_ginpix_descargar": "Download GINPIX record",
     "ficha_ginpix_aviso": "Downloading does not send or sign the record.",
