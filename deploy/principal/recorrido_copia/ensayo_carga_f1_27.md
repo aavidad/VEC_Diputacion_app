@@ -25,8 +25,8 @@ gestor al terminar; la copia anterior del equipo P permaneció intacta.
 
 La limpieza previa rechazó un identificador PostgreSQL ajeno. En la copia
 correcta verificó 34 grupos sin filas restantes, conservó la bolsa activa y
-sus 12 entradas y restauró las 20 guardas de inmutabilidad. Las claves
-foráneas se comprobaron antes de restaurarlas y permanecieron habilitadas.
+sus 12 entradas y restauró las 20 guardas de inmutabilidad. Antes de restaurar
+las guardas se comprobaron las claves foráneas, que permanecieron habilitadas.
 
 Límite observado: preferencias del usuario, preferencias de Bolsa e imagen
 devolvieron 404 en ambos arranques. La pantalla mostró un error al consultar
