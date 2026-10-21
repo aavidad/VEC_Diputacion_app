@@ -375,6 +375,12 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
 		}
 	}
+	if cfg.ContratacionTemporalPostgreSQL.BolsaLlamamientosConfigurada() {
+		perfilComunicaciones, err := nuevoPerfilFijoConsultaComunicacionesExpedienteDesarrollo(principal, soporte.contexto, ahora)
+		if err != nil || soporte.registrarPerfilFijoCTDesarrollo(perfilComunicaciones) != nil {
+			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
+		}
+	}
 	originalActivo, err := originalFirmableCTSolicitado(cfg)
 	if err != nil {
 		return vacias, err

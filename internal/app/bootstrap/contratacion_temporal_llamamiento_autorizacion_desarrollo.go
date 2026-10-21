@@ -347,11 +347,8 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		[]dominiovec.ReferenciaEntradaCatalogo{motivoConsultaReciboRespuestaDesarrollo()}, desde); err != nil {
 		return err
 	}
-	consultaComunicaciones, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
-		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
-		"consulta_comunicaciones_expediente_rrhh_desarrollo", "Consulta de comunicaciones por expediente RRHH", "consulta-comunicaciones-expediente-rrhh-desarrollo",
-		[]dominiovec.ConcesionRol{concesionConsultaComunicacionesExpedienteDesarrollo()},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	consultaComunicaciones, err := nuevaInstantaneaConsultaComunicacionesExpedienteDesarrollo(
+		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora())
 	if err != nil {
 		return err
 	}

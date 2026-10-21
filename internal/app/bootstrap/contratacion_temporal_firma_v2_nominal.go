@@ -334,7 +334,8 @@ func (f *fuenteNominalSesionFirmaCT) GarantiaAutenticacionFirmaV2(ctx context.Co
 // Cada lectura R5 audita incluso una denegación previa al lector durable.
 func accionAuditoriaLecturaFirmaNominalCT(ruta, accion string) bool {
 	return ruta == httpinterno.RutaConsultaFirmasR5V2 && accion == ports.AccionConsultarFirmasR5V2 ||
-		ruta == httpinterno.RutaRecuperacionFirmasR5V2 && accion == ports.AccionRecuperarFirmasR5V2
+		ruta == httpinterno.RutaRecuperacionFirmasR5V2 && accion == ports.AccionRecuperarFirmasR5V2 ||
+		ruta == httpinterno.RutaDescargaFirmaR5V2 && accion == ports.AccionConsultarFirmasR5V2
 }
 
 func (f *fuenteNominalSesionFirmaCT) CrearOrdenIntentoFirma(ctx context.Context, intento, accion, recurso string,
