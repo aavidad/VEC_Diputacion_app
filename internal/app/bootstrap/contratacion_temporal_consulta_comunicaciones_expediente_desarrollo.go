@@ -15,6 +15,13 @@ import (
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
+// La consulta de comunicaciones se abre a la vez que otras rutas del
+// expediente. En el perfil dinámico cada ruta publica su propio rol sobre la
+// misma asignación vigente y una publicación ajena invalidaba esta lectura
+// (503). Con perfil fijo consume siempre la misma asignación, publicada una
+// sola vez al arrancar con el mismo rol y ámbito que el perfil dinámico.
+const clavePerfilFijoConsultaComunicacionesExpedienteCTDesarrollo = "consulta_comunicaciones_expediente_rrhh"
+
 type claveConsultaComunicacionesExpedienteDesarrollo struct{}
 
 type solicitudLigadaComunicacionesExpedienteDesarrollo struct {
@@ -46,6 +53,27 @@ func concesionConsultaComunicacionesExpedienteDesarrollo() dominiovec.ConcesionR
 			"organizacion_ref", "recibo_antecedente_ref", "recibo_comunicacion_ref", "registrada_en", "version",
 		},
 	}
+}
+
+// nuevaInstantaneaConsultaComunicacionesExpedienteDesarrollo es la única
+// definición del rol de la consulta: la comparten el perfil fijo y la
+// preparación histórica del perfil dinámico, sin concesión nueva.
+func nuevaInstantaneaConsultaComunicacionesExpedienteDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		principalID, perfilRef, ahora,
+		"consulta_comunicaciones_expediente_rrhh_desarrollo", "Consulta de comunicaciones por expediente RRHH", "consulta-comunicaciones-expediente-rrhh-desarrollo",
+		[]dominiovec.ConcesionRol{concesionConsultaComunicacionesExpedienteDesarrollo()},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+}
+
+func nuevoPerfilFijoConsultaComunicacionesExpedienteDesarrollo(
+	principal dominiovec.Principal, base ports.ContextoAutorizacionAltaV3, ahora time.Time,
+) (*perfilFijoCTDesarrollo, error) {
+	return nuevoPerfilFijoCTDesarrollo(principal, base, ahora, clavePerfilFijoConsultaComunicacionesExpedienteCTDesarrollo,
+		[]string{httpinterno.RutaConsultaComunicacionesExpediente},
+		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaConsultaComunicacionesExpedienteDesarrollo(principalID, perfilRef, ahora)
+		})
 }
 
 func descriptorMaterialConsultaComunicacionesExpedienteDesarrollo() descriptorMaterialConsumidorV3Desarrollo {

@@ -23,6 +23,16 @@ func publicarAlaVezPrueba(
 	instantaneas ...dominiovec.InstantaneaAutorizacion,
 ) []error {
 	t.Helper()
+	return publicarAlaVezConEsperaPrueba(t, ctx, admin, s, nil, instantaneas...)
+}
+
+// publicarAlaVezConEsperaPrueba ejecuta además «durante» con las
+// publicaciones ya en cola, antes de soltarlas.
+func publicarAlaVezConEsperaPrueba(
+	t *testing.T, ctx context.Context, admin *pgxpool.Pool, s *soporteAltaContratacionTemporalDesarrollo,
+	durante func(), instantaneas ...dominiovec.InstantaneaAutorizacion,
+) []error {
+	t.Helper()
 	autoridad := (&autoridadPostgreSQLContratacionTemporalDesarrollo{pool: admin, soporte: s}).autoridadComun()
 	bloqueador, err := admin.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -54,6 +64,9 @@ func publicarAlaVezPrueba(
 		case <-limite.C:
 			t.Fatal("las publicaciones no llegaron juntas al bloqueo del perfil")
 		}
+	}
+	if durante != nil {
+		durante()
 	}
 	if err := bloqueador.Commit(ctx); err != nil {
 		t.Fatal(err)
