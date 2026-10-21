@@ -201,3 +201,28 @@ un día no futuro de Madrid y el periodo solicitado empieza el 2 de noviembre.
 No se ha modificado ese periodo ni registrado una incorporación anticipada.
 La hoja [de preparación de incorporación a cierre](../f1_28_preparacion_pasos_16_21.md)
 conserva rutas, perfiles y límites. Estas consultas no acreditan esos actos.
+
+## Paso 12 confirmado tras corregir la sesión del anclaje
+
+Dirección integró la corrección en
+`014dc27e8f0fe04c4d983f0ba053cc629001672c`, con dos revisiones favorables
+y seis puertas de CI verdes. J avanzó limpia a esa revisión y se compiló
+el binario real en 25,10 segundos; SHA-256
+`dfd77b9e528904ec85d81d22b3e7659854d925c445e2c06a58029f9f27126aba`.
+Se actualizó solo la aplicación. La comprobación de aplicación y
+Administración terminó con código 0; PostgreSQL y los seis recibos previos
+permanecieron iguales, con versión 6 antes del envío.
+
+A las 13:17:12 de Madrid, el mismo cuerpo y la misma clave del primer intento
+obtuvieron 201. Propuesta: `propuesta:64564e88-5fd2-43ee-9192-d9f4bed55273`;
+recibo: `recibo:f6a15717-1c54-45b6-9188-6d358762a4d1`; versión resultante 7.
+La consulta de solo lectura encontró una única propuesta con esa clave.
+Hay tres envíos en total, con resultados 503, 503 y 201. No se han creado
+otros antecedentes para repetir el trámite.
+
+La resolución todavía no está registrada. Al preparar su revisión, el
+perfil técnico recibe 403 en el panel de Documentos general. Esa lectura
+requiere una autorización propia de Documentos; los borradores de
+Contratación tienen otras rutas y permisos. Se ha comunicado a dirección
+y se comprueba la descarga de Contratación que ofrece la ficha de Gestión,
+sin añadir roles ni ampliar la lectura general.
