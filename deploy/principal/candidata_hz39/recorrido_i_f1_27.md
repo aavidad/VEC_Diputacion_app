@@ -8,7 +8,8 @@ de Jefatura. El expediente 2026/95032 de H no se reintenta.
 La creación usa la [receta completa](../recorrido_copia/LEEME.md), con una
 fuente limpia y subida, sin añadir ramas pendientes. Antes de arrancarla se
 paró H con su gestor para conservar una sola copia viva. Sus datos, la
-solicitud rechazada y el PDF firmado permanecen guardados. G sigue parada.
+solicitud rechazada y el PDF firmado permanecen guardados. G se conservó
+parada hasta comprobar las dos firmas de I.
 
 | Tramo | Estado |
 | --- | --- |
@@ -56,3 +57,12 @@ ausencia de selección no explica el error. La preparación y la publicación
 del perfil leen en transacciones distintas, pero todavía no se ha demostrado
 qué petición adelantó la versión. Se comunicó a dirección para F1-33.
 La guarda se conserva y el ensayo continúa con el paso 9 desde las 09:00.
+
+Tras retomar I se retiró G con su gestor original, conservando los registros
+privados y su hoja de evidencia. H sigue parada con el envío rechazado.
+
+A las 08:52 se abrió la ficha una sola vez, siguiendo la respuesta de dirección
+de las 08:46. La consulta de comunicaciones devolvió 200 y una lista vacía.
+El 503 anterior queda registrado como F1-150. No se repitieron actuaciones
+ni se cambió la configuración. La selección y el contacto siguen pendientes
+de la franja de llamadas.
