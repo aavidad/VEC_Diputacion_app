@@ -218,3 +218,4 @@
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
 823 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql
 864 deploy/principal/copia_local.py
+1004 deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respuesta_portal.up.sql
