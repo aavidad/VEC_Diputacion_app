@@ -5,7 +5,10 @@ import (
 	"errors"
 	"regexp"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"vec-diputacion-granada/internal/shared/postgresql"
 )
 
 // Valores cerrados de vec_documentos.denegacion_frontera (Documentos-4).
@@ -52,7 +55,11 @@ func (o OrdenDenegacionFrontera) Validar() error {
 
 // RegistradorFrontera escribe con un LOGIN cuya única membresía es
 // vec_documentos_auditor; la función SQL lo vuelve a comprobar.
-type RegistradorFrontera struct{ db *pgxpool.Pool }
+type consultaFrontera interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+type RegistradorFrontera struct{ db consultaFrontera }
 
 func NuevoRegistradorFrontera(db *pgxpool.Pool) (*RegistradorFrontera, error) {
 	if db == nil {
@@ -84,9 +91,20 @@ func (r *RegistradorFrontera) RegistrarDenegacion(ctx context.Context, o OrdenDe
 	if o.Validar() != nil {
 		return ErrOrdenFronteraInvalida
 	}
-	var ref string
-	if err := r.db.QueryRow(ctx, `SELECT vec_documentos.registrar_denegacion_frontera_v1($1,$2,$3,$4,$5)`,
-		o.CorrelacionRef, o.Motivo, o.Ruta, o.Metodo, o.ActorRef).Scan(&ref); err != nil || ref == "" {
+	// Cada llamada es una transacción implícita completa. Solo se repite si
+	// PostgreSQL acredita el aborto; se conserva la correlación original.
+	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
+		var ref string
+		if err := r.db.QueryRow(ctx, `SELECT vec_documentos.registrar_denegacion_frontera_v1($1,$2,$3,$4,$5)`,
+			o.CorrelacionRef, o.Motivo, o.Ruta, o.Metodo, o.ActorRef).Scan(&ref); err != nil {
+			return err
+		}
+		if ref == "" {
+			return ErrFronteraNoDisponible
+		}
+		return nil
+	})
+	if err != nil {
 		return ErrFronteraNoDisponible
 	}
 	return nil

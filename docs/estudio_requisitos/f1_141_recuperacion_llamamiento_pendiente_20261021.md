@@ -164,3 +164,12 @@ lista esperaba 25 casos, pero CT253 y CT257 juntos suman 26. Se actualizaron
 solo las dos expectativas numéricas a 26, manteniendo la comprobación de
 bytes versionados y la lista cerrada. La prueba focal de ese método pasa.
 No cambió el SQL ni el código de producto ensayado.
+
+
+Después del ensayo, main incorporó CT256 y su pantalla de aceptación. Para
+resolver los conflictos de integración se conservaron la preparación de esa
+aceptación y la consulta singular de F1-141. Las listas mantienen CT256 antes
+de CT257; ahora contienen 27 pruebas. La línea base usa las 1388 líneas reales
+del formulario. Pasan cinco casos web focales de ambos recorridos y la prueba
+del listado. No se ha vuelto a ejecutar la operación nativa: la copia conservada
+sigue en `c8ef0d2c2` y el bloqueo 503 permanece abierto.

@@ -81,7 +81,7 @@ export function renderizarAceptacionPortal(filas, t, fecha, pasos = new Map()) {
   </section>`;
 }
 
-export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { soloConsulta = false } = {}) {
+export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { soloConsulta = false, soloPropuesta = false } = {}) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
   function tiempoVisible(valor) {
@@ -165,6 +165,14 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
         data-ct-comunicaciones-reintentar>${e(t("llamamiento_comunicaciones_reintentar"))}</button>` : ""}
     </section>`;
   }
+  function propuesta() {
+    return estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada
+      ?? estado.seleccion.valores.version_esperada)
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) >= 6
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) < Number.MAX_SAFE_INTEGER
+      ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : "";
+  }
+  if (soloPropuesta) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento>${propuesta()}</section>`;
   if (soloConsulta) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div>
       <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2>
@@ -504,10 +512,6 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { so
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
-    ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada
-      ?? estado.seleccion.valores.version_esperada)
-      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) >= 6
-      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) < Number.MAX_SAFE_INTEGER
-      ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
+    ${propuesta()}
   </section>`}`}`;
 }

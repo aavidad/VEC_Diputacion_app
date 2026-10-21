@@ -8,8 +8,9 @@ La vía de respuesta por correo conserva su tramitación anterior.
 
 1. Crear una copia local con PostgreSQL 18 mediante la orden documentada en
    `deploy/principal/LEEME_copia_local.md`, con datos ficticios propios.
-2. Instalar la candidata completa en el orden de su lista SQL. CT249 debe
-   preceder a CT253; no reaplicar migraciones instaladas.
+2. Instalar la candidata completa en el orden de su lista SQL: CT245 y
+   CT250 preceden a CT249; después, CT253 y CT256. No reaplicar migraciones
+   instaladas. CT256 recupera la resolución en la lectura de la ficha.
 3. Mantener las publicaciones vigentes del tipo de formalización, plantilla,
    política de firma y plan de firma. La propuesta no crea esas publicaciones.
 4. Preparar por los actos de la aplicación una petición fiscalizada, su
@@ -19,7 +20,9 @@ La vía de respuesta por correo conserva su tramitación anterior.
 
 ## Comprobación
 
-Desde la ficha, registrar la propuesta usando esa pareja de referencias.
+Desde la ficha del expediente fiscalizado, registrar la propuesta usando
+esa pareja de referencias. Volver a abrir la ficha también debe recuperarla,
+sin repetir la resolución ni guardar una propuesta automáticamente.
 Debe responder 201, conservar el recibo y avanzar el expediente a Nombramiento.
 Repetir la misma solicitud con la misma clave debe recuperar el mismo recibo,
 fecha y versión, sin otra propuesta ni otro avance de expediente.
@@ -39,5 +42,12 @@ fuentes nativas de aceptación, esta operación falla cerrada; el arranque y
 las demás funciones conservan su comportamiento. Comprobar el arranque con
 las fuentes nativas presentes y ausentes, y guardar los resultados.
 
-Este documento es el guion de aceptación; no acredita su ejecución. La
-activación queda pendiente del ensayo conjunto con la resolución productora.
+El ensayo técnico de la revisión `f7f322bb4` aplicó 142 migraciones en una
+copia limpia y arrancó la aplicación y el portal en 100,07 segundos. Las
+cuatro comprobaciones de origen, resolución, propuesta y recuperación pasaron
+antes y después de reiniciar PostgreSQL y la aplicación. La unión posterior
+con main conserva los cuerpos SQL y coloca CT245 en el prefijo de main.
+
+Sigue pendiente comprobar el registro real de la propuesta, su repetición,
+la denegación por otro ámbito y la recuperación tras reiniciar. El ensayo
+técnico anterior acredita instalación y arranque; esos actos siguen pendientes.

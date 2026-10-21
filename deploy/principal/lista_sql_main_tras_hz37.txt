@@ -238,8 +238,11 @@ deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_por
 # F1-125 B2 — CT249: activación de resolución de aceptación de Mi Bolsa; tras CT250.
 deploy/postgresql/contratacion_temporal/migraciones/000249_resolucion_respuesta_portal_rrhh.up.sql 5844af837bc7a9abef2874d2b6a0b6253cee892639b6761a74502c310e37c0b4
 
-# F1-127: propuesta desde aceptación portal; tras CT249.
+# F1-127: CT253; tras CT249.
 deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respuesta_portal.up.sql 69d443ba22d27a8f7f621686ad387fa5af596964ec930287b82f45651ac3f20a
+
+# F1-127: CT256; tras CT249.
+deploy/postgresql/contratacion_temporal/migraciones/000256_resolucion_portal_detalle_rrhh.up.sql 8a600c2f711104790d28cc48a9934974be6775bb41253166f3921b60f814944c
 
 # F1-141 — CT257: lectura de intención singular pendiente con la autorización y auditoría de CT225; tras CT241.
 deploy/postgresql/contratacion_temporal/migraciones/000257_recuperar_intencion_singular_pendiente.up.sql b8834e208a4bd0d42c77d6086bd9eec7077a76121bb8fb783beeb39333437654
