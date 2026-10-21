@@ -181,6 +181,10 @@ El lateral se arma así (`web/static/portal-empleado/index.html`,
    ellos por dirección directa o por los accesos de Inicio.
    `VEC_PORTAL_MODULOS_VISIBLES` limita además qué módulos se cargan en cada
    despliegue; no es un permiso.
+   En Dietas, la etapa opcional de copia ya prepara las fuentes, los dos roles
+   aprobados y las once conexiones, comprobados tras reinicio. Sigue apagado:
+   faltan la asignación de Personal y los manifiestos; no se ha registrado una
+   comisión desde la web. Detalle en `deploy/principal/recorrido_copia/LEEME_dietas.md`.
 3. **Plantillas de documentos**, solo si RRHH tiene permiso y
    `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` está activa. El portal no consulta
    ese permiso al cargar: el enlace del menú aparece después de abrir una vez

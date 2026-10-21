@@ -1,6 +1,6 @@
 # Etapa opcional de Dietas
 
-Tarea: F4-DIETAS-COPIA. Trabajo en curso; no acredita una comisión desde la web.
+Tarea: F4-DIETAS-COPIA. Preparación comprobada; la comisión desde la web sigue pendiente.
 La copia habitual conserva el recorrido de Bolsa y Contratación sin activar Dietas.
 
 `copia_local.py crear --recorrido-completo --dietas` añade, al terminar la
@@ -19,13 +19,13 @@ respuesta SQL incierta impide repetir su alta: se conserva la operación origina
 
 La etapa deja `activada: false` en su resultado. Quedan pendientes la
 asignación de los perfiles por Administración, los manifiestos,
-el motor de rutas, el arranque comprobado y la comisión desde el navegador con
-recibo y reinicio. No se enciende el selector de Dietas.
+el motor de rutas integrado y la comisión desde el navegador con recibo y reinicio.
+La aplicación arranca y reinicia con esta preparación y Dietas desactivado. No se enciende el selector de Dietas.
 
 ## Dependencias comprobadas
 
-- AUT107 se entrega por separado en #1420, con prueba SQL y ensayo. Aún necesita
-  las dos revisiones independientes y la integración de dirección.
+- AUT107 (#1420) y el adaptador de roles compuestos (#1429) están integrados.
+  La receta requiere ambos; no instala migraciones adicionales.
 - El alta de la asignación de Personal para Dietas sigue cerrada: falta el
   catálogo de validadores competentes y su consumo dentro de la transacción.
   Dirección confirmó el 21 de octubre a las 09:58 que ese tramo debe detenerse.
@@ -36,14 +36,37 @@ recibo y reinicio. No se enciende el selector de Dietas.
   de la transacción de alta, conservando las guardas del aprovisionador común.
   No se ejecuta el preparador histórico.
 
-Pruebas focales: veinte casos Python positivos sobre conexiones, catálogo y
-conductor, incluidos el parser real de las fuentes y su vigencia. Los actos
-usan dobles en esas pruebas: no acreditan publicación ni recibos PostgreSQL.
-Las pruebas de publicación usan dobles: comprueban los contratos y que una
-recuperación conserva el material sin otra propuesta. Un acto incierto se
-detiene aunque la lectura encuentre el rol, hasta conciliar su operación original. No acreditan actos reales.
-Semgrep local comprueba TLS, ejecución por shell y deserialización. El ensayo de esta etapa y el recorrido web siguen pendientes.
-No se crea una copia para repetir el bloqueo ya identificado.
+## Ensayo de la receta
+
+El 21 de octubre, la cabeza `0477a5ab8`, con main `3796cf010` incorporada,
+completó `crear --recorrido-completo --dietas` en **275,82 segundos**, con
+salida 0 y material nuevo. No se reutilizó la copia del intento anterior.
+El ejecutable GrxFirma se declaró con su huella mediante las opciones de la
+[receta común](LEEME.md); no se descargó software ni se cambió el instalado.
+
+- Dos admisiones nominales, con recibos reales, repetición con el mismo recibo
+  y consulta cotejada del catálogo.
+- Dos roles publicados por propuesta y aprobación de administradores distintos,
+  con sus contratos de tres y dos concesiones, respectivamente.
+- Once cuentas separadas: las once conexiones respondieron por TLS con
+  `verify-full`; `pg_stat_ssl` confirmó el cifrado de cada conexión.
+- `copia_local.py reiniciar` y `comprobar` terminaron con salida 0. Tras el
+  reinicio de aplicación y PostgreSQL se repitieron los cotejos de roles y las
+  once conexiones, conservando el resultado y sin nuevas propuestas ni altas.
+- La copia se borró con la fábrica, salida 0. Los recibos y registros quedan
+  en la evidencia privada del equipo; no se incorporan conexiones a Git.
+
+Las veinte pruebas Python focales de Dietas, catálogo y conductor pasan.
+Cubren conexiones, recuperación, contratos y la parada de actos inciertos,
+aunque una lectura encuentre el rol. Semgrep local: tres reglas sobre los
+cinco archivos Python modificados, sin hallazgos. La revisión focal de
+seguridad conserva separación de cuentas, TLS y actos de dos administradores;
+no se han ampliado permisos ni abierto el catálogo de validadores de Personal.
+
+Este ensayo acredita la preparación y su persistencia. Dietas conserva
+`activada: false`; no acredita manifiestos, asignaciones, comisión, cálculo
+autorizado ni recibo de comisión desde Chrome. Ese recorrido depende del
+tramo de Personal detenido por dirección.
 
 ## Motor de rutas comprobado por separado
 
