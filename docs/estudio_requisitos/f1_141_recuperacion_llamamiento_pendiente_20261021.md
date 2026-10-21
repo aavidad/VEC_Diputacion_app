@@ -86,7 +86,13 @@ comprobó que la ruta ausente devolvía todavía el cuerpo antiguo del router
 exterior, sin catálogo. El cliente lo rechazó y mantuvo el bloqueo. Se corrige
 esa salida reutilizando el error catalogado existente; una prueba Go distingue
 ruta ausente y 404 propio de una ruta montada, y otra con el cliente JavaScript
-real rechaza el cuerpo antiguo y el 404 de expediente.
+real rechaza el cuerpo antiguo y el 404 de expediente. La respuesta por defecto
+reutiliza también las protecciones del helper: no se almacena en caché, impide
+interpretar otro tipo de contenido y usa una política de contenido cerrada;
+retira cabeceras de cookies, acceso desde otros orígenes y redirección. El 404
+anterior solo fijaba el tipo JSON. Dirección aprobó esta diferencia a las
+03:06; la prueba incluye ruta arbitraria, POST ausente y 404/405 propios de una
+ruta montada, que se conservan.
 
 La copia quedó parada y Chrome cerrado. Falta comprobar en Chrome la selección
 singular nueva desde la candidata corregida y la CI final. No se afirma una
