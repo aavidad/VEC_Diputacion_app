@@ -87,9 +87,11 @@ El contenedor se eliminó al terminar. Sin nueva copia ni arranque de aplicació
 La PR permanece en borrador hasta las revisiones independientes de autorización;
 dirección organiza la segunda.
 
-La primera revisión detectó que los dos retornos tempranos nuevos usaban texto
-plano. Se corrigieron reutilizando el sobre de error de catálogo existente
-(`servicio_no_disponible`, JSON y cabeceras sin caché); la prueba focal comprueba
-su contrato. Se conserva como deuda anterior la secuencia A–B–A: la caché de
+La primera revisión detectó que los retornos tempranos nuevos no cumplían el
+contrato del cliente. Se corrigieron reutilizando el sobre común de ruta exacta
+(`api.vec.ruta_exacta.error.servicio_no_disponible`, JSON y cabeceras sin caché).
+La prueba Go comprueba el sobre emitido y la prueba JavaScript lo valida en
+selección, seguimiento y formalización con el validador real del cliente.
+Se conserva como deuda anterior la secuencia A–B–A: la caché de
 instantáneas por solicitud puede recuperar una versión antigua después de otra
 operación. La guarda sigue rechazándola; este corte resuelve el solapamiento.
