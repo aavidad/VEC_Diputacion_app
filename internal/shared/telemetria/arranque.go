@@ -204,6 +204,9 @@ func prefijoArranqueConocido(texto, causa string) string {
 func mensajeInternoArranque(valor string) string {
 	switch valor {
 	case "contratacion temporal: consulta RRHH no disponible",
+		"contratacion temporal: fuente de necesidades de alta no disponible",
+		"contratacion temporal: falta configurar VEC_CT_NECESIDADES_ALTA_SOURCE_PATH para necesidades de alta",
+		"contratacion temporal: falta configurar VEC_RPT_CATALOGO_PATH para necesidades de alta",
 		"bootstrap: material criptografico de desarrollo invalido",
 		"bootstrap: borrador de llamamiento no disponible",
 		"bootstrap: montaje de inscripcion Bolsa no disponible",

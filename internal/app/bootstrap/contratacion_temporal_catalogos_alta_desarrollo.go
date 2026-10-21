@@ -239,7 +239,10 @@ func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string, rutasNecesidades ...str
 	}
 	if rutaNecesidades != "" {
 		if _, err := catalogoalta.CargarNecesidades(rutaNecesidades); err != nil {
-			return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+			return nil, marcarFalloFuenteConfiguracionArranque(
+				"fuente_necesidades_alta",
+				errors.Join(errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles, err),
+			)
 		}
 	}
 	politica, err := numeracion.Cargar("")

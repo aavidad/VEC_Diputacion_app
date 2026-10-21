@@ -101,6 +101,7 @@ func (e *EmisorMaterialAutorizacionAtestadaV3) EmitirMaterialAutorizacionAtestad
 			) == nil {
 			return decisionVacia, confirmacionVacia, nil, errors.Join(
 				errEmisionMaterialAutorizacionAtestadaV3NoDisponible,
+				domain.ErrAutorizacionDenegada,
 				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
 			)
 		}
@@ -228,6 +229,7 @@ func (e *EmisorMaterialAutorizacionAtestadaV3) EmitirMaterialAutorizacionAtestad
 			) == nil {
 			return decisionVacia, confirmacionVacia, nil, nil, errors.Join(
 				errEmisionMaterialAutorizacionAtestadaV3NoDisponible,
+				domain.ErrAutorizacionDenegada,
 				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
 			)
 		}

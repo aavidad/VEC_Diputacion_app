@@ -846,6 +846,9 @@ migraciones de `deploy/postgresql/contratacion_temporal/`):
 **Propuesta desde Mi Bolsa (F1-127, preparada; falta activación y ensayo).**
 La aceptación firme requiere una resolución de RRHH. Su referencia y su recibo
 alimentan la propuesta desde la ficha del expediente, sin adjuntar un correo.
+El formulario también recupera esas referencias al volver a abrir la ficha;
+RRHH revisa las publicaciones y confirma el envío. Cargar la ficha no registra
+una propuesta y un expediente que ya avanzó no abre otra.
 La propuesta vuelve a comprobar la aceptación, la selección, el expediente y
 la autorización. La repetición debe recuperar el mismo recibo. La resolución
 por correo conserva su recorrido; este corte no resuelve ofertas de varias
