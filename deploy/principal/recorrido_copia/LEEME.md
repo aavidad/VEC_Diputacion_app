@@ -80,7 +80,10 @@ contacto de Yago Lozano Hidalgo, primera persona del listado, con las referencia
 nativas de esa carga y un certificado nuevo. El justificante queda en
 `recorrido/carga-bolsa/recibo.json`; `caso40-seleccion.json` conserva las referencias
 propias de esa copia. No reutiliza el staging cifrado de HZ37 ni una clave ajena.
-Esta etapa aún requiere comprobarse en una copia nueva antes de dar la entrega por lista.
+Ensayo del 21/10: copia completa en 238,59 segundos desde `d0b03ab71`;
+carga confirmada con 41 personas, correo y Mi Bolsa consultados desde Chrome
+con respuesta 200 antes y después del reinicio de PostgreSQL y la aplicación.
+El detalle y los límites están en [el registro del ensayo](ensayo_carga_f1_27.md).
 
 Los certificados de desarrollo pueden cubrir 400 días. Cargos, admisiones,
 asignaciones y autoridades nuevos cubren de 60 a 90 días. La ventana fija
