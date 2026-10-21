@@ -27,8 +27,8 @@ conexiones, recibos y registros permanecen fuera de Git.
 | Creación completa y carga de Bolsa | Correcta, 254,43 segundos; Yago disponible, 1 de 41 |
 | Petición, ratificación y alta (1–3) | 200, 200 y 201; expediente 2026/95030, versión 1 |
 | Análisis, vía, asignación e informe (4–7) | Cuatro respuestas 201; versiones 2, 3, 4 y 5 |
-| Dos firmas del informe y fiscalización (7b–8) | Primera firma 201, verificación técnica válida; faltan Jefatura e Intervención |
-| Llamamiento, contacto, aceptación y resolución (9–11) | Pendiente |
+| Dos firmas del informe y fiscalización (7b–8) | Dos firmas 201 con verificación técnica válida; fiscalización favorable 201, versión 6 |
+| Llamamiento, contacto, aceptación y resolución (9–11) | Selección 200 confirmada y aviso 201; contacto bloqueado por conversión horaria |
 | Propuesta, resolución, documentos y tres firmas (12–15) | Pendiente |
 | Reinicio y recuperación de las mismas lecturas y recibos | Pendiente |
 
@@ -40,3 +40,20 @@ con el lanzador de su entorno y `--install-local-tls-trust`. Después se inicia
 el navegador con la confianza limitada a los certificados propios de la copia.
 La primera firma conserva `firma_eficaz=false`; la verificación técnica válida
 no acredita por sí sola eficacia jurídica.
+
+## Contacto pendiente en el paso 9
+
+El llamamiento quedó confirmado y el buzón propio recibió un mensaje. Mi Bolsa
+muestra el correo enviado; todavía no ofrece la respuesta del aspirante.
+
+El contacto efectivo devolvió 422, `contenido_no_valido`. La entrada de las
+03:26 de Madrid se envió como `03:26:00Z`, futura frente al reloj del servidor.
+`formulario-llamamiento.js` añade `Z` al campo `instante_en`; el campo
+`recibida_en` ya emplea la conversión de Madrid a UTC. La persistencia rechaza
+correctamente un contacto futuro. Se comunicó la causa a dirección.
+
+La ficha nativa de Bolsa confirma el llamamiento, pero el intento telefónico
+está fuera de la franja 09:00–14:00. No se registró otro canal ni se creó otro
+llamamiento para evitar ese límite. El enlace desde CT abre el asistente de
+nuevo llamamiento, del que se salió sin crear nada. Los pasos 10–15 siguen
+pendientes.
