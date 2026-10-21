@@ -152,8 +152,17 @@ func causaFalloEntregaPeticionDesarrollo(err error) string {
 		return "respuesta_base_no_confiable"
 	case errors.Is(err, ports.ErrConsultaRRHHNoDisponible):
 		return "sesion_no_disponible"
-	case errors.Is(err, ports.ErrPeticionCentroNoDisponible):
+	case errors.Is(err, ports.ErrFuenteNecesidadesAltaNoDisponible):
+		return "fuente_necesidades_no_disponible"
+	case errors.Is(err, ports.ErrPeticionCentroNoDisponible),
+		errors.Is(err, ports.ErrPersistenciaNoDisponible):
 		return "persistencia_no_disponible"
+	case errors.Is(err, ports.ErrFlujoNoDisponible):
+		return "flujo_no_disponible"
+	case errors.Is(err, ports.ErrMotivoAutorizacionNoDisponible):
+		return "motivo_autorizacion_no_disponible"
+	case errors.Is(err, application.ErrServicioRegistroInvalido):
+		return "servicio_registro_invalido"
 	case errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, vecdomain.ErrAutorizacionDenegada):
 		return "autorizacion_denegada"
 	default:

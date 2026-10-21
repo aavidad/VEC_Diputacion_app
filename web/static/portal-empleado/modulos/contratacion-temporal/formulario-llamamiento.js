@@ -831,7 +831,7 @@ export function montarFormularioLlamamiento({
             : campo === "recibida_en" && esRespuesta(operacion) && !paso.valores[campo]?.endsWith("Z")
               ? fechaRespuestaMadridUTC(paso.valores[campo])
               : campo === "instante_en" && !paso.valores[campo]?.endsWith("Z")
-              ? `${paso.valores[campo]}${paso.valores[campo]?.length === 16 ? ":00" : ""}Z`
+              ? fechaRespuestaMadridUTC(paso.valores[campo])
               : paso.valores[campo],
         ]),
       ));
@@ -850,7 +850,7 @@ export function montarFormularioLlamamiento({
       // Una clave generada que coincide con la de otra operación se descarta: el
       // siguiente intento genera otra, sin que la persona tenga que hacer nada.
       if (error?.message === "clave_repetida") delete paso.valores.clave_idempotencia;
-      paso.mensaje = esRespuesta(operacion) && error?.message === "hora_madrid_no_univoca"
+      paso.mensaje = (esRespuesta(operacion) || esEventoPlazo(operacion)) && error?.message === "hora_madrid_no_univoca"
         ? "llamamiento_respuesta_hora_no_univoca"
         : ["contacto", "causa", "expiracion"].includes(operacion) ? `llamamiento_${operacion}_validacion`
         : operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_validacion"
@@ -899,7 +899,7 @@ export function montarFormularioLlamamiento({
     paso.solicitud = solicitud;
     if (operacion === "seleccion") estado.recuperacionOferta.preparandoNueva = false;
     if (["siguiente", "comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) paso.claveConservada = true;
-    paso.valores = { ...solicitud };
+    paso.valores = { ...solicitud, ...(esEventoPlazo(operacion) ? { instante_en: paso.valores.instante_en } : {}) };
     paso.ocupado = true;
     paso.comprobacionPendiente = null;
     paso.controlador = new AbortController();

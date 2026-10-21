@@ -472,14 +472,17 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		fuenteNecesidades, err := catalogoalta.NuevaFuente(cfg.CTNecesidadesAltaSourcePath, recuperador)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, marcarFalloFuenteConfiguracionArranque("fuente_necesidades_alta", err)
+		}
+		if strings.TrimSpace(cfg.RPTCatalogoPath) == "" {
+			return nil, nil, nil, errCatalogoRPTNecesidadesAltaNoConfigurado
 		}
 		fuenteRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, marcarFalloFuenteConfiguracionArranque("catalogo_rpt", err)
 		}
 		if _, err := fuenteRPT.ObtenerRPTPublica(context.Background()); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, marcarFalloFuenteConfiguracionArranque("catalogo_rpt", err)
 		}
 		verificadorRPT, err := ctrpt.NuevoVerificadorAlta(fuenteRPT)
 		if err != nil {
@@ -491,6 +494,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if err := alta.servicio.ConfigurarVerificadorPuestoRPTAlta(verificadorRPT); err != nil {
 			return nil, nil, nil, err
 		}
+	} else {
+		avisarFuenteNecesidadesAltaNoConfigurada(cfg.RPTCatalogoPath)
 	}
 	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	montajePreparacionBases, existePreparacionBases, err := NuevoMontajePreparacionBasesV3(cfg, alta.soporte, reloj)

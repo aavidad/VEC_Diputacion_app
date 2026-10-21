@@ -65,7 +65,7 @@
 1034 internal/vec/adapters/postgres/confianzadocumental/servicio_test.go
 1254 internal/vec/adapters/seguridad/carga_directa.go
 1619 internal/vec/adapters/seguridad/carga_directa_test.go
-826 internal/vec/adapters/seguridad/confianzaatestacion/emision_material_v3_test.go
+828 internal/vec/adapters/seguridad/confianzaatestacion/emision_material_v3_test.go
 1855 internal/vec/application/cargas_documentales.go
 1514 internal/vec/application/cargas_documentales_test.go
 907 internal/vec/application/cotejo_transiciones_test.go
@@ -218,3 +218,4 @@
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
 823 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql
 864 deploy/principal/copia_local.py
+1004 deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respuesta_portal.up.sql
