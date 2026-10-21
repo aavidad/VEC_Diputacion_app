@@ -72,6 +72,10 @@ solo ese lote y su historia ficticia. Conserva la bolsa vigente y sus entradas.
 Las guardas de inmutabilidad de las tablas afectadas se restauran en la misma
 transacción; las claves foráneas siguen activas. Este guion es preparación de
 datos de desarrollo y no se instala en otra base.
+El recibo de constitución de la bolsa que se conserva mantiene en
+`sustituye_a` la referencia de septiembre retirada. Esa entrada de su historial
+queda sin bolsa de destino dentro de la copia. La limpieza no reescribe ese
+recibo; no debe usarse para acreditar la historia completa de una bolsa.
 
 Al terminar los actos, carga por la API normal el XLS de Administrativo de
 `data/demo/bolsa/convoca/administrativo/resumen.xls`. La confirmación sustituye
