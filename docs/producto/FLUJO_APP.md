@@ -207,6 +207,12 @@ Los grupos sin servicio se ocultan:
 | Correo y mensajería | Correo |
 | Auditoría y control | Auditoría y trazabilidad, Configuración, roles y permisos |
 
+El listado de candidatos comparte el registro de denegaciones y errores de
+las consultas de contacto, una vez preparada la consulta nominal. El apunte
+no incluye teléfonos, correos ni notas. Antes de disponer de una consulta
+identificada, el intento queda en el registro de la entrada sin atribuir
+una persona que no se haya verificado.
+
 Al abrir **Contratación temporal**: cuadro de mando, lista de expedientes con
 filtros, ficha del expediente con una sección por fase (análisis, cobertura,
 asignación, informe, fiscalización, llamamiento, formalización, firma,
