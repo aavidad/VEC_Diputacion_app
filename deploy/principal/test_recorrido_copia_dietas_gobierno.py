@@ -40,7 +40,9 @@ class GobiernoDietasTest(unittest.TestCase):
         self.ejecutar_publicacion(True)
 
     def test_respuesta_incierta_no_se_oculta_aunque_el_rol_exista(self):
-        self.ejecutar_publicacion(False, incierto=True)
+        for fase in ('propuesta', 'cierre'):
+            with self.subTest(fase=fase):
+                self.ejecutar_publicacion(False, incierto=fase)
 
     def ejecutar_publicacion(self, ampliar, incierto=False):
         repo = Path(__file__).parents[2]
@@ -70,7 +72,8 @@ class GobiernoDietasTest(unittest.TestCase):
                     'version': 1, 'control_estado': 'habilitada', 'huella': 'a' * 64,
                     'documento': {'concesiones': concesiones}}
                 if incierto:
-                    Contexto.guardar(carpeta / 'roles-cierre-pendiente.json', {'operacion_ref': 'original'})
+                    nombre = 'roles-pendiente.json' if incierto == 'propuesta' else 'roles-cierre-pendiente.json'
+                    Contexto.guardar(carpeta / nombre, {'operacion_ref': 'original'})
                     raise ValueError('respuesta incierta')
                 return {'recibo_ref': 'referencia-ficticia-del-doble'}
 

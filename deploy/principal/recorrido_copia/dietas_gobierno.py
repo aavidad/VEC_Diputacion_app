@@ -60,9 +60,9 @@ def publicar(c, admisiones):
         carpeta = c.carpeta / 'dietas/roles' / rol_id
         carpeta.mkdir(mode=0o700, parents=True, exist_ok=True)
         existente = roles_admin._rol(c, rol_id)
-        for fase in ('propuesta', 'cierre'):
-            if (carpeta / ('roles-' + fase + '-pendiente.json')).exists() and not (
-                    carpeta / ('roles-' + fase + '-respuesta.json')).exists():
+        for pendiente, respuesta in (('roles-pendiente.json', 'roles-propuesta-respuesta.json'),
+                                      ('roles-cierre-pendiente.json', 'roles-cierre-respuesta.json')):
+            if (carpeta / pendiente).exists() and not (carpeta / respuesta).exists():
                 raise ValueError('Acto ADMIN Dietas incierto; conciliar operación original')
         guardado = None
         if anterior is not None:
