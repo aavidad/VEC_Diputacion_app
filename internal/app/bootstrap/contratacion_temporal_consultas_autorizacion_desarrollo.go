@@ -241,6 +241,22 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		if protegidaComun {
 			ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: r.Method, ruta: r.URL.Path, superficie: fronteraComun.Superficie, catalogo: m.fronteras, descriptor: fronteraComun})
 		}
+		// La misma asignación dinámica debe seguir vigente hasta consumir la
+		// decisión. La exclusión abarca el handler completo, no solo publicar.
+		if principalSinteticoContratacionTemporalDesarrolloValido(principal) {
+			ctxPerfil, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, time.Now().UTC().Truncate(time.Microsecond))
+			if err != nil {
+				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+				return
+			}
+			var liberar func()
+			ctx, liberar, err = m.autoridad.serializacionPerfiles.adquirir(ctx, ctxPerfil.Resultado.Contexto.PerfilActivoRef)
+			if err != nil {
+				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+				return
+			}
+			defer liberar()
+		}
 		r = r.WithContext(ctx)
 	} else if err == nil && (protegidaCT || protegidaComun) &&
 		(nominalCertificado || principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
