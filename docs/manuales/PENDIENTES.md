@@ -1,43 +1,66 @@
-# Recorridos pendientes
+# Qué falta para completar el recorrido
 
-## Reparo y subsanación del 20 de octubre de 2026
+Actualizado el 20 de octubre de 2026. Se trabaja en copias locales con datos
+ficticios; cidonia está congelada hasta disponer del nuevo servidor.
 
-En una copia local con firma se recorrió en el expediente 2026/92006 el reparo, la subsanación, el informe nuevo firmado por el técnico y la Jefatura y la fiscalización favorable con su recibo. Tras reiniciar se conservó todo sin duplicados. También se abrió «Plantillas de documentos» desde su dirección.
+El recorrido completo de un expediente debe poder hacerse antes del 6 de
+noviembre, incluido el reinicio. Si no se llega, dirección recalculará la
+fecha de fin de esta primera etapa, prevista para la segunda quincena de
+noviembre. Ese hito no significa que toda la aplicación esté terminada.
 
-Quedan textos y avisos por corregir en esas pantallas:
+## Lo que ya se ha comprobado por partes
 
-- El recibo del reparo dice «Fase resultante: Fiscalización», pero el expediente pasa a subsanación por la unidad.
-- Antes del informe nuevo, el expediente ya dice «Pendiente de nueva fiscalización por Intervención».
-- El recuadro de subsanación muestra la versión anterior y dice que no consta un plazo autorizado, en lugar de los 15 días.
-- La confirmación del informe nuevo enseña la referencia interna del expediente.
-- Durante el reparo sigue a la vista el bloque «Respuesta del llamamiento».
-- El enlace «Plantillas de documentos» no aparece en el menú hasta entrar una vez en esa pantalla.
-- La ayuda dice que los plazos para subsanar están sin definir; el catálogo ya fija 15 días hábiles.
-- El aviso de firma enseña la referencia interna del recibo, y «Quién debe firmar» dice «Nadie: firmas de VEC completas».
+Se han recorrido la petición, la ratificación, el alta, el análisis, la
+cobertura, la asignación, el informe y sus dos firmas y la fiscalización.
+También el reparo, su subsanación, el informe nuevo firmado y la nueva
+fiscalización favorable, con conservación tras reiniciar.
 
-## Comprobación de Intervención del 19 de octubre de 2026
+La inscripción, la declaración de méritos, la admisión, la incorporación a la
+bolsa y la alegación se enseñan aparte con el acceso interno preparado.
+La apertura de Mi Bolsa con cuenta externa propia se comprobó sin
+participaciones; eso no acredita las operaciones de esa cuenta.
 
-En una copia local se registraron una fiscalización favorable, otra favorable con observaciones y otra desfavorable, en tres expedientes distintos. Los tres devolvieron recibo. Se comprobaron los campos y la validación de observaciones en Chrome a 1440 y 390 píxeles. Tras reiniciar la aplicación y la base de datos, RRHH consultó la conformidad y el reparo: conservaban su versión, fecha e historial.
+Estas comprobaciones no sustituyen el recorrido de un mismo expediente hasta
+el cese y el retorno de la persona a su bolsa.
 
-La copia no tenía disponible el circuito de firma. Siguen pendientes la remisión con el informe firmado y el recorrido completo de reparo, subsanación, nuevo informe firmado y nueva fiscalización en un mismo expediente. También falta comprobar la consulta de antecedentes y la recuperación del recibo anterior desde el acceso propio de Intervención. Los pasos y las capturas están en [el manual de Intervención](intervencion.md).
+## Tramos que siguen pendientes
 
-## Comprobación del 9 de octubre de 2026
+| Trabajo | Qué falta comprobar o terminar |
+| --- | --- |
+| Llamamiento, aceptación y decisión de RRHH | Completar los tres pasos desde la bolsa constituida, con sus recibos. Si la persona acepta en Mi Bolsa, la ficha debe permitir resolver con su respuesta web, sin pedir un correo que no existe. |
+| Propuesta, resolución y documentos | Continuar ese mismo expediente y recuperar los documentos correctos. Las firmas de la resolución deben hacerse desde el navegador, en orden y con personas distintas; falta acreditarlas dentro del recorrido único. |
+| Incorporación y alta en Personal | El centro acredita la incorporación; RRHH confirma después el alta y la ocupación. A continuación se descarga y confirma la ficha para la grabación manual en GINPIX. |
+| Cese, retorno a la bolsa y cierre | Registrar el cese, comprobar la disponibilidad de la persona en ambas vistas y cerrar el expediente, sin dar por hecho ninguno de estos pasos. |
+| Petición de dos personas | Tras las dos aceptaciones, adjudicar por orden y obtener una propuesta con recibo para cada persona. Falta terminar la continuación individual desde la oferta adjudicada. |
+| Variante de vacante | Detener el ofrecimiento cuando falten datos fiables para aplicar la regla, comprobarlos en la ficha y repetir la selección sin saltar el orden. Falta completar la variante y su reinicio. |
+| Recuperación tras reiniciar | Repetir las consultas del recorrido y sus variantes: mismos recibos, fechas y documentos, sin duplicados. Dejar constancia de los resultados de cada paso. |
 
-Se recorrieron en orden la petición del centro, su ratificación, el expediente 2026/93001 que salió de ella, el llamamiento, el contacto telefónico y la aceptación desde Mi bolsa, siempre con la misma persona de la bolsa. Las imágenes del formulario del centro se tomaron aparte, con una petición de ejemplo que no se presentó.
+## Condiciones que deben cumplirse junto al recorrido
 
-Quedan pendientes:
+- Todas las funciones necesarias deben estar activadas en la copia, incluidas firma, documentos, incorporación, Personal, retorno a la bolsa y registro de consultas.
+- La lista, el detalle y la ficha de la persona deben poder abrirse a la vez con el perfil propio de RRHH. Ningún botón puede terminar en una pantalla vacía o un fallo sin explicación.
+- La consulta de puestos y los cargos de firma deben utilizar los permisos de la persona que actúa. Preparar permisos o cargos como datos ficticios de la copia no acredita que los haya aprobado Administración.
+- La publicación de perfiles y los catálogos necesarios debe completarse con las dos personas administradoras y sus recibos. Falta comprobar en conjunto el orden de las bolsas del aspirante y la continuidad de los cargos de firma.
+- Las pantallas deben responder con rapidez con el volumen de datos previsto. La medición del recorrido completo sigue pendiente; una medición parcial no cierra esa comprobación.
 
-- Alta propia del aspirante y las gestiones de su ficha y sus preferencias.
-- Descarga de los documentos de ese mismo expediente. Las descargas en PDF y Word solo funcionan cuando el expediente está en la fase de nombramiento, y este expediente todavía no ha llegado a ella. Se comprobaron con otro expediente que sí está en esa fase.
-- Firma del informe por el técnico y la jefatura; fiscalización con reparo y conformidad, subsanación y resolución.
-- Incorporación, paso a Personal, cese y regreso a la bolsa de esa persona.
-- Recorrido propio de administración del portal: perfiles, módulos, copias y configuración.
-- Comprobar que los últimos justificantes siguen visibles después de reiniciar el servidor.
+## Qué hacer mientras tanto
 
-El informe preparado se mostró como texto provisional al registrarlo. Al volver a abrir la ficha se conservó su registro. Ese informe no es un documento firmado.
+Si la pantalla pide un dato o documento que no corresponde a lo ocurrido,
+conserve el recibo anterior y el mensaje y comuníquelo a quien mantiene la
+copia. No invente correos, firmas ni confirmaciones para continuar.
 
-## Comprobaciones anteriores, del 29 y el 30 de septiembre de 2026
+Las decisiones de RRHH que aún faltan se mantienen como valores provisionales
+configurables: reglas, plazos, causas y plantillas. Use lo que muestre el
+catálogo vigente; una fecha de una captura antigua no fija un plazo para su
+expediente.
 
-Antes de este recorrido se hicieron varias pruebas parciales en copias de ensayo del portal. En ellas se comprobó que cada perfil entraba solo en lo suyo, que la petición del centro llegaba a RRHH y que los recibos se conservaban después de reiniciar el servidor. También se descargaron borradores de un expediente antiguo.
+El correo corporativo y las conexiones con aplicaciones externas no se dan
+por confirmados por un recibo local. La grabación manual en GINPIX sigue
+siendo manual. El recorrido local no autoriza a tramitar datos reales.
 
-Esas pruebas no completaron ningún proceso de principio a fin. Quedaron sin recorrer el análisis y el informe de un expediente nuevo, la fiscalización por Intervención, la respuesta del aspirante, la firma, la incorporación y el cierre, y en Bolsa la publicación de ofertas, los avisos y la adjudicación. El detalle técnico de esas pruebas se conserva en el historial del repositorio.
+El estado detallado se mantiene en [el tablero](../producto/TABLERO_TAREAS.md),
+en el bloque dedicado a cerrar la primera etapa, y en
+[el recorrido de referencia](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
+Los criterios completos están en [el plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+Las notas de comprobaciones anteriores se conservan como
+[histórico](../historico/manuales_pendientes_hasta_20261020.md).
