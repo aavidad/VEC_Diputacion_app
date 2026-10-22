@@ -241,7 +241,7 @@ Mientras las remediaciones H-01 y H-02 no estén ejecutadas y en verde:
    procesos trabajando sobre el mismo árbol y un `git add -A` puede
    arrastrar trabajo ajeno a medias.
 8. **Nunca commitear** `deploy/osrm-granada/data/`, keylogs, material de
-   estudio (`Baremador/`, `Bolsa_Diputacion*/`, `convoca_dipgra/`,
+   estudio (`Baremador/`, `Bolsa_Diputacion*/`, referencias externas,
    `cegid_peoplenet_aapp/`, `fotos/`) ni catálogos generados; ya están en
    `.gitignore` y deben seguir estándolo.
 9. **Ningún fichero nuevo de código puede superar 500 líneas** (fuente,
