@@ -7,9 +7,15 @@ la parte de pantallas de `docs/diseno/aspirantes_modulo_2026-09-29.md`, la
 sección de i18n y presentación de `AGENTS.md` y E08 de
 `ESPECIFICACIONES_AGENTES.md`.
 
+Revisión documental del 20/10/2026 sobre `origin/main@3ef7dee0b`. Las reglas
+de diseño siguen vigentes. Los inventarios de implantación de los apartados
+10 y 17 conservan su corte del 13/10 y se identifican como históricos; no
+son una nueva auditoría visual ni una lista actual de tareas. El estado de
+cada tarea está en el [tablero](TABLERO_TAREAS.md).
+
 Este documento reúne en un solo sitio las reglas de cómo se ven y se usan las pantallas,
 los textos visibles, los PDF y los correos de VEC. Lo leen las personas de RRHH que
-quieran saber cómo se decide el aspecto de la aplicación y los agentes (Claude y Codex)
+quieran saber cómo se decide el aspecto de la aplicación y quienes modifiquen el producto
 antes de tocar `web/static/` o un texto que vaya a leer alguien.
 
 Sustituye a la dirección de diseño del 29/09/2026, a la parte de pantallas del diseño del
@@ -31,7 +37,7 @@ Documentos hermanos de `docs/producto/`, que no se repiten aquí:
 
 Cuando dos reglas chocan:
 
-1. Las órdenes de Alberto más recientes mandan sobre las antiguas. Si una regla de aquí
+1. Las reglas vigentes más recientes prevalecen sobre las anteriores. Si una regla de aquí
    contradice una orden posterior, se aplica la orden y se corrige este documento.
 2. Dentro de este documento, lo que viene de la normativa y del lenguaje claro (secciones
    2, 9 y 13) manda sobre el aspecto (secciones 3 a 7), y el aspecto manda sobre los
@@ -251,7 +257,7 @@ revisan al menos Portal, Bolsa, Personal, Cronos y Dietas en escritorio y móvil
 preferencias las guarda el servidor; no se usa almacenamiento del navegador. Los documentos
 generados tienen plantillas propias y no siguen el tema de la web.
 
-Alberto (30/09): los temas son instalables, no fijos, como los de Joomla. Por ahora solo
+Los temas son instalables y no quedan fijados en el código. Por ahora solo
 hay temas de color elegibles en Preferencias. El instalador llegará con la administración:
 paquete con manifiesto versionado, tokens claro y oscuro, nombres en cada idioma,
 comprobación de contraste WCAG AA y auditoría; un tema en uso solo se desactiva.
@@ -369,7 +375,7 @@ Mientras tanto, todo dato de un PDF debe estar también en la ficha de la pantal
 
 ## 9. Idiomas
 
-Regla de Alberto (29/09/2026): ningún texto ni idioma dentro del código.
+Los textos y los idiomas se mantienen en catálogos para permitir su traducción sin cambiar el código.
 
 - Todo texto visible, validación, estado, ayuda, documento y notificación sale de los
   catálogos de datos por idioma: `web/static/textos/<idioma>/<modulo>.json` (hoy `es` y
@@ -395,6 +401,12 @@ Regla de Alberto (29/09/2026): ningún texto ni idioma dentro del código.
   convenciones de Go. No se mezclan castellano e inglés en el mismo vocabulario.
 
 ## 10. Privacidad visible
+
+La columna de estado siguiente es una fotografía histórica del 13/10.
+Las reglas de minimización, acceso y ayuda siguen siendo requisitos; para
+saber qué está integrado y qué falta, consulte el [tablero](TABLERO_TAREAS.md)
+y las evidencias de la tarea. Este corte documental no vuelve a comprobar
+el contacto completo ni los demás estados de cada pantalla.
 
 | Dónde | Qué se ve | Estado (13/10/2026) |
 | --- | --- | --- |
@@ -746,8 +758,11 @@ Es la que aplica el revisor de usabilidad. Cada fallo se marca «bloquea», «mo
 
 ## 17. Huecos y diferencias entre reglas y código
 
-Comprobado el 13/10/2026. Cada punto se arregla en su propio corte; no justifica rehacer
-pantallas que funcionan.
+Inventario histórico comprobado el 13/10/2026. Se conserva como diagnóstico
+de aquella fecha; sus filas no afirman que cada hueco siga abierto al 20/10.
+La cola vigente está en el [tablero](TABLERO_TAREAS.md). Cada corrección exige
+su comprobación propia; este inventario no justifica rehacer pantallas que
+funcionan.
 
 | Hueco | Dónde | Regla |
 | --- | --- | --- |
@@ -827,8 +842,8 @@ remitiendo aquí.
   regla, la skill remite a este documento y no la redacta de nuevo.
 - La sección 17 se repasa al cerrar cada tanda de pantallas: se quitan los huecos
   resueltos y se añaden los nuevos, con su fichero.
-- Las decisiones nuevas de Alberto sobre pantallas se añaden con su fecha en la sección 2
+- Las decisiones de diseño se añaden con su fecha de vigencia en la sección 2
   o en la que corresponda, y la orden antigua que contradigan pasa a la tabla de
   contradicciones de la sección 17.
-- El texto se repasa con `humanizer` antes de fusionar. Dirección (Claude) comprueba que
+- El texto se repasa con `humanizer` antes de fusionar. La revisión de integración comprueba que
   no contradiga a `PRD.md` ni a `FLUJO_APP.md`.
