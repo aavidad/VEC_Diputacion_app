@@ -36,6 +36,11 @@ le asigne ese rol.
 Solo se aplica cuando el material original trae los dos ficheros
 (`--rrhh-original`) y la copia ya tiene su aspirante. Con material nuevo no hay
 cuentas con esos permisos y la copia sigue sin ellos.
+
+F1-130 aporta la fuente de preferencias e imagen propias y el enlace de cada
+identidad interna posterior. La orden que publica su cuenta y perfil llama a
+vincular_cuenta_interna antes del reinicio. El enlace conserva las conexiones
+y las cuentas existentes; no sustituye la publicación ni la asignación.
 """
 from __future__ import annotations
 
@@ -50,6 +55,7 @@ import subprocess
 from urllib.parse import quote, urlencode
 
 from copia_local_conexiones import _nombre_instancia, _privado, _publicar, _rol
+from preparar_rrhh_adicional_copia import leer_json
 
 SUPERFICIES = ("interna", "externa")
 FICHERO = "identidad/usuarios-preferencias-{}.json"
@@ -239,3 +245,90 @@ def preparar(copia, origen, guardar, sha256) -> bool:
     estado["entorno_modulos_sha256"] = sha256(entorno)
     guardar(copia.estado, estado)
     return True
+
+
+def vincular_cuenta_interna(material, identidad, certificado, cuenta_ref, perfil_ref) -> bool:
+    """Enlaza una identidad ya publicada, antes del reinicio de su copia.
+
+    La orden de identidad llama con su cuenta y perfil confirmados por el
+    gobierno existente, bajo el candado de la instancia. Este enlace no
+    publica roles, asignaciones ni permisos; Usuarios los revalida al consultar.
+    Las dos rutas son relativas al material, en identidad/ y mtls/.
+    Devuelve False si el vínculo exacto ya existe, sin reescribir el fichero.
+    """
+    from copia_local import guardar
+
+    material = Path(material)
+    _privado(material, directorio=True)
+    for carpeta in (material, *material.parents):
+        if (carpeta / '.git').exists():
+            raise ValueError('El material de Usuarios debe quedar fuera de Git')
+    identidad = _ruta_identidad_usuarios(material, identidad, 'identidad')
+    certificado = _ruta_identidad_usuarios(material, certificado, 'mtls')
+    principal = leer_json(identidad)
+    huella = huella_certificado(certificado)
+    sujeto = principal.get('subject')
+    if (principal.get('version') != 1 or principal.get('autoridad') != 'no_autoritativo'
+            or principal.get('certificate_sha256') != huella
+            or not isinstance(sujeto, str) or not sujeto or any(ord(c) < 32 for c in sujeto)
+            or not isinstance(cuenta_ref, str) or not re.fullmatch(r'cta_[A-Za-z0-9_-]{22,123}', cuenta_ref)
+            or not isinstance(perfil_ref, str) or not re.fullmatch(r'prf_[A-Za-z0-9_-]{22,123}', perfil_ref)):
+        raise ValueError('La cuenta de Usuarios no coincide con su identidad certificada')
+    nueva = dict(certificado_sha256=huella, sujeto=sujeto, cuenta_ref=cuenta_ref, perfil_ref=perfil_ref)
+    interna = material / FICHERO.format('interna')
+    externa = material / FICHERO.format('externa')
+    for ruta in (interna, externa):
+        _privado(ruta, directorio=False)
+        if ruta.stat().st_size > 128 * 1024:
+            raise ValueError('La configuración de Usuarios supera el límite del servidor')
+    configuracion_interna, configuracion_externa = leer_json(interna), leer_json(externa)
+    if (any(set(c) != set(CONSERVADAS) | set(CONEXIONES) or c.get('version') != 1
+            or c.get('autoridad') != 'no_autoritativo' for c in (configuracion_interna, configuracion_externa))
+            or configuracion_interna.get('superficie') != CANAL['interna']
+            or configuracion_externa.get('superficie') != CANAL['externa']):
+        raise ValueError('Las configuraciones de Usuarios no separan sus superficies')
+    internas = _cuentas_usuarios(configuracion_interna)
+    externas = _cuentas_usuarios(configuracion_externa)
+    claves = ('certificado_sha256', 'cuenta_ref', 'perfil_ref')
+    for cuenta in externas:
+        if any(cuenta[k] == nueva[k] for k in claves):
+            raise ValueError('Una cuenta externa no puede enlazarse como interna')
+    for cuenta in internas:
+        if cuenta == nueva:
+            return False
+        if any(cuenta[k] == nueva[k] for k in claves):
+            raise ValueError('La cuenta interna ya tiene otro vínculo; se conserva el original')
+    if len(internas) >= 64:
+        raise ValueError('La configuración interna alcanza el límite del servidor')
+    configuracion_interna['cuentas'] = [*internas, nueva]
+    contenido = json.dumps(configuracion_interna, ensure_ascii=False, indent=2) + '\n'
+    if len(contenido.encode()) > 128 * 1024:
+        raise ValueError('La configuración de Usuarios supera el límite del servidor')
+    guardar(interna, configuracion_interna)
+    return True
+
+
+def _ruta_identidad_usuarios(material, relativa, carpeta):
+    relativa = Path(relativa)
+    if relativa.is_absolute() or '..' in relativa.parts or len(relativa.parts) != 2 or relativa.parts[0] != carpeta:
+        raise ValueError('La identidad de Usuarios debe pertenecer al material de su copia')
+    ruta = material / relativa
+    _privado(ruta, directorio=False)
+    return ruta
+
+
+def _cuentas_usuarios(configuracion):
+    cuentas = configuracion.get('cuentas')
+    claves = {'certificado_sha256', 'sujeto', 'cuenta_ref', 'perfil_ref'}
+    if not isinstance(cuentas, list) or not 1 <= len(cuentas) <= 64:
+        raise ValueError('Las cuentas de Usuarios no corresponden al contrato')
+    vistas = {k: set() for k in claves - {'sujeto'}}
+    for cuenta in cuentas:
+        if (not isinstance(cuenta, dict) or set(cuenta) != claves
+                or any(not isinstance(v, str) or not v for v in cuenta.values())
+                or not re.fullmatch(r'[0-9a-f]{64}', cuenta['certificado_sha256'])
+                or any(cuenta[k] in valores for k, valores in vistas.items())):
+            raise ValueError('Las cuentas de Usuarios están incompletas o repetidas')
+        for clave, valores in vistas.items():
+            valores.add(cuenta[clave])
+    return cuentas

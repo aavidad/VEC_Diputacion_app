@@ -1,0 +1,120 @@
+{
+  "modulo_id": "usuarios",
+  "referencia": "fuente:usuarios:preferencias_imagen_propias_v1",
+  "version": 1,
+  "huella_sha256": "974c7c97b759d44d123eb11b63525838c8f0a577f03c83ce4d52f3796b6abd1b",
+  "entradas_canon": "[{\"referencia\":\"accion:vec.preferencias.consultar\",\"version\":1,\"fuente_ref\":\"fuente:usuarios:preferencias_imagen_propias_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"vec.preferencias.consultar\",\"modulo_id\":\"usuarios\",\"tipo_recurso\":\"preferencias_persona\",\"finalidades\":[\"finalidad:usuarios:preferencias-propias:v1\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"catalogo\",\"valores\",\"version\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-20T00:00:00Z\",\"vigente_hasta\":\"2027-01-18T00:00:00Z\"},{\"referencia\":\"accion:vec.preferencias.actualizar\",\"version\":1,\"fuente_ref\":\"fuente:usuarios:preferencias_imagen_propias_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"vec.preferencias.actualizar\",\"modulo_id\":\"usuarios\",\"tipo_recurso\":\"preferencias_persona\",\"finalidades\":[\"finalidad:usuarios:preferencias-propias:v1\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"valores\",\"version\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-20T00:00:00Z\",\"vigente_hasta\":\"2027-01-18T00:00:00Z\"},{\"referencia\":\"accion:vec.imagen.consultar\",\"version\":1,\"fuente_ref\":\"fuente:usuarios:preferencias_imagen_propias_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"vec.imagen.consultar\",\"modulo_id\":\"usuarios\",\"tipo_recurso\":\"imagen_persona\",\"finalidades\":[\"finalidad:usuarios:imagen-propia:v1\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"foto\",\"icono\",\"modo\",\"paleta\",\"version\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-20T00:00:00Z\",\"vigente_hasta\":\"2027-01-18T00:00:00Z\"},{\"referencia\":\"accion:vec.imagen.actualizar\",\"version\":1,\"fuente_ref\":\"fuente:usuarios:preferencias_imagen_propias_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"vec.imagen.actualizar\",\"modulo_id\":\"usuarios\",\"tipo_recurso\":\"imagen_persona\",\"finalidades\":[\"finalidad:usuarios:imagen-propia:v1\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"foto\",\"icono\",\"modo\",\"paleta\",\"version\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-20T00:00:00Z\",\"vigente_hasta\":\"2027-01-18T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:vec.preferencias.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:usuarios:preferencias_imagen_propias_v1",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "974c7c97b759d44d123eb11b63525838c8f0a577f03c83ce4d52f3796b6abd1b",
+      "concesion": {
+        "accion": "vec.preferencias.consultar",
+        "modulo_id": "usuarios",
+        "tipo_recurso": "preferencias_persona",
+        "finalidades": [
+          "finalidad:usuarios:preferencias-propias:v1"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "catalogo",
+          "valores",
+          "version"
+        ]
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-20T00:00:00Z",
+      "vigente_hasta": "2027-01-18T00:00:00Z"
+    },
+    {
+      "referencia": "accion:vec.preferencias.actualizar",
+      "version": 1,
+      "fuente_ref": "fuente:usuarios:preferencias_imagen_propias_v1",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "974c7c97b759d44d123eb11b63525838c8f0a577f03c83ce4d52f3796b6abd1b",
+      "concesion": {
+        "accion": "vec.preferencias.actualizar",
+        "modulo_id": "usuarios",
+        "tipo_recurso": "preferencias_persona",
+        "finalidades": [
+          "finalidad:usuarios:preferencias-propias:v1"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "valores",
+          "version"
+        ]
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-20T00:00:00Z",
+      "vigente_hasta": "2027-01-18T00:00:00Z"
+    },
+    {
+      "referencia": "accion:vec.imagen.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:usuarios:preferencias_imagen_propias_v1",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "974c7c97b759d44d123eb11b63525838c8f0a577f03c83ce4d52f3796b6abd1b",
+      "concesion": {
+        "accion": "vec.imagen.consultar",
+        "modulo_id": "usuarios",
+        "tipo_recurso": "imagen_persona",
+        "finalidades": [
+          "finalidad:usuarios:imagen-propia:v1"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "foto",
+          "icono",
+          "modo",
+          "paleta",
+          "version"
+        ]
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-20T00:00:00Z",
+      "vigente_hasta": "2027-01-18T00:00:00Z"
+    },
+    {
+      "referencia": "accion:vec.imagen.actualizar",
+      "version": 1,
+      "fuente_ref": "fuente:usuarios:preferencias_imagen_propias_v1",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "974c7c97b759d44d123eb11b63525838c8f0a577f03c83ce4d52f3796b6abd1b",
+      "concesion": {
+        "accion": "vec.imagen.actualizar",
+        "modulo_id": "usuarios",
+        "tipo_recurso": "imagen_persona",
+        "finalidades": [
+          "finalidad:usuarios:imagen-propia:v1"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "foto",
+          "icono",
+          "modo",
+          "paleta",
+          "version"
+        ]
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-20T00:00:00Z",
+      "vigente_hasta": "2027-01-18T00:00:00Z"
+    }
+  ]
+}
