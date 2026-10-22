@@ -1,16 +1,35 @@
-# Manuales del portal
+# Manuales de VEC por perfil
 
-Guías basadas en las acciones comprobadas en la web los días 8, 9 y 19 de octubre de 2026. La petición del centro, la tramitación y la respuesta del aspirante corresponden al recorrido del día 9; la fiscalización de Intervención, al del día 19. Las imágenes muestran datos de ejemplo; las cifras y las fechas pueden cambiar.
+Actualización documental: 20 de octubre de 2026. Los recorridos se preparan en
+copias locales con datos ficticios. Cidonia está congelada hasta disponer del
+nuevo servidor; utilice la dirección que le facilite la persona responsable
+de la copia. No introduzca datos personales reales.
 
-| Persona que usa el portal | Guía | Acciones comprobadas |
-| --- | --- | --- |
-| Aspirante que ya participa en una bolsa | [Mi bolsa](aspirante.md) | Consultar su situación y responder a un llamamiento tras el contacto de Recursos Humanos. |
-| Centro que pide personal | [Petición de personal](centro.md) | Preparar, revisar y presentar una petición; consultar su estado. |
-| Persona que ratifica | [Ratificación](ratificador.md) | Revisar la petición de otra persona y ratificarla. |
-| Técnico de Recursos Humanos | [Tramitación](tecnico_rrhh.md) | Recibir la petición, tramitar el expediente y gestionar el llamamiento. |
-| Jefatura de Recursos Humanos | [VEC: cómo funciona](jefatura_rrhh.md) | Visión general sin tecnicismos: quién usa VEC, las bolsas y la situación de los candidatos, un contrato temporal paso a paso, qué puede cambiar RRHH, en qué punto está cada parte y para qué sirve cada módulo de la aplicación. |
-| Responsable de Recursos Humanos | [Consulta del expediente](responsable_rrhh.md) | Revisar los datos y el historial; descargar los documentos en PDF y Word en la fase de nombramiento. |
-| Intervención | [Fiscalización](intervencion.md) | Abrir un expediente remitido, registrar el resultado favorable, favorable con observaciones o desfavorable y conservar el justificante. |
-| Administración del portal y sistemas | [Alcance pendiente](sistemas.md) | Sin un recorrido propio comprobado. |
+| Su tarea | Manual y estado de revisión |
+| --- | --- |
+| Consultar su bolsa, inscribirse o responder a un llamamiento | [Aspirante interno y externo](aspirante.md) — actualización pendiente de revisión e integración |
+| Pedir personal y acreditar su incorporación | [Centro solicitante](centro.md) — actualización pendiente de revisión e integración |
+| Revisar y ratificar una petición de otra persona | [Ratificador](ratificador.md) — actualización pendiente de revisión e integración |
+| Tramitar la contratación y gestionar la bolsa | [Técnica de Recursos Humanos](tecnico_rrhh.md) — actualización pendiente de revisión e integración |
+| Consultar el expediente, su historial y sus documentos | [Responsable de Recursos Humanos](responsable_rrhh.md) — actualización pendiente de revisión e integración |
+| Conocer el conjunto de VEC y las funciones de Jefatura | [Jefatura de Recursos Humanos](jefatura_rrhh.md) — revisión pendiente tras integrar los cambios en curso |
+| Registrar la fiscalización, el reparo y la nueva fiscalización | [Intervención](intervencion.md) — actualización pendiente de revisión e integración |
+| Conocer el alcance de la administración del portal | [Administración y sistemas](sistemas.md) — actualización pendiente de revisión e integración |
 
-Las guías con recorrido incluyen solo acciones que funcionaron desde sus pantallas. La de sistemas indica que su recorrido propio está pendiente; la de Intervención, qué parte de la fiscalización falta por comprobar. La firma, la resolución y los pasos posteriores quedan fuera de las instrucciones actuales. Los documentos que se descargan son borradores sin firmar. Las incidencias y los recorridos que faltan se recogen en [PENDIENTES.md](PENDIENTES.md).
+Algunas guías enlazadas conservan direcciones antiguas de cidonia mientras se revisa su actualización. No utilice esos enlaces para operar: entre por la dirección de la copia local que le faciliten.
+
+Cada persona entra con su acceso y su certificado. El acceso de Centro no
+permite ratificar la petición propia; RRHH e Intervención actúan por separado.
+Identificarse no firma documentos. Conserve los recibos y consulte el resultado
+antes de repetir un envío si se corta la conexión.
+
+El recorrido completo, desde la petición hasta el cese y la vuelta a la bolsa,
+sigue pendiente de acreditarse en un mismo caso, con sus variantes y después
+de reiniciar la aplicación y la base de datos. Las comprobaciones parciales
+fechadas en cada manual mantienen ese alcance. Consulte [lo que falta](PENDIENTES.md)
+antes de preparar una sesión de trabajo.
+
+Las imágenes conservadas muestran versiones anteriores. Sus fechas y límites
+se recogen en [el registro de capturas](img/README.md). Los documentos de
+septiembre de otras carpetas son históricos; las guías de uso se mantienen aquí.
+Para mantener esta documentación, consulte [el inventario](INVENTARIO.md).
