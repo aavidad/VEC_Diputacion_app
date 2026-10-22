@@ -1,1024 +1,177 @@
 # Manual mantenido del programador de VEC
 
-## Guía de desarrollo — `main@7247682cb` (28 de septiembre de 2026)
+Guía vigente, contrastada con `origin/main@3c643ce34` el 20/10/2026.
+El estado de las tareas está en el [tablero](../producto/TABLERO_TAREAS.md);
+las decisiones técnicas, en el [TRD](../producto/TRD.md). Se desarrolla y
+recorre en copias locales. cidonia permanece congelada; la siguiente
+instalación corresponde a dirección en un servidor nuevo.
 
-Esta guía describe el árbol integrado en `main` en ese hash. Para saber qué
-está instalado, publicado o probado de extremo a extremo, consulte el
-[estado del proyecto](../../ESTADO_PROYECTO.md) y la
-[guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md). Una carpeta, un
-manifiesto o una prueba aislada no convierten una capacidad en operativa.
-El [índice de API Go](LEEME.md) es generado: para actualizar sus firmas y
-comentarios, cambie la documentación del código y ejecute
-`python3 scripts/generar_manual_programador.py`. Su texto introductorio no
-reemplaza esta guía mantenida; el generador aún necesita sincronizar esa
-introducción con el estado actual antes de regenerar el índice completo.
+## Antes de escribir
 
-### Dónde va cada cambio
+Lea [AGENTS.md](../../AGENTS.md), [PRD](../producto/PRD.md) y
+[plan de implementación](../producto/PLAN_IMPLEMENTACION.md), además de los
+documentos que afecte el encargo. El caso de aceptación es
+[FLUJO_APP §4.0](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
+Busque la capacidad en el índice de código, `origin/main`, las ramas y las PR
+abiertas. Para Go use `gopls` desde terminal. Si no dispone del índice,
+indíquelo y contraste el árbol y sus referencias antes de añadir otra pieza.
 
-| Pieza | Código integrado | Responsabilidad |
+Cada tarea parte de `origin/main`, tiene rama y carpeta propias y declara sus
+ficheros. No se edita un fichero ocupado por otra PR. Una PR tiene una sola
+responsabilidad, objetivo de 400 líneas manuales y máximo de 1.500.
+Los títulos siguen `Tarea: <ID> — …`. Dirección revisa e integra.
+
+## Arquitectura y propietarios
+
+| Pieza | Ruta | Responsabilidad |
 | --- | --- | --- |
-| Dominio | `internal/modules/<modulo>/domain`, `internal/vec/domain` | Estados, invariantes y decisiones puras; sin HTTP, SQL ni proveedores. |
-| Aplicación | `internal/modules/<modulo>/application`, `internal/vec/application` | Casos de uso que coordinan reglas y puertos; una misma regla sirve a todos los canales. |
-| Puertos | `internal/modules/<modulo>/ports`, `internal/vec/ports` | Contratos y DTO mínimos entre propietarios; no contienen lógica de transporte. |
-| Adaptadores | `internal/modules/<modulo>/adapters`, `internal/vec/adapters` | Traducción HTTP, PostgreSQL, documentos y proveedores concretos. |
-| Composición | `internal/app/bootstrap`, `cmd/vec-server`, `cmd/vec-publico`, `cmd/vec-interno` | Selección explícita de adaptadores, dependencias, rutas y superficies de cada ejecutable. |
-| Interfaz | `web/static/portal-empleado`, `web/static/bolsa` | Vistas y clientes HTTP que consumen contratos publicados; no deciden permisos. |
+| Dominio | `internal/modules/<modulo>/domain`, `internal/vec/domain` | Invariantes, estados y cálculos; sin HTTP, SQL ni proveedores |
+| Puertos | `internal/modules/<modulo>/ports`, `internal/vec/ports` | Contratos mínimos que necesita la aplicación |
+| Aplicación | `internal/modules/<modulo>/application`, `internal/vec/application` | Casos de uso que coordinan dominio y puertos |
+| Adaptadores | `internal/modules/<modulo>/adapters`, `internal/vec/adapters` | PostgreSQL, HTTP, correo y otros proveedores |
+| Composición | `internal/app/bootstrap`, `internal/app/composicion` | Selección de adaptadores, configuración y montaje de superficies |
+| Servidor común | `internal/app/server` | Estáticos, salud, cabeceras y límites HTTP |
+| Interfaz | `web/static/portal-empleado`, `web/static/area-personal`, `web/static/bolsa` | Pantallas y clientes de los contratos montados |
+| Utilidades | `internal/shared` | i18n, telemetría y herramientas comunes sin negocio |
 
-La dependencia apunta hacia el caso de uso y el dominio. El adaptador
-implementa el puerto que necesita la aplicación; la composición inyecta la
-implementación. Esto permite probar decisiones sin servidor y sustituir una
-dependencia de infraestructura sin copiar las reglas en cada canal. No todo
-paquete antiguo sigue exactamente esta disposición: antes de mover código,
-compruebe el propietario y el contrato real.
+Las dependencias apuntan hacia los contratos y las reglas. El adaptador
+implementa el puerto y la composición lo inyecta; el dominio no importa
+aplicación ni adaptadores. Compruebe la ubicación real antes de mover código:
+el árbol conserva paquetes con organización anterior.
 
-### Módulos, persona y datos
+Hay quince módulos en `internal/modules/`: `administracion`, `aspirantes`,
+`bolsa`, `calendarios`, `carrera`, `certificados`, `contrataciontemporal`,
+`cronos`, `dietas`, `formacion`, `meritos`, `personal`, `provision`, `seleccion`
+y `usuarios`. Su presencia no acredita que estén completos ni activados.
+El manifiesto común está en [types.go](../../internal/vec/domain/types.go),
+y el registro en [service.go](../../internal/vec/application/service.go).
+El menú consulta el catálogo de módulos; declararlo no monta sus rutas ni
+concede permisos. No hay un instalador dinámico de módulos.
 
-El núcleo contiene el [manifiesto de módulo](../../internal/vec/domain/types.go)
-y su [registro de aplicación](../../internal/vec/application/service.go).
-La [composición](../../internal/app/bootstrap/bootstrap.go) registra los
-módulos; el [catálogo web](../../web/static/portal-empleado/portal-catalogo-modulos.js)
-lee `/api/vec/modules` para construir navegación. El registro y el menú
-describen la capacidad: sus rutas, permisos, persistencia y dependencias se
-conectan expresamente. Añadir un módulo exige código revisado, composición y,
-si procede, migraciones y despliegue; no hay carga dinámica ni instalador
-genérico de plugins.
+Persona es común. Cada módulo conserva sus datos y obtiene proyecciones
+ajenas mediante puertos autorizados. Contratación temporal coordina; Bolsa
+conserva convocatorias, candidaturas, orden y llamamientos; Personal conserva
+relaciones de servicio y ocupaciones. Ningún módulo consulta tablas de otro.
+Una cuenta o un certificado no prueban una relación de servicio.
 
-Cada módulo conserva sus reglas y datos. Contratación temporal coordina
-referencias y puertos; Bolsa conserva convocatorias, candidaturas, orden y
-llamamientos; Personal conserva relaciones de servicio, ocupación e
-incorporación. Una integración nueva pide una proyección autorizada al dueño
-del dato y no consulta ni escribe tablas ajenas. El
-[ContextoActor](../../internal/vec/domain/contexto_actor.go) enlaza la persona
-común con referencias opacas de candidato o empleado, con versión y vigencia.
-Una persona externa puede ser candidata sin ser empleada; una cuenta o un
-certificado tampoco prueban una relación de servicio.
+## Composición y consumidores
 
-Los catálogos y reglas que gobiernan una actuación pertenecen a su autoridad
-y versión. Una mejora concreta de este diseño es poder cambiar una definición
-admitida conservando qué versión usó cada expediente, sin reinterpretar su
-historia. El [contrato de módulos](../portal_vec/contrato_modulos_vec.md)
-detalla el límite entre extensiones existentes y ampliaciones aún previstas.
+[bootstrap.go](../../internal/app/bootstrap/bootstrap.go) monta los servidores
+y registra módulos. Los ficheros de capacidad de `internal/app/bootstrap`
+construyen dependencias concretas; `internal/app/composicion/interna` separa
+la raíz interna y su configuración. Por ejemplo,
+[contrataciontemporal/rutas.go](../../internal/app/composicion/interna/contrataciontemporal/rutas.go)
+recibe casos de uso y autoridades ya constituidos y forma las rutas.
+No se añade una conexión o una comprobación de entorno al dominio.
 
-### Seguridad, recibos e historia
+`cmd/vec-server` conserva el montaje combinado de desarrollo;
+`cmd/vec-admin` atiende Administración por separado. `cmd/vec-interno` y
+`cmd/vec-publico` tienen composiciones y superficies separadas. Una herramienta
+de `cmd/` prepara o ejecuta su operación concreta: no es un cliente general
+del expediente ni una autorización para publicar otras rutas.
 
-La [matriz de roles y ámbitos](../producto/FLUJO_APP.md)
-define denegación por defecto: las operaciones conectadas a V3 exigen una
-concesión central positiva, exacta y vigente para actor, acción, recurso,
-ámbito, finalidad, perfil, campos y obligaciones. El perfil o un botón visible
-no conceden autoridad. La frontera obtiene el actor del canal validado y el
-caso de uso revalida la decisión antes del efecto; una dependencia caída no
-abre acceso. Compruebe la composición concreta antes de afirmar que una ruta
-usa V3: el requisito de producto no acredita por sí mismo todos los caminos.
+Para añadir una capacidad:
 
-Para escrituras durables, el caso de uso y su adaptador deben conservar la
-versión esperada, la clave de idempotencia, la auditoría, el recibo, la
-historia de solo adición y, cuando haya intercambio, la salida pendiente.
-Un reintento con la misma clave recupera el resultado admitido sin crear otra
-operación; una clave reutilizada con material distinto se rechaza. La
-autorización se vuelve a comprobar dentro de la transacción que produce el
-efecto. Las [reglas de PostgreSQL](../portal_vec/seguridad_persistencia_postgresql.md)
-exigen roles técnicos propios y permisos mínimos por propietario. Estas
-garantías se prueban por recorrido; no se deducen de una interfaz o de un
-repositorio en memoria.
+1. Identifique su propietario y el paso del recorrido que la consume.
+   Reutilice reglas y contratos existentes; un puerto nuevo necesita un
+   consumidor concreto.
+2. Añada la regla en dominio y su coordinación en aplicación. Conserve la
+   versión esperada, la clave de idempotencia y el recibo del resultado.
+3. Implemente los puertos con adaptadores. Si necesita datos ajenos, pida al
+   módulo dueño una proyección autorizada. Pruebe persistencia y denegación
+   en PostgreSQL real cuando la garantía dependa de él.
+4. Conecte HTTP y composición con identidad validada, autorización positiva,
+   límites y errores de catálogo. El actor no procede del cuerpo HTTP.
+5. Conecte la pantalla al contrato real, con carga, vacío, error y reintento.
+   Los textos van en `web/static/textos/<idioma>/`; la ayuda se abre con «?».
+6. Recorra el paso en la copia propia y compruebe el resultado tras reiniciar
+   aplicación y PostgreSQL. La PR dice qué pantalla usa la capacidad.
 
-### Idiomas y clientes
+La ausencia de configuración opcional debe cerrar solo su función y explicar
+qué falta mediante un error de catálogo. Las garantías se comprueban en el
+montaje concreto: no se dan por cumplidas porque exista una interfaz.
 
-Los textos y formatos compartidos usan
-[i18n Go](../../internal/shared/i18n/i18n.go) y los
-[catálogos del portal](../../web/static/portal-empleado/portal-i18n.js).
-Los manifiestos describen nombres y navegación, pero no sustituyen el
-catálogo ni dan permisos. La localización de toda la superficie sigue siendo
-parcial: al añadir un estado, mensaje, documento o ayuda, agregue su clave y
-pruébela con el traductor real. La ayuda de usuario se abre desde «?»; no
-disperse instrucciones permanentes por las pantallas.
+## Identidad, autorización e historia
 
-El cliente web existente llama a la API de los casos de uso compuestos.
-`cmd/` contiene ejecutables de servidor y herramientas operativas concretas;
-no constituye hoy un cliente CLI general del expediente. Tampoco hay un
-cliente de escritorio integrado. Si se crean esos canales, deberán adaptar
-entrada y salida a los mismos casos de uso, con identidad, autorización,
-auditoría y resultado equivalentes: poner las reglas en la aplicación evita
-que web, escritorio y CLI den respuestas distintas.
+La lectura usa la sesión ligada al certificado y deja constancia de auditoría.
+Los actos requieren una decisión central positiva para actor, acción, recurso,
+ámbito y finalidad, consumida en la misma transacción que el efecto. Un perfil,
+un menú o un selector no conceden autoridad.
 
-### Cómo verificar un incremento
+Una escritura conserva auditoría, recibo e historia. El reintento con la misma
+clave y contenido recupera el resultado; otro contenido con la misma clave
+se rechaza. Una dependencia caída no abre acceso ni confirma una entrega.
+Identificarse no firma documentos; un recibo local no confirma GINPIX,
+correo ni un portafirmas externo. Use datos ficticios y deje claves,
+certificados y configuración privada fuera de Git.
 
-1. Localice el propietario, la fuente funcional y el caso de uso existente;
-   conserve las referencias opacas y las versiones. Añada un puerto solo si
-   hay una dependencia concreta que lo consume.
-2. Pruebe la decisión del dominio o aplicación y el adaptador afectado. Para
-   una escritura, cubra denegación, versión obsoleta, replay, material
-   distinto con la misma clave e historia conservada.
-3. Ejecute la [puerta local](../../scripts/verificar_calidad.sh) cuando el
-   cambio de código lo requiera: formato, módulos Go, pruebas, `go vet`,
-   pruebas web y verificadores de superficies. La
-   [CI](../../.github/workflows/ci.yml) añade puertas de secretos, artefactos
-   y PostgreSQL focales. Un cambio solo documental se comprueba con enlaces y
-   `git diff --check`.
-4. Para afirmar persistencia o disponibilidad, pruebe navegador → API →
-   autorización → aplicación → PostgreSQL → recibo, y recupere tras reinicio.
-   Separe código integrado, SQL instalado, recorrido verificado y publicación.
-   Los cambios de SQL, identidad, criptografía o datos personales requieren
-   dos revisiones independientes de la versión final.
+## Migraciones y ensayo SQL
 
-Use solo datos sintéticos. Mantenga secretos y configuración privada fuera de
-Git. Los borradores, avisos y recibos técnicos no acreditan firma, entrega
-legal, incorporación ni confirmación de un sistema externo.
+La estructura y los permisos se describen en
+[ESQUEMA_BACKEND](../producto/ESQUEMA_BACKEND.md). Antes de crear una migración,
+reserve su número en `RESERVAS_MIGRACIONES.md`, fuera de Git. Las nuevas
+migraciones del núcleo de autorización tienen un propietario único, indicado
+en el tablero, para evitar reconstrucciones concurrentes.
 
-## Estado técnico del 23 de septiembre de 2026 — histórico
+Las migraciones viven en `deploy/postgresql/<esquema>/migraciones/`.
+La lista común posterior al esquema de referencia es
+[`lista_sql_main_tras_hz37.txt`](../../deploy/principal/lista_sql_main_tras_hz37.txt):
+respete el orden causal y sus huellas. No se modifica ni reaplica una SQL
+instalada; se corrige con otra migración. No se usa DOWN sobre historia.
+Al reconstruir una función, parta de su cuerpo instalado en la principal.
+Toda función nueva o reconstruida `SECURITY DEFINER` lleva
+`SET search_path = pg_catalog, pg_temp`.
 
-Base contrastada en aquel corte: `e73792989220c69e5aeb61e39d6d7f488b816bc4`.
-Este apartado conserva la fotografía técnica del 23/09, no el estado vigente.
-La instalación, los recorridos posteriores y la publicación se acreditan en
-[Estado del proyecto](../../ESTADO_PROYECTO.md), incluido el cierre para la
-presentación del 26/09, y en la [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).
-Las cifras y pendientes de la tabla siguiente pertenecen solo a esa fecha.
+El [ensayador de fase 1](../../deploy/postgresql/fase1/LEEME.md) restaura el
+esquema sin datos y ejecuta instalación, pruebas SQL y reinicio:
 
-**Ningún módulo es todavía un programa terminado y aceptado en producción.**
-El plan consensuado y aprobado el 23/09 exige requisitos completos en la
-composición productiva, identidad institucional, roles y autorización V3,
-historia, i18n, accesibilidad, recuperación, operación y restauración. Una
-capacidad que espera una decisión de RRHH o un contrato externo debe identificarse
-como «implementada, pendiente de validación externa» solo si su implementación
-está realmente probada; un puerto aislado no equivale a un conector terminado.
-La prioridad siguiente en aquel corte era el conjunto de identidad/contexto común y
-primera composición productiva, seguido de contacto VEC, Contratación y Bolsa.
-
-| Superficie | Integrado y comprobable en el corte del 23/09 | Límite observado entonces |
-| --- | --- | --- |
-| Contratación temporal | `internal/modules/contrataciontemporal/` contiene dominio, aplicación, puertos y adaptadores; el perfil de desarrollo compone el recorrido con PostgreSQL y Bolsa. La fotografía de entonces estimaba ≈6/8 pasos y 15/19 pantallas funcionales. | Faltan efectos institucionales de firma/formalización, correo y plazos, confirmación externa GINPIX, identidad/roles completos y composición productiva. Los seis documentos demostrados son borradores. |
-| Bolsa | `internal/modules/bolsa/` posee convocatorias, candidaturas, orden y llamamientos; la fotografía de entonces registraba B1–B10, B12 y B13 en desarrollo (12/14 del corte de gestión). | B11 es parcial; B14 depende de decisiones pendientes. B15 y S1–S7 forman parte del alcance de sustitución de CONVOCA y siguen abiertos. La cifra 12/14 no mide toda Bolsa. |
-| Servidor interno productivo | [cmd/vec-interno](../../cmd/vec-interno/main.go) usa [composicion/interna](../../internal/app/composicion/interna/raiz.go). | `NuevoServidor` devuelve las 14 dependencias productivas pendientes después de validar configuración; no construye listener. [bootstrap](../../internal/app/bootstrap/bootstrap.go) separa el perfil de desarrollo y también rechaza la composición productiva no disponible. |
-
-La arquitectura aplica la regla `domain` → `application` + `ports` →
-`adapters`, conectados en composición. `internal/vec/` aporta contratos y
-autoridades compartidas; el registro del módulo y su menú no conectan por sí
-solos rutas, permisos ni almacenamiento. El shell usa el contrato del módulo,
-no sus reglas de negocio. CT coordina por puertos y referencias opacas: Bolsa
-mantiene orden, disponibilidad y llamamientos; Personal mantiene relaciones,
-ocupación e incorporación. Ningún módulo debe consultar ni escribir las tablas
-de otro. Una persona puede ser aspirante externo y no empleado.
-
-En el perfil de desarrollo, los archivos `internal/app/bootstrap/*_desarrollo.go`
-conectan proveedores concretos de CT y Bolsa. La frontera HTTP obtiene la
-identidad del canal validado y la autorización V3 exige concesión central
-positiva, exacta y vigente para actor, acción, recurso, ámbito, finalidad,
-perfil, campos y obligaciones. RBAC es necesario y ABAC solo restringe. Ni el
-menú, la ruta, los datos del navegador o un perfil adicional conceden acceso;
-se revalida antes del efecto y en el replay. Los contextos y recibos entre CT
-y Bolsa no trasladan autoridad de escritura de un módulo al otro.
-
-PostgreSQL se organiza por propietarios, roles técnicos y migraciones en
-`deploy/postgresql/`. Los adaptadores de cada módulo guardan sus estados,
-versiones, historia, recibos y efectos pendientes según el caso de uso. No
-reaplicar migraciones instaladas ni ejecutar `DOWN` sobre historia conservada;
-una garantía de ACL, transacción, concurrencia o recuperación exige prueba en
-PostgreSQL real. Los cambios de SQL, identidad, criptografía y fronteras de
-datos personales requieren dos revisiones independientes de la versión final.
-Para declarar recorrible una capacidad, comprobar navegador → API → V3 →
-aplicación → PostgreSQL → recibo y recuperación tras reinicio cuando se afirme
-durabilidad. Las pruebas focales Go y web sirven al código afectado; sus
-resultados aislados no acreditan despliegue productivo ni aceptación funcional.
-
-## Antecedente B-BACK-01 — borradores internos de llamamiento de Bolsa
-
-El backend integrado en `cd17d97a6981f36fc378c11ba0c559470622ed80`
-mantiene la separación hexagonal `domain` → `application` → `ports` →
-adaptadores HTTP/PostgreSQL. Contratación temporal solo participa en la
-composición común de seguridad; no lee ni escribe las tablas de Bolsa.
-
-El contrato HTTP interno admite exclusivamente:
-
-- `POST /api/vec/bolsa/llamamientos/borradores`, con JSON exacto
-  `{"resumen":"..."}` y clave de idempotencia;
-- `GET /api/vec/bolsa/llamamientos/borradores/{borrador_ref}` para recuperar
-  un borrador propio; y
-- `HEAD` de detalle como rechazo terminal `405 Allow: GET`, sin resolver
-  identidad, autorización, existencia ni auditoría.
-
-Crear y consultar usan acciones, finalidades y audiencias V3 distintas. La
-selección servidor-side por método y ruta compromete un único perfil Bolsa en
-la cápsula HMAC; no suma ni reutiliza el perfil CT. El resumen no puede incluir
-indicadores evidentes de DNI/NIE/NIF, pasaporte, correo o teléfono. El borrador
-no representa una selección, contacto, plazo ni resultado de llamamiento.
-
-La capacidad es opt-in mediante `VEC_BOLSA_BORRADORES_ENABLED=true`. Sin esa
-variable, la configuración histórica de llamamientos de Bolsa no monta rutas,
-manifiesto, materiales ni proveedores B-BACK. Al activarla son obligatorias
-las tres conexiones segregadas de borradores, la conexión exclusiva de
-auditoría de frontera, el manifiesto privado `identidad/bolsa-bback.json` y
-las demás dependencias nominales; una ausencia aborta el montaje.
-
-En este corte histórico, AD3-44 y Bolsa-11 eran fuentes sin instalar. La
-instalación posterior se consulta en Estado y Sistemas; no ejecutar `DOWN`
-contra historia.
-
-## Pausa y entrega conservada por cuota — antecedente del 10 de septiembre de 2026
-
-Se conserva el código hasta `9fb12560` y se confirman únicamente los sellos
-HMAC de anotación ya comprobados. Implementación SHA256
-`042dc81583f35296daece4d2b03ef77b50dc48a9ef4eb1f8d2c99af8369fb35f`;
-prueba `ac3863bb098432dc02ac75ebe6055c17566407e1e1301fade823dd680be5c9ea`.
-Dos revisores independientes dieron GO; la focal de seguridad pasó también en
-la candidata aislada. No se repitió para el cierre. La cancelación tras el último
-conector devuelve error sin colección; se conservan generaciones y dominios.
-
-Última reparación HTTP no integrada: `anotacion_administrativa.go`
-`0da3d3908b95bcb4b34eff824c4ead81443299513b2b690d215743a3fd142e4e`,
-contrato `520648d34db7df78dea8a090978d8e38b3bd438540cc2785416e6ce564fbc534`,
-prueba `b5c87045bea33e82f8a9eb0cd1d97b913f0583d7e28f23260b6f9d413ae16cc0`
-y prueba de errores `5b05d9a79d14358553997b30155b8dd57d65a7eb03aa7212656ce65fd62f327a`.
-Diez pruebas focales pasaron; faltan los dos dictámenes sobre esta versión.
-
-La composición conserva doce archivos propios y cuatro dependencias en
-`composicion-nominal/manifest-review16.json`, con GO de identidad disponible y
-segunda revisión pendiente de recoger/cerrar. Su plantilla es NO_INSTALAR y
-no constituye configuración privada publicada. La fuente exige permisos nominales
-propios, rechaza carreras de rol/asignación y consulta el detalle autorizado
-antes del lector de preparación; falta validar la candidata conjunta final.
-
-El montaje web aún requiere la prueba DOM v8→v9 tras callback de anotación.
-Los artefactos de componentes no prueban por sí solos el montaje ni el runtime.
-Para integrar después, comparar `git show <canónica>:<ruta>` con los bytes
-reales, usando índice temporal y CAS. Conservar el WIP ajeno de paginación/foco
-y las entradas existentes del manifiesto. No reutilizar el índice real para
-inventariar esta línea.
-
-El inventario de recuperación de aquella pausa se conservó fuera de Git;
-corresponde a la base `9fb12560` y no atribuye autoría al material ajeno.
-Su estado de Auth13 y del recorrido durable era el de aquel corte.
-
-## Cierre administrativo: persistencia integrada en código
-
-Los dieciséis archivos conservan la raíz y la fundación v1 al adoptar la
-definición sucesora v2 para el cierre. El cierre es nominal: no inserta un cese
-ni modifica los periodos. Antes de escribir exige un inventario exacto de dos
-tareas, la incorporación CT75 y la primera anotación CT86; no sintetiza un
-`Documento` para completar el contrato.
-
-AD3-31 exige autorización V3 fresca tanto en consumo como en replay. La
-transacción une actuación, snapshot, recibo y outbox. El lector privado de
-preparación es de sólo lectura; no concede ni sustituye la autorización del
-`POST`.
-
-Dos revisiones independientes emitieron `GO` sobre los dieciséis hashes
-finales, conservados en `ct87-reviewed-hashes.json`. La candidata aislada
-volvió a verificar los dieciséis y produjo la evidencia final:
-
-```text
-candidata-cierre-pg-final-go.log
-Pruebas Go del adaptador PostgreSQL con dobles transaccionales:
-10 casos principales + 7 subcasos
-PASS (0.034 s)
-
-Dominio y puertos: 4 pruebas
-PASS (0.019 s / 0.022 s)
+```sh
+python3 deploy/postgresql/fase1/ensayar.py --pruebas
 ```
 
-Las pruebas focales de fuente del productor —diez casos principales y siete
-subcasos— siguen vigentes. CT87/AD3-31 no se ejecutaron ni instalaron en la base
-conservada. Configuración, `GET` HTTP y montaje principal de runtime quedan
-pendientes. No hay formulario integrado, cierre visible ni objetivo 13
-completo.
-
-
-La anotación administrativa está integrada en código en servicio, puertos y
-adaptador PostgreSQL. CT86 prepara el primer asiento neutro sin cambiar fase,
-estado, periodos ni raíz y conserva el contexto completo, incluidas
-observaciones Unicode. AD3-30 exige la autorización nueva en escritura y
-replay. El servicio exige una fuente autorizada para recuperar el material
-histórico; el puente mediante `ConsultaDetalleRRHH` pertenece al montaje pendiente.
-
-Dos revisiones independientes emitieron `GO` sobre los siete archivos finales
-de producto, una para identidad y otra para SQL. El harness SQL recibió otro
-`GO` para su alcance potencial de 22 tablas listadas. La candidata aislada se
-compuso con la canónica `a063eac1` y diez archivos exactos; su inventario
-conservó los nueve SHA del productor y el test de aplicación con SHA256
-`4bccc3d8c3133def94f0d1160351156ba963e015e30b73a896575bc666fa5136`.
-
-Las dos pruebas focales observadas fueron:
-
-```text
-go test -p 1 ./internal/modules/contrataciontemporal/application -run Anotacion
-PASS (0.747 s)
-
-go test -p 1 ./internal/modules/contrataciontemporal/adapters/postgres -run Anotacion
-PASS (0.024 s)
-```
-
-No hubo dependencias ausentes. CT86 y AD3-30 permanecen como scripts añadidos:
-no se ejecutaron ni instalaron. API, HTTP, frontend y montaje nominal quedan
-fuera de este corte. La dependencia raíz y fuente nominal, su configuración y
-Auth13 en runtime siguen pendientes. No hay anotación visible ni cierre
-completo del objetivo 13.
-
-## Continuación técnica del 10 de septiembre de 2026 — antecedente
-
-### Continuidad de incorporación integrada en dominio y servicio
-
-La extensión admite una única adopción sucesora publicada y conserva la
-fundación v1, la raíz y la cadena de continuidad. El cierre nominal no registra
-un cese ni altera periodos. Dos revisiones independientes emitieron `GO` sobre
-los hashes finales de dominio y servicio.
-
-La codificación de continuidad es explícita y está separada del codec V1. Los
-lectores legacy rechazan continuaciones en lugar de interpretarlas como datos
-V1. La entrada exige inventario y autoridad V3; su ausencia debe producir
-denegación, no una reconstrucción implícita.
-
-Dirección comprobó sobre un overlay de siete archivos revisados de la base
-`1385b134`, sin incorporar la anotación en curso, esta prueba focal aislada:
-
-```text
-Go 1.26.5
-go test -p 1 ./internal/modules/contrataciontemporal/{domain,application,ports} -run 'Seguimiento|Continuacion|Cierre'
-```
-
-Terminó verde en los tres paquetes e incluyó el golden V1 conservado y las
-pruebas nuevas. SQL, adaptador, HTTP, composición, autoridad, publicación y
-libro de runtime quedan fuera de este commit. Esta integración de código no
-acredita un cierre visible ni completa el objetivo 13.
-
-
-### Incorporación y recuperación — antecedente del 10 de septiembre de 2026
-
-Este bloque conserva la evidencia previa a la recuperación posterior. [Estado
-del proyecto](../../ESTADO_PROYECTO.md) acredita después los objetivos 11 y 12
-tras reiniciar aplicación y PostgreSQL, con Auth13 ya instalada; su primer
-apartado recoge el cierre de presentación del 26/09. Los `GET 503` y la falta
-de instalación de Auth13 describen este corte histórico; no son instrucciones
-de operación vigentes.
-
-Base del cierre funcional `00558603dbd3040eacb03cb511f3b840be241b10`. Una sola línea:
-`trabajo/ct-app-llamamiento-b4a-20260905`; producto publicado en
-`integracion/ct-producto-ligero-20260821`. En aquel momento, el desarrollo activo
-estaba en el servidor y conservaba trabajo pendiente ajeno. La instrucción del
-corte era no programar en la raíz histórica local ni copiar implementaciones
-entre ramas; antes de integrar, había que inventariar ramas, worktrees,
-diferencias y equivalencias de parches.
-
-La capacidad cerrada es resolución manual sintética y acceso posterior a
-los documentos. La API registra con autorización y PostgreSQL, devuelve
-`201` al crear y recupera con `200`; repetir la misma clave no crea otro
-recibo. La prueba integrada conservó resultado tras reiniciar app/base.
-Los campos `firma_oficial` y `eficacia_administrativa` permanecen en `false`.
-
-La interfaz permite descargar desde el detalle `v8` los seis PDF de la
-propuesta histórica `v7`. No debe solicitar el documento con la versión
-actual ni inventar otra propuesta. La resolución descargada conserva SHA256
-`e9b53a1e2196b3719770cf7db9f563077d75f457669e84cb7bb3c32fd1de4130`.
-
-La canónica `c6359f98` ya integra el preparador durable, lectores, montaje y
-carga de configuración; no reconstruir esas piezas. CT70–85, trece pools y
-tres capacidades con catálogos y definición están provisionados, sin precargas
-de negocio. El formulario real registró solicitud `7`/expediente `8`, periodo
-`2027Q1`, seguimiento `0→1` y un recibo persistente. La transacción dejó una
-alta, relación y ocupación en Personal, y una incorporación, raíz y dos estados
-en CT, con auditorías y outbox en ambos lados.
-
-En aquel corte se separó integración de evidencia visible: tras reiniciar aplicación y
-PostgreSQL, la recuperación quedó bloqueada por `GET 503` en la restauración
-histórica Auth12. Auth13 tiene dos revisiones `GO` y regresión verde en
-`ef6704a6`, pero todavía no estaba instalada. No había ciclo completo acreditado
-y no debía repetirse la escritura. `firma_oficial` y `eficacia_administrativa`
-seguían en `false`; la métrica de entonces quedaba en cinco pasos completos y
-partes de 6/7/8 hasta la recuperación. GINPIX era el siguiente corte existente
-aún sin cierre visible.
-
-El cierre funcional citado no identificaba por sí solo el artefacto servido en
-ese momento, ni lo hacía el HEAD del árbol compartido con trabajo pendiente.
-Las pruebas focales correspondían al final de aquel hito; este registro
-documental no repite pruebas de producto ya acreditadas.
-
-## Contexto y recorridos anteriores
-
-Las ubicaciones locales y cifras del 6 de septiembre conservadas a
-continuación son antecedentes, no instrucciones para el servidor actual.
-
-Guía práctica para continuar el desarrollo sin reconstruir piezas existentes.
-Se mantiene a mano; no es el catálogo de firmas ni un certificado de despliegue.
-Estado funcional de referencia: 6 de septiembre de 2026.
-
-La consulta organizativa de Contratación reutiliza `CatalogoConfigurable`
-del núcleo mediante `ConsultaCatalogosConfigurables`; Personal proyecta
-`ConsultaEstructuraOrganizativa` sin otro catálogo, repositorio ni permisos.
-`contratacion_temporal_organizacion_desarrollo.go` conecta la lectura
-protegida y la vista `portal-empleado/organizacion/` consume su API real.
-La ruta revalida certificado y rol con la frontera ya existente.
-
-Las entradas tienen clave estable, tipo y adscripción opcional; los nombres
-de los cargos no son enumeraciones compiladas. Se rechazan ciclos y padres
-ausentes, sin inferir dependencia funcional por el orden del PDF. El lector
-está fijado a versión explícita; no resuelve «la última». El paquete inicial
-está en borrador y conserva las limitaciones de la extracción pública.
-El editor reutiliza `CatalogoConfigurable.ActualizarBorrador`: cambia una unidad
-por operación y conserva la identidad del catálogo. El adaptador PostgreSQL
-de Personal es su fuente única cuando la composición lo selecciona; el
-fichero original solo sirve para inicialización explícita.
-
-`POST /api/vec/contratacion-temporal/organizacion/cambios` recibe versión,
-revisión, huella esperada, clave de idempotencia, unidad y motivo. No admite
-identidad ni permisos del cliente. La frontera obtiene el actor del certificado
-y liga una autorización nueva a todo el material de cada petición, incluso
-al recuperar un recibo. La transacción guarda revisión, recibo y evento juntos;
-la misma operación devuelve el recibo original, no otra revisión.
-
-Ante un resultado incierto, el formulario conserva exactamente cuerpo y clave
-en memoria para reintentar. No usa almacenamiento web. Una revisión caducada
-devuelve `409` y requiere recargar antes de preparar otro cambio.
-La aprobación administrativa y conexión al alta/ratificación siguen pendientes;
-no reutilice esta tabla como fuente de permisos.
-
-**Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
-La base principal de aquel recorrido conservaba 51 solicitudes; bandeja y
-detalle eran consultables. El caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
-recupera un único recibo tras reinicio, mediante lectura independiente de
-PostgreSQL y navegador. La bandeja no añade por sí sola otro paso completo.
-Consultar la [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) para el recorrido
-operativo.
-
-**Incluido en esta entrega; recuperación demostrada:**
-la declaración RRHH obtuvo `HTTP 201`. Corregido el defecto temporal AD3 en
-ambas bases, dirección confirmó en navegador `200/200/200` para selección,
-comunicación y respuesta tras el segundo reinicio de aplicación y PostgreSQL:
-mismos recibo, justificante y fecha, sin nuevo registro. Sin errores JavaScript,
-cookies, almacenamiento web ni desbordamiento horizontal en ese recorrido.
-También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
-cerrada funcionalmente en desarrollo, sin nuevo paso completo.
-
-**Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`
-con API/V3/CT58/Bolsa4 reales; tras reiniciar app/PostgreSQL principal,
-`200/200/200/200`, mismo recibo y fecha, sin duplicados. Cierre técnico, no política
-legal aprobada. Aquel corte mantenía **5/8 pasos completos más parte del sexto**.
-
-**Corte 5 incluido en esta entrega:** renuncia manual sintética con servicios y
-permisos reales, navegador `200/201/201/201` y recuperación `200/200/200/200`
-tras reiniciar app/PostgreSQL principal. Mismos recibo, resolución, auditoría,
-fecha e intención pendiente, sin duplicados ni siguiente ejecutado. Cero errores
-JS, cookies, almacenamiento web y desbordamiento. Objetivo 5 cerrado funcionalmente;
-criterio manual provisional solo sintético, sin aval legal ni del operador.
-
-**Objetivo 7 incluido en esta entrega:** quinta operación `201` real tras renuncia
-y `200/200/200/200/200` tras reiniciar app/PostgreSQL principal. Mismos 14 campos
-salvo `estado_local: replay_confirmado`, sin duplicados ni errores JS, cookies,
-almacenamiento web o desbordamiento. Cierre funcional solo tras renuncia sintética;
-ese corte mantenía **5/8 más parte del sexto**, sin aviso al sucesor ni plazo legal.
-
-**Objetivo 8 cerrado funcionalmente en desarrollo:** Chrome `201` y, tras reiniciar
-app/PostgreSQL principal, cuatro antecedentes `200` y propuesta `200`, mismos
-identificadores/recibo/fecha/v7; historia previa intacta. Cero errores JS, cookies,
-almacenamiento web y desbordamiento. Esta revisión incorpora el cierre funcional;
-el hash publicado se comprueba en Git.
-AD3-20/CT61 instaladas en ambas bases, no reaplicar; E2E acreditado solo en principal.
-
-**Objetivo 9, primer informe borrador demostrado:** Chrome `200`, 29267 bytes.
-Rectificación: primer fallo navegador sin estado capturado; el `502` era curl con
-límite 50, paginación separada sin corrección acreditada. Navegador límite 100:
-sonda `200`, vista `404`; PostgreSQL `42501` por `.999340Z` frente a `.99934Z`.
-AD3-21 corrige las dos comparaciones de lectura heredadas de AD3-3/5 a instantes;
-AD3-14 había corregido mutaciones. No modifica firmas, guardas ni cursor. Instalada
-en ambas bases, no reaplicar; UP/DOWN exacto en ROLLBACK en secundaria.
-Tras el parche, cinco POST de bandeja/detalle/PDF `200`, mismo PDF y cero errores JS,
-cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal: cinco POST `200`,
-sin `404`, mismo PDF e historia CT/Bolsa conservada; no cierra la paginación con límite 50.
-Dirección inspeccionó PDF y pantalla estable de 390 px sin obstrucción; la captura
-previa era transición CSS de 180 ms, sin cambios de UI ni validación de usabilidad global.
-Esta revisión añade resolución borrador: Chrome `200`, 29770 bytes, informe original
-idéntico en la misma sesión; seis POST `200`, cero errores JS, cookies y almacenamiento web.
-Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones. Tras reiniciar
-aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF idénticos en tamaño
-y SHA256, historial y recibos anteriores conservados; cero errores JS, cookies y
-almacenamiento web. Tercer borrador, diligencia: 28366 bytes; siete POST `200` antes
-y después de reiniciar aplicación/PostgreSQL principal, los tres PDF e historial previo
-idénticos, cero errores JS, cookies y almacenamiento web. Dirección inspeccionó PDF
-y pantalla estable de 390 px con tres botones. Toma de posesión comprobada también tras
-reinicio principal: ocho POST `200`, cuatro PDF e historial idénticos; evidencia en la guía.
-Disponibles **6/6**: comunicación al centro comprobada también tras reinicio principal.
-Siguiente objetivo 10, circuito de firma/evidencia admitida. Sin envío, entrega, plazo legal
-ni orden de incorporación; evidencia central en la guía.
-
-## Qué leer y qué mantener
-
-Este manual puede consultarse desde un clon del repositorio, sin acceder a
-archivos privados de otra máquina. Lea las instrucciones aplicables al
-directorio y las instrucciones vigentes del operador cuando se aporten.
-La evidencia del recorrido y las órdenes actuales prevalecen sobre cifras
-o bloqueos históricos. Las reglas operativas de este corte son:
-
-- Priorizar avances observables de Contratación temporal, conectando las
-  piezas existentes antes de perfeccionarlas o reconstruirlas.
-- Las preguntas pendientes no detienen programación independiente por orden
-  del operador; no autorizan a inventar plazo, autoridad o aceptación.
-- Mantener una línea canónica por capacidad y archivos de edición disjuntos;
-  conservar el trabajo ajeno, sin copiar implementaciones entre ramas.
-- Usar solo datos sintéticos, autorización de servidor y efectos persistentes
-  reales; no presentar un adaptador DEMO como éxito ni usar cookies o
-  almacenamiento web para el recorrido.
-- Probar al completar cada hito, con alcance proporcionado. Exigir dos
-  revisiones independientes en identidad, autorización, criptografía, SQL y
-  fronteras de datos personales; no repetir suites globales por cada edición.
-- No abrir el runner ni nuevas cadenas de documentos de decisión por inercia.
-  Documentar el avance en los manuales y la guía existentes, sin convertir
-  una mejora menor en una reescritura.
-
-Este README explica arquitectura, conexión y trabajo cotidiano. El
-[catálogo autogenerado LEEME.md](LEEME.md) sirve para localizar firmas y
-comentarios Go; no debe editarse manualmente. Su advertencia histórica de no
-editar este directorio se refiere al material generado, no a este README
-manual expresamente separado.
-
-Los cuatro perfiles documentales tienen finalidades distintas:
-
-| Perfil | Entrada | Qué debe resolver |
-| --- | --- | --- |
-| Usuario | [Manual de usuario](../manual_usuario/manual_portal_bolsas.md) | Acceder, navegar, realizar acciones y entender estados. |
-| Recursos Humanos | [Manual de RRHH](../manual_rrhh/README.md) | Recorrer el procedimiento, responsabilidades y límites funcionales. |
-| Programador | Este README | Localizar, modificar y conectar las piezas reales. |
-| Operador | [Manual de sistemas](../manual_sistemas/README.md) | Preparar, arrancar, parar, respaldar y recuperar el entorno. |
-
-Los manuales distinguen funciones demostradas y pendientes; su existencia
-no acredita por sí misma una entrega funcional.
-La [guía del recorrido demostrado](../../GUIA_RECORRIDO_ALBERTO.md)
-conserva los comandos operativos y los recibos sintéticos. No duplicar aquí
-sus credenciales, recetas de instalación ni registros de cada ejecución.
-
-### Cómo consultar el catálogo generado
-
-El [generador](../../scripts/generar_manual_programador.py) ejecuta
-`go list ./...` y `go doc -all`, y sobrescribe `LEEME.md` y nueve archivos
-de áreas enumerados en `AREAS`. No escribe este `README.md`.
-
-El índice conservado no incluye Contratación temporal. Además, el generador
-agrupa los módulos distintos de Bolsa en `modulos_personal_cronos_dietas.md`,
-aunque el título no los enumere todos, y omite un paquete si falla su
-`go doc`. Por tanto, ausencia en el catálogo no prueba ausencia de código;
-presencia tampoco prueba que esté conectado o probado en navegador.
-
-Para una consulta puntual, desde la raíz del worktree:
-
-```bash
-rg -n 'NuevasRutas|NuevoManejadorSeleccionLlamamiento' internal/app internal/modules/contrataciontemporal
-go doc vec-diputacion-granada/internal/modules/contrataciontemporal/ports
-```
-
-Solo si el hito incluye actualizar la referencia generada:
-
-```bash
-python3 scripts/generar_manual_programador.py
-git diff --stat -- docs/manual_programador
-```
-
-Revisar el resultado completo: no ejecutar el generador por cada edición de
-este manual ni confiar en sus resúmenes históricos como estado del producto.
-
-## Estado funcional del 6 de septiembre — antecedente
-
-El recorrido usa navegador, API interna, autorización, PostgreSQL y recibos
-reales con datos sintéticos. La declaración RRHH tiene su comprobación propia
-de recuperación tras el segundo reinicio, además del cierre anterior:
-
-| Paso del recorrido mantenido | Alcance demostrado |
-| --- | --- |
-| 1. Solicitud | Alta de una petición real. |
-| 2. Análisis | Registro del análisis de Recursos Humanos. |
-| 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
-| 4. Asignación | Envío del expediente a la unidad. |
-| 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo. |
-| 7. Nombramiento, parcial | Propuesta desde aceptación sintética `201` y replay `200` tras reinicio; propuesta `v7` y resolución manual sintética `v8` con recibo recuperable. Los PDF conservan la versión documental `7`. Sin firma ni nombramiento eficaz. |
-| 8. Incorporación y seguimiento | No declarados completos de extremo a extremo; GINPIX sigue pendiente. |
-
-El aviso local no demuestra correo enviado, entrega al destinatario, aceptación,
-renuncia ni inicio de plazo. Una intención pendiente de salida (`outbox`) no
-es un acuse del sistema externo. El contador es **cinco pasos completos más
-partes del sexto y séptimo**, no un porcentaje global de aplicación terminada.
-
-La base del servidor conserva 52 expedientes sintéticos, con bandeja y detalle
-consultables por el acceso privado de Sistemas; no implica 52 filas visibles
-simultáneas. El alcance sigue siendo cinco
-pasos y partes del sexto y séptimo; la bandeja no se cuenta como paso adicional.
-Un `503` debe explicarse como dependencia no disponible, no sustituirse por
-datos de presentación. Un `404` del panel de Bolsa tampoco demuestra que
-haya fallado la identidad de Contratación temporal.
-
-No confundir la instalación parcial de migraciones, una compilación correcta,
-el menú visible o `/livez` con un recorrido completo. El cierre exige evidencia
-de la versión que realmente se arrancó.
-
-### Declaración de respuesta recibida por RRHH
-
-El formulario de llamamiento existente incorpora la tercera operación tras
-recuperar la comunicación confirmada `v2`; deriva de su recibo los antecedentes.
-El cliente `registrarRespuestaRecibida` usa
-`POST /api/vec/contratacion-temporal/llamamientos/respuestas/registro`, con
-respuesta `{data: respuesta}` y estados `registrada_por_rrhh` /
-`replay_registrada_por_rrhh`. No devuelve `version_resultante`: la comunicación
-permanece en `2`, el expediente observado en `6` y Bolsa no cambia de estado.
-
-La entrada contiene `aceptacion` o `renuncia` declaradas, referencia opaca del
-correo, huella SHA-256 y recepción UTC. El `.eml` (no vacío, hasta 2 MiB) se
-procesa con WebCrypto local: solo se transmite la huella, nunca su contenido
-ni su nombre. La confirmación es explícita y un resultado ambiguo conserva
-el intento y la clave; no se usa almacenamiento web ni cookies.
-
-La acción propia es `contratacion_temporal.llamamiento.respuesta.registrar`;
-la autoridad de servidor vincula actor, perfil y material completo, también
-para recuperar el mismo registro. No se reutiliza el permiso de comunicación
-ni se añade identidad al JSON. Se conservan actor, recibo y justificante de la
-declaración, sin verificar origen, firma o custodia del correo, envío, entrega
-ni aceptación o renuncia terminal. El original sigue en el sistema de correo.
-
-CT `000056_respuesta_recibida_rrhh` y AD3
-`000014_consumidor_respuesta_recibida_rrhh` ya estaban instaladas en **ambas bases
-locales en el corte histórico**. No reaplicarlas ni recrear bases. La
-configuración de aquel corte no completa la incorporación posterior.
-Los DOWN bloquean la reversión cuando
-hay registros o dependencias; no eliminan la declaración conservada.
-
-La corrección puntual de AD3-14 compara `valida_hasta` y
-`decision_valida_hasta` como instantes (`::timestamptz`): la decisión tiene seis
-decimales y la capacidad RFC3339Nano omite ceros finales. No cambia bytes
-firmados, hashes, MAC ni permisos. Dirección aplicó el bloque literal
-`DO $fechas$` en ambas bases; sus tres regresiones pasaron. La instrumentación
-de diagnóstico CT56 está retirada. No reaplicar la migración ni reconstruir
-el núcleo; el [manual de Sistemas](../manual_sistemas/README.md) distingue aquel
-corte histórico de la huella conservada al cierre de AD3-18.
-
-El [manual de RRHH](../manual_rrhh/README.md) recoge el ejemplo y el recibo
-observado; la [guía](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido vigente.
-
-### Resolución de aceptación o renuncia manual sintética
-
-La cuarta operación del formulario es `data-ct-llamamiento-form="resolucion"`.
-Tras un recibo de declaración `aceptacion` o `renuncia`, `resolverLlamamiento` envía a
-`POST /api/vec/contratacion-temporal/llamamientos/resoluciones` los ocho campos
-base: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`,
-`llamamiento_ref`, `comunicacion_ref`, `version_esperada`, `respuesta` y
-`prueba_respuesta_ref`. Deriva los antecedentes del recibo, usa versión `2`,
-`justificante_ref` como prueba y una clave propia; tampoco permite cambiar la
-respuesta derivada del recibo ni recibe autoridad del DOM.
-
-La UI añade, en ese orden, `revision_respuesta_rrhh: true`, `revision_plazo_rrhh: true`
-y `criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906"`.
-Son once campos canónicos: solo envía tras marcar ambas casillas inicialmente falsas;
-criterio de solo lectura, confirmación explícita, sin identidad ni otro `.eml`.
-Los ocho campos antiguos siguen admitidos y devuelven `409 validacion_respuesta_pendiente`,
-clave i18n `api.contratacion_temporal.comunicacion_llamamiento.error.validacion_respuesta_pendiente`.
-Ese rechazo conocido sin efectos permite corregir casillas conservando la clave;
-ante resultado ambiguo se congelan clave y material, sin reintento automático.
-
-El resolutor consulta el justificante mediante CT57 con permiso propio V3 real
-y fresco (`contratacion_temporal.llamamiento.respuesta.consultar_justificante`),
-sin doble. El resultado es interno, no DTO HTTP; `Seleccion` no sale.
-AD3 `000016` / CT `000057` instaladas en las dos bases de aquel ejercicio,
-con consulta confirmada tras reinicio de app/PostgreSQL principal; no concede resolución.
-
-La composición de desarrollo de doble llave fija la política sintética y exige
-`contratacion_temporal.llamamiento.respuesta.validacion_manual.registrar` para
-guardar declaración, actor y política en CT; Bolsa consume su permiso separado:
-`bolsa.llamamiento.aceptacion_rrhh.registrar` o
-`bolsa.llamamiento.renuncia_rrhh.registrar`, sin intercambiarlos.
-No deriva plazo legal del aviso ni acredita entrega. Solo devuelve el recibo HTTP
-tras confirmar CT y Bolsa: aceptación conserva los nueve campos y renuncia añade
-`intencion_siguiente` con exactamente `referencia`, `estado_local: "pendiente"`
-y `actualizada_en` UTC. La intención es obligatoria en renuncia y está prohibida
-en aceptación, incluso como `null`; versión resultante `3` en ambas.
-La UI valida la fecha de intención no anterior a la resolución, conserva
-precisión microsegundo y muestra «Vigente solo para el ejercicio sintético».
-CT59 guarda la intención y su carga real en la misma fila de resolución;
-se devuelve la misma al recuperar, no se despacha otro llamamiento.
-Si Bolsa falla después del commit CT, no hay éxito parcial: reintento explícito
-con la misma clave/material, recibo CT conservado y autorizaciones frescas.
-Los tres catálogos de motivos se publican en llamadas separadas, no como uno solo.
-
-AD3 `000015` / Bolsa `000004` y AD3 `000017` / CT `000058` están **instaladas
-en ambas bases**, con ambas aplicaciones en la compilación corregida; no reaplicar.
-La prueba aislada anterior de Bolsa4 (`8197db3`) comprobó almacenamiento/replay/conflictos
-con doble privado transaccional, no criptografía. El roundtrip de aceptación UP/DOWN de
-las cuatro migraciones verificó reversión exacta en ROLLBACK, sin modificar
-autorización ni usar dobles. El recorrido navegador sí usó criptografía y V3 reales:
-`201` y replay `200` tras reinicio principal, misma fecha/recibo, una resolución CT58,
-una aceptación Bolsa, tres historias y tres eventos, sin duplicados.
-AD3 `000018` / Bolsa `000005` / CT `000059` están instaladas en ambas bases;
-dirección confirmó UP/DOWN con ACL, funciones y comprobaciones conservadas.
-El navegador registró además renuncia `201`, recuperada `200` tras reinicio con
-los mismos identificadores, auditoría, fecha e intención pendiente. Totales
-confirmados: dos filas CT, seis registros Bolsa (dos órdenes, dos propuestas,
-una aceptación y una renuncia), seis historias/eventos; sin duplicados y con la
-aceptación/declaración anteriores intactas. No reaplicar ni ejecutar DOWN sobre esos datos.
-El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
-sintética y funcionalmente la renuncia y propuesta de desarrollo. No hay política
-legal aprobada ni cierre de vencimiento,
-envío corporativo ni plazo; aviso, declaración y resolución manual sintética del sucesor se describen debajo.
-
-### Continuación tras renuncia sintética
-
-Quinta operación `data-ct-llamamiento-form="siguiente"`, cliente `continuarLlamamiento`:
-`POST /api/vec/contratacion-temporal/llamamientos/siguientes`, cinco campos canónicos
-en orden: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`, `resolucion_ref`,
-`intencion_ref`. Antecedentes del recibo de renuncia; solo clave propia, confirmación
-explícita y reintento manual con igual material. `409` no permite otra clave.
-HTTP devuelve 14 campos, versión de nuevo llamamiento `1`, intención `despachada`;
-`201 confirmado` o `200 replay_confirmado`, mismos recibos, auditoría y fecha.
-Consulta de justificante, continuación CT y apertura Bolsa mantienen permisos
-separados. Éxito solo tras Bolsa y confirmación CT; un fallo entre ambos no es éxito
-parcial ni autoriza compensación. AD3-19/Bolsa6/CT60 soportan este recorrido.
-El puente deriva una referencia Bolsa alfabética de 256 bits desde org/exp/resolución/
-intención CT y la coteja al retornar; CT conserva su referencia original y operación
-estable. Corrige el rechazo accidental del UUID sin relajar validadores.
-El recibo original de renuncia conserva su intención pendiente histórica; el nuevo
-confirma continuidad posterior. No se conecta automáticamente a la comunicación
-del sucesor ni se expone identidad/posición. [Recuperación exacta](../../GUIA_RECORRIDO_ALBERTO.md).
-
-### Aviso local al sucesor, sin nueva ruta
-
-Operación `comunicacion_siguiente`, mismo `registrarComunicacionLlamamiento` y
-la ruta publicada de comunicaciones, sin endpoint nuevo. Estado independiente;
-antecedentes del recibo CT60 validado, no del DOM. Añade al final del JSON
-`tipo_antecedente: "continuacion_confirmada"`; la primera comunicación conserva sus seis campos exactos.
-Solo clave propia editable y confirmación explícita; conflicto bloquea, ambigüedad congela
-clave/material. Habilita una declaración separada, sin rearmar la resolución anterior. CT62 coteja CT60 con permiso fresco,
-política local v2 y selección padre; no lee/escribe Bolsa. Versión resultante `2`, aviso JSON v2 y outbox pendiente
-con `recibo_continuacion_ref`; no envío ni plazo. CT62 instalada en ambas bases, no reaplicar/DOWN.
-`201`, negativos `403` sin efectos y recuperación `200` tras reinicio principal, mismo recibo/fecha/v2/outbox.
-[Evidencia](../../GUIA_RECORRIDO_ALBERTO.md).
-
-### Declaración del sucesor, mismo contrato de diez campos
-
-`data-ct-llamamiento-form="respuesta_siguiente"` comparte configuración, validador y método
-`registrarRespuestaRecibida` con `respuesta`: mismo POST `/api/vec/contratacion-temporal/llamamientos/respuestas/registro`, diez campos,
-sin `tipo_antecedente` adicional. Estado y lectura `.eml` separados, renderer/calculador comunes e IDs únicos.
-Solo aviso local validado `v2`; antecedentes de solicitud/recibo `comunicacion_siguiente`, nunca del DOM.
-Clave propia, confirmación explícita, huella en RAM sin contenido; ambigüedad congela material, sin retry automático.
-CT63 adapta solo la función CT56: consumo fresco antes del replay exacto material/actor/perfil,
-cadena CT62/CT60 verificada antes de omitir las dos comparaciones con el llamamiento/recibo raíz. Sin efectos Bolsa.
-Instalada en ambas bases; no reaplicar ni DOWN con historial. `201` real y cruces `409` sin efectos;
-siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha e historia;
-solo cambia `estado` a `replay_registrada_por_rrhh`. [Evidencia y recuperación](../../GUIA_RECORRIDO_ALBERTO.md).
-No resuelve automáticamente al sucesor ni altera la resolución anterior.
-
-### Resolución manual del sucesor, mismo contrato de once campos
-
-`data-ct-llamamiento-form="resolucion_siguiente"` comparte configuración, validadores, cliente y renderer
-con la resolución original; estado separado, antecedentes del justificante CT63 validado, nunca del DOM.
-Dos revisiones inicialmente falsas, política sintética fija y confirmación explícita; sin otro `.eml`.
-CT64 liga aviso/continuación CT60 y conserva selección raíz íntegra; apertura Bolsa real y permisos propios,
-sin éxito hasta confirmar CT y Bolsa. En CT64, versión resultante `3`, expediente `6`; sin propuesta ni tercer llamamiento automáticos.
-Primer `503` dejó CT durable y Bolsa pendiente: excepción de formato solo para `EvaluacionPlazoRef`
-`evaluacion:UUIDv4`, reutilizando el validador puro existente, sin relajar las otras referencias ni regenerarla.
-Recuperación misma clave: ocho POST `200` antes y después del reinicio principal, mismos recibo/fecha/evaluación/auditoría;
-tres resoluciones CT y ocho operaciones/historias/outbox Bolsa, anteriores intactos.
-CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora.
-[Ficha y recuperación](../../GUIA_RECORRIDO_ALBERTO.md).
-La propuesta posterior CT65 ya es recorrible, sin envío, plazo legal ni firma.
-
-### Propuesta de nombramiento desde aceptación
-
-Aceptación original o sucesora confirmada: operación única `data-ct-llamamiento-form="propuesta"`, método `prepararPropuestaFormalizacion`:
-reutiliza `POST /api/vec/contratacion-temporal/formalizacion/propuestas`, once campos
-de solicitud y seis de recibo, sin otro DTO ni autoridad del DOM. Antecedentes
-de aceptación CT y terminal Bolsa real; nunca renuncia. Versión esperada `6`,
-también en replay desde agregado `7`; clave propia y confirmación explícita.
-CT65 conserva el recibo de aceptación correspondiente para referencias y comparación temporal;
-clave de propuesta distinta de las ocho anteriores, material congelado ante ambigüedad, sin autoenvío.
-Ocho antecedentes `200` y propuesta `201`; nueve `200` tras reinicio principal, mismos recibo/fecha/v7 e historia.
-Consulta interna con `Continuacion` opcional y selección raíz íntegra; apertura y terminal Bolsa originales,
-sin otro DTO web. CT65 instalada en ambas bases; no reaplicar ni DOWN con propuesta sucesora.
-El ajuste CT60 liga `soloRecuperacion` a versión actual mayor que `6` y exige apertura existente
-antes del servicio, conservando permiso fresco y replay completo; no permite un nuevo llamamiento desde v7.
-[Novena operación del panel y evidencia](../../GUIA_RECORRIDO_ALBERTO.md);
-no es otro paso RRHH. Propuesta original y antecedentes conservados; seis PDF cerrados, no repetidos.
-Las cuatro publicaciones proceden del único asset `formalizacion-desarrollo.json`,
-con SHA256 de contenido UTF-8, carga sin credenciales ni caché y fallo cerrado.
-El permiso propio `contratacion_temporal.formalizacion.propuesta.registrar` liga
-material completo y etapas; CT61 consume V3 fresco antes de lectura/replay.
-El commit une propuesta, versión integral `7`, actuación y outbox; replay conserva
-material/actor/perfil y recibo/fecha. DOWN bloqueado con historia. Sin firma,
-renderizado documental ni nueva aceptación Bolsa. [Claves y evidencia](../../GUIA_RECORRIDO_ALBERTO.md).
-
-### Seis borradores desde la misma consulta RRHH
-
-Objetivo 9 reutiliza `POST /api/vec/contratacion-temporal/expedientes/consultas`:
-JSON de dos campos derivados: `expediente_ref` y `version_observada: 7`; `Content-Type: application/json`,
-el tipo solo selecciona una de las seis representaciones cerradas:
-
-| Tipo | Accept | Nombre attachment |
-| --- | --- | --- |
-| `informe_definitivo` (predeterminado) | `application/pdf; documento=informe-definitivo-desarrollo` | `informe-definitivo-borrador.pdf` |
-| `resolucion` | `application/pdf; documento=resolucion-desarrollo` | `resolucion-borrador.pdf` |
-| `diligencia` | `application/pdf; documento=diligencia-desarrollo` | `diligencia-borrador.pdf` |
-| `toma_posesion` | `application/pdf; documento=toma-posesion-desarrollo` | `toma-posesion-borrador.pdf` |
-| `notificacion` | `application/pdf; documento=notificacion-desarrollo` | `notificacion-borrador.pdf` |
-| `comunicacion_centro` | `application/pdf; documento=comunicacion-centro-desarrollo` | `comunicacion-centro-borrador.pdf` |
-
-Consulta autorizada/auditada antes del renderizado, detalle `v7/nombramiento/en_curso`
-y hito 7 `registrar_propuesta_formalizacion`; generador PDF existente, sin otra fuente.
-Salida `200 application/pdf`, attachment nominal según tabla, máximo 2 MiB.
-Errores JSON de consulta y `409 documento_no_disponible`; sin PDF parcial ni replay de propuesta.
-Botones de cabecera con `data-ct-exp-accion`: `descargar-informe-definitivo`,
-`descargar-resolucion`, `descargar-diligencia`, `descargar-toma-posesion`, `descargar-notificacion`
-y `descargar-comunicacion-centro`.
-El mismo archivo `cliente-http-informe-definitivo.js` ofrece
-`crearClienteHTTPBorradorRRHH().descargarBorrador(solicitud, {tipo, signal})`.
-Manejador, exclusión de descargas simultáneas, cancelación y revocación de Blob compartidos;
-el error conserva el detalle, sin almacenamiento ni reintento automático. Sin nuevo manifiesto.
-PDF sin SQL propio; AD3-21 corrige la lectura existente. AD3-20/CT61 y AD3-21 instaladas
-en ambas bases, no reaplicar. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md).
-Disponibles **6/6 borradores**; la resolución manual sintética del objetivo 10
-ya es recuperable, pero su circuito de firma oficial sigue pendiente;
-**5/8 más partes del sexto y séptimo**, sin firmas ni otro paso RRHH completo.
-
-### Resolución de ejercicio y versión documental
-
-El detalle validado `v8` no sustituye la propuesta documental `v7`. El cliente
-debe obtener de la consulta los antecedentes originales, mantener esa versión
-para los seis PDF y mostrar el recibo histórico sin registrar otra resolución.
-La prueba cerrada conserva el recibo tras reiniciar aplicación y PostgreSQL;
-no se repite por esta actualización documental.
-
-Antes de extender incorporación, inspeccionar las piezas de la misma canónica:
-
-| Responsabilidad | Código existente que se reutiliza |
-| --- | --- |
-| Preparar y cargar configuración de ejercicio | [Configuración](../../internal/app/bootstrap/contratacion_temporal_incorporacion_configuracion.go). |
-| Conectar dependencias reales | [Composición](../../internal/app/bootstrap/contratacion_temporal_incorporacion_v2.go). |
-| Registrar la ruta | [Ruta interna](../../internal/app/composicion/interna/contrataciontemporal/ruta_incorporacion_v2.go). |
-| Coordinar Personal y Contratación | [Aplicación](../../internal/app/incorporacionejercicio/). |
-
-Su existencia no acredita activación, recorrido en navegador ni incorporación
-registrada. Comparar diferencias con `c6359f98` y el trabajo pendiente antes
-de tocar esos archivos; no copiar una rama o worktree sobre el árbol compartido.
-
-## Arquitectura real y propiedad
-
-Esta sección describe la **composición de desarrollo** conservada. El ejecutable
-de ese recorrido es [cmd/vec-server](../../cmd/vec-server/main.go).
-Carga `config`, llama a `bootstrap.NewHTTPServerWithConfig` y, con el perfil
-de desarrollo explícito, entra en la composición de desarrollo.
-
-```text
-Navegador: shell + módulo + cliente HTTP
-  → servidor de desarrollo con certificado de cliente
-  → lista de rutas y autorización de servidor
-  → adaptador HTTP → caso de uso → dominio y puertos
-  → adaptadores PostgreSQL / Bolsa / salida local
-  → estado, historia y salida pendiente durables → recibo minimizado
-```
-
-No existe una base de negocio común que cualquier módulo pueda modificar:
-
-- `internal/modules/contrataciontemporal/` posee el expediente y su procedimiento.
-- `internal/modules/bolsa/` posee sus convocatorias, propuestas, órdenes y
-  llamamientos. Contratación consume sus puertos y recibos; no escribe sus tablas.
-- `internal/vec/` aporta contratos y autoridades compartidas: identidad,
-  autorización, contexto del actor, documentos y evidencias.
-- `internal/app/` conecta dependencias concretas y superficies.
-- `internal/candidate/` es código heredado; no es un camino alternativo para
-  duplicar el flujo de Contratación.
-
-Dentro de un módulo: `domain` contiene reglas sin infraestructura;
-`ports` declara contratos; `application` coordina dominio y puertos;
-`adapters` traduce HTTP, SQL y proveedores. Un caso de uso no debe importar
-PostgreSQL ni leer el DOM. El contrato de otro módulo se consume por su frontera,
-no se reproduce con otra implementación equivalente.
-
-La identidad sintética de desarrollo procede del canal validado y de sus
-autoridades explícitas. No acredita Kerberos corporativo ni habilita producción.
-No admitir cuenta, perfil o permisos declarados por el navegador.
-
-## Dónde modificar y dónde conectar
-
-| Necesidad | Fuente o directorio que debe inspeccionarse |
-| --- | --- |
-| Configuración y separación de conexiones | [config/postgresql_contratacion_temporal.go](../../config/postgresql_contratacion_temporal.go) y [config/config.go](../../config/config.go). |
-| Arranque y selección del perfil | [bootstrap.go](../../internal/app/bootstrap/bootstrap.go) y [composicion_desarrollo.go](../../internal/app/bootstrap/composicion_desarrollo.go). |
-| Conectar el procedimiento real | [contratacion_temporal_desarrollo.go](../../internal/app/bootstrap/contratacion_temporal_desarrollo.go); los archivos `contratacion_temporal_*_desarrollo.go` aportan cada dependencia. |
-| Registrar rutas internas del módulo | [composicion/interna/contrataciontemporal/rutas.go](../../internal/app/composicion/interna/contrataciontemporal/rutas.go), función `NuevasRutas`, y su llamada en bootstrap. |
-| Contrato HTTP y respuesta pública | [adapters/httpinterno](../../internal/modules/contrataciontemporal/adapters/httpinterno/): manejador, contrato cerrado y proyección del recibo. |
-| Regla o coordinación funcional | [domain](../../internal/modules/contrataciontemporal/domain/), [application](../../internal/modules/contrataciontemporal/application/) y [ports](../../internal/modules/contrataciontemporal/ports/). |
-| Persistencia y transacción | [adapters/postgres](../../internal/modules/contrataciontemporal/adapters/postgres/) y [deploy/postgresql/contratacion_temporal](../../deploy/postgresql/contratacion_temporal/). |
-| Navegación y montaje web | [portal.js](../../web/static/portal-empleado/portal.js) y [portal-modulos-coordinador.js](../../web/static/portal-empleado/portal-modulos-coordinador.js). |
-| Formulario, vista, contrato y cliente HTTP | [modulos/contratacion-temporal](../../web/static/portal-empleado/modulos/contratacion-temporal/): `formulario-*.js`, `vista*.js`, `contrato-*.js` y `cliente-http-*.js`. |
-| Textos visibles | [portal-i18n.js](../../web/static/portal-empleado/portal-i18n.js); en el módulo, `i18n.js`, `i18n-expedientes.js` e `i18n-llamamiento.js`; backend compartido en [internal/shared/i18n](../../internal/shared/i18n/). |
-| Texto de los documentos del expediente | [data/catalogos/contratacion-temporal/plantillas_documentos.v3.json](../../data/catalogos/contratacion-temporal/plantillas_documentos.v3.json) (versión 3; la v1 y la v2 siguen en `data/demo/plantillas/` porque la v1 es la preimagen instalada en el servidor de desarrollo): título, `parrafo.NN` con campos `{{campo}}` y bloques `{{?campo}}…{{/campo}}` / `{{!campo}}…{{/campo}}`, `modalidades`, `firmantes` y `requiere_accion`. `VEC_CT_PLANTILLAS_SOURCE_PATH` lo sustituye por otro fichero del mismo formato. La lista cerrada de campos y la validación al arrancar están en [plantillas_borrador.go](../../internal/modules/contrataciontemporal/adapters/informejuridico/plantillas_borrador.go) y [campos_borrador.go](../../internal/modules/contrataciontemporal/adapters/informejuridico/campos_borrador.go). |
-| Publicar un recurso estático del recorrido | [web/produccion.manifest](../../web/produccion.manifest), leído por [estaticos_produccion.go](../../internal/app/server/estaticos_produccion.go). Revisar los otros manifiestos solo si cambia su superficie. |
-
-Para ampliar una acción existente, seguir su cadena completa: contrato y
-manejador → caso de uso y puertos → adaptador real → dependencia de bootstrap
-→ ruta → cliente y formulario. Añadir una función o una ruta a `NuevasRutas`
-no basta si la raíz no le entrega una implementación autorizada.
-
-Ejemplo ya existente: selección llama a
-`POST /api/vec/contratacion-temporal/llamamientos/seleccion` con
-`expediente_ref`, `version_esperada` y `clave_idempotencia`.
-El formulario de comunicación toma organización, llamamiento, versión y recibo
-antecedente de la respuesta autenticada, no de referencias inventadas.
-
-Cuando un nuevo import JavaScript devuelve `404`, comprobar el archivo y
-todos sus imports transitivos contra el manifiesto. El servidor carga la lista
-al arrancar: modificarla exige reiniciar el proceso para validar el resultado.
-No quitar guardas que separan recursos reales y de presentación.
-
-Conservar el shell y el tema compartidos: contexto del expediente, etiquetas,
-confirmación explícita, estados de espera/error y recibo. No duplicar helpers,
-CSS estructural ni reglas funcionales en la vista.
-
-## Preparación de desarrollo — antecedente operativo
-
-Los recorridos históricos usaron un perfil de desarrollo explícito, Go según
-[go.mod](../../go.mod), PostgreSQL, conexiones y certificados separados por
-función. El lanzador de desarrollo no instala roles ni migraciones; la mera
-presencia de configuración tampoco acredita que una capacidad funcione.
-
-Para operar una instancia, consultar el inventario operativo privado vigente
-y el [manual de Sistemas](../manual_sistemas/README.md). Allí se determina la
-ubicación canónica, el material, las conexiones y la secuencia autorizada para
-arranque, parada, prueba y recuperación. No inferir esos datos del recorrido
-histórico de este manual ni reconstruir una base por un fallo de arranque.
-Ante un resultado incierto, recuperar con la misma intención y comparar el
-recibo antes de ordenar otra operación; conservar las claves y el material de
-la instancia para que el replay sea verificable.
-
-## Ciclo corto: un hito observable, pruebas al terminar
-
-1. Inventariar ramas, worktrees y cambios. Buscar primero la capacidad y sus
-   llamadas; comparar deltas y patch-id antes de editar o integrar.
-2. Acordar una única línea canónica y archivos de edición disjuntos. Si dos
-   personas necesitan el mismo archivo, coordinar la edición, no crear copias.
-3. Implementar el mínimo que permita avanzar a un usuario: una acción,
-   conexión o recuperación completa. No rehacer piezas por mejoras cosméticas.
-4. Al completar el hito, ejecutar las pruebas focales y revisar el recorrido.
-   No repetir suites completas por cada línea ni abrir un nuevo ciclo documental.
-5. Revisar seguridad según el riesgo y entregar archivos, evidencia y límites.
-   Actualizar el manual afectado cuando cambie lo que su lector puede hacer.
-6. Dirección integra y publica el cambio autorizado; solo después se limpia
-   lo propio, integrado y sin modificaciones pendientes.
-
-Comprobaciones iniciales de solo lectura en la línea actual:
-
-```bash
-git status --short
-git worktree list --porcelain
-git branch -vv
-git cherry integracion/ct-producto-ligero-20260821 HEAD
-git diff integracion/ct-producto-ligero-20260821...HEAD | git patch-id --stable
-```
-
-La última orden identifica el delta conjunto; `git cherry` compara equivalencia
-de parches por commit. Ninguna sustituye inspeccionar cambios sin commit.
-No copiar código manualmente entre ramas ni abrir worktrees sustitutos.
-
-Elegir las pruebas del paquete o flujo modificado. Ejemplos existentes para
-un hito de llamamiento, no una lista que deba repetirse para cualquier cambio:
-
-```bash
-go test ./internal/modules/contrataciontemporal/application -run Seleccion -count=1
-go test ./internal/modules/contrataciontemporal/adapters/httpinterno -run Seleccion -count=1
-node --test web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs
-git diff --check
-```
-
-Para documentación sola: revisar contenido, enlaces y espacios; no arrancar
-bases ni ejecutar las pruebas funcionales. Para interfaz: prueba focal y
-revisión de navegador a 1440, 1024 y 390 píxeles, sin declarar evidencia visual
-si solo se ejecutó Node.
-
-Identidad, autorización, criptografía, SQL y datos personales requieren dos
-revisiones independientes y comprobaciones específicas del riesgo. Los efectos
-durables se demuestran con PostgreSQL real y un reinicio en el hito pertinente.
-Las pruebas globales `go test ./...`, `go vet ./...` y la puerta de calidad
-se reservan al cierre de integración que dirección programe; no son un paso
-por cada edición ni sustituyen el recorrido humano.
-
-### Commit, publicación y limpieza
-
-Cada commit debe ser coherente, compilable y mostrar un avance o una
-documentación utilizable. Añadir al índice solo las rutas revisadas; nunca
-`git add -A` sobre un worktree compartido. Si la asignación exige entrega sin
-commit, entregar el delta y dejar la confirmación a dirección.
-
-Antes de integrar: repetir inventario/equivalencias, revisar el hash exacto
-cuando corresponda y preservar el trabajo ajeno. La autoría configurada es
-`aavidad`, sin atribuciones de IA. No cambiar la configuración global de Git.
-
-Después del commit e integración autorizados, dirección hace push de la rama
-canónica y verifica que el hash local, el de seguimiento y el remoto coinciden.
-Sin push comprobado no decir «publicado». No forzar push ni borrar referencias
-para ocultar divergencias. Producto limpio significa ausencia de cambios
-pendientes allí; no exige borrar el trabajo de las candidatas.
-
-Retirar exclusivamente ramas/worktrees propios, integrados y limpios, tras
-confirmar que ninguna persona los usa. Preservar trabajo sin commit, ramas con
-revisión pendiente y evidencias. En particular, los tres archivos históricos
-sin seguimiento de `deploy/postgresql/autorizacion/` no forman parte de este
-hito y no se añaden, borran ni reconstruyen.
-
-## Cuándo actualizar este manual
-
-Modificarlo en el mismo hito cuando cambien el arranque, la conexión de una
-capacidad, sus límites o las rutas de trabajo del programador. Mantener las
-firmas detalladas en Go y su catálogo generado; los pasos humanos en los
-manuales de cada perfil; los recibos y comandos del recorrido en la guía.
-
-Una entrega debe decir qué puede hacer ahora una persona, en qué entorno se
-comprobó, qué prueba se ejecutó y qué falta para la acción siguiente.
-Ni el número de archivos ni el volumen de pruebas son una medida de avance.
+Se ejecuta una vez sobre la cabeza final, con PostgreSQL 18 propio y memoria
+disponible. Este ensayo de esquema y SQL no acredita el recorrido web.
+La copia con datos y servicios se prepara con
+[`copia_local.py`](../../deploy/principal/copia_local.py), según su
+[receta](../../deploy/principal/LEEME_copia_local.md). No se ensaya en cidonia.
+
+## Pruebas y entrega
+
+En local se ejecutan solo las pruebas focales: formato, `go test -p 6`,
+`go vet` del paquete y `-race` si hay concurrencia; Node sobre las pruebas
+web afectadas y `git diff --check`. En escrituras cubra denegación, versión
+vieja, repetición, clave con contenido distinto y conservación de historia.
+Las pantallas se recorren con Playwright y el Chrome del sistema a 1440 y
+390 px. Las reglas y los valores pendientes de RRHH se mantienen configurables.
+
+La [CI](../../.github/workflows/ci.yml) ejecuta secretos, calidad, artefactos,
+identidad y autorización PostgreSQL, Bolsa pública y recorrido SQL de fase 1.
+La puerta completa es [`scripts/verificar_calidad.sh`](../../scripts/verificar_calidad.sh);
+no se repite en local sobre el mismo commit. Una PR documental comprueba
+referencias y espacios y deja las puertas automáticas a la CI.
+
+Antes de entregar se usan `revisar-cambios-vec`, `documentar-entregar-vec`
+y `pr-vec`. SQL lleva `revisar-sql-vec` y su ensayo. Los cambios de
+identidad, permisos, SQL, HTTP o ficheros subidos pasan revisión de seguridad
+focal, Semgrep local sin métricas y GoSec sobre lo cambiado cuando corresponda.
+Dos revisiones independientes para lógica de negocio, permisos, identidad,
+cifrado o SQL con permisos; una para lo demás. Los textos pasan `humanizer`.
+
+La PR incluye resultado, pruebas, límites, configuración y SQL en orden.
+Si cambia comportamiento, aporta guion de activación y arranque con la
+configuración nueva y sin ella. La documentación sola declara activación
+«ninguna». No se equiparan código integrado, SQL instalado, recorrido
+comprobado y publicación. Dirección da por cerrada la tarea al integrar.
+
+## Inventario generado e historia
+
+[LEEME.md](LEEME.md) y los otros nueve índices Go son una instantánea generada
+anterior al corte actual. Sus firmas se consultan contra el código vigente y
+`gopls`. El generador `scripts/generar_manual_programador.py` conserva una
+introducción desfasada; regenerar requiere corregirlo en una tarea de código.
+Esta entrega solo documental no cambia el generador.
+
+El [mapa técnico de septiembre](../historico/manual_programador_arquitectura_202609.md)
+conserva el antecedente de arquitectura. Las instrucciones de operación se
+consultan en la receta de copia local; los relevos y relatos de sesiones se
+retiran del manual vigente y permanecen en la historia de Git.
