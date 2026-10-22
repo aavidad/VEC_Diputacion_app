@@ -1,6 +1,23 @@
 # Plan de Incompatibilidades — 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+## Vigencia al 20 de octubre de 2026
+
+Este módulo conserva su alcance y sigue después de Bolsa y Contratación
+según el [plan general](../producto/PLAN_IMPLEMENTACION.md). El estado de cada
+tarea lo fija el [tablero](../producto/TABLERO_TAREAS.md). Se trabaja en
+copias locales con datos ficticios; cidonia está congelada.
+
+El inventario de abajo conserva sus fechas, contratos y requisitos. Sus
+ramas, responsables, órdenes de reanudación, horas y cifras pertenecen a esos
+cortes: no son un encargo actual ni acreditan una instalación o un recorrido.
+Antes de reanudar, dirección debe contrastar qué se ha integrado en `main`
+y fijar una tarea con consumidor visible y comprobación propia. Lo pendiente
+de RRHH sigue en [dudas.md](../../dudas.md), con valor provisional configurable
+cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
+
+## Inventario histórico anterior al 20 de octubre de 2026
+
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 VEC tramitará declaraciones y solicitudes de compatibilidad, informes, decisión,
 condiciones y revisiones. La persona declara los hechos y el órgano competente
@@ -11,7 +28,7 @@ ni SQL, y mantiene la cola vigente.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos: [ficha de Incompatibilidades integrada](../estudio_requisitos/ficha_incompatibilidades_2026-10-04.md),
-INC1–INC10. Personal B, identidad/autorización K y núcleo/auditoría L conservan
+INC1–INC10. Personal, identidad y autorización y núcleo y auditoría conservan
 sus archivos y responsabilidades. No se crean maestros ni autoridades paralelas.
 
 ## Fuentes y decisiones aplicables
@@ -40,15 +57,13 @@ Este plan no la modifica ni vuelve a preguntar por normas ya publicadas.
 
 ## Inventario en la base inspeccionada
 
-Primero se consultó `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
-Es una instantánea anterior; las rutas y capacidades siguientes se cotejaron con
+El inventario parte de una instantánea histórica; las rutas y capacidades siguientes se cotejaron con
 `git ls-tree` y lectura en el SHA indicado. El índice no acredita actualidad.
 
 | Pieza | Rutas actuales | Capacidad y límite |
 | --- | --- | --- |
 | Incompatibilidades | `docs/estudio_requisitos/ficha_incompatibilidades_2026-10-04.md` | Requisitos integrados. No hay paquete del módulo en `internal/modules/`, vista propia ni persistencia de incompatibilidades en esta base. |
-| Personal | `internal/modules/personal/ports/{relacion_empleado,historia_relaciones_propia,lector_relacion_rpt}.go`; `application/consulta_relacion_empleado.go` | Relación propia para Dietas y contratos históricos/RPT con autorización específica. No son un lector general para Incompatibilidades: el caso de uso de Dietas fija acción y audiencia. B debe admitir el puerto mínimo a fecha y su cobertura. |
+| Personal | `internal/modules/personal/ports/{relacion_empleado,historia_relaciones_propia,lector_relacion_rpt}.go`; `application/consulta_relacion_empleado.go` | Relación propia para Dietas y contratos históricos/RPT con autorización específica. No son un lector general para Incompatibilidades: el caso de uso de Dietas fija acción y audiencia. Personal debe admitir el puerto mínimo a fecha y su cobertura. |
 | Persona y perfiles | `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Contexto canónico y administración de perfiles existentes. Faltan catálogo y consumidor nominal propios de esta materia; no se presta el actor de ADMIN. |
 | Usuarios | `internal/modules/usuarios/application/{correos,correo_avisos}.go`; `ports/correo_avisos.go` | Contactos bajo su autoridad. `ConCorreoActivoAvisos` se limita a llamamientos de candidatos; no habilita notificaciones de compatibilidad. Se acuerda otro consumo mínimo con su propietario si hace falta. |
 | Documentos y firma | `internal/vec/documentos/application/servicio.go`; `ports/{contratos,firma}.go`; `adapters/validadorautofirma/cliente.go` | Custodia/lecturas y verificación GrxFirma v2 existentes. Faltan tipos, relación expediente-documento, circuito y competencia de Incompatibilidades. Verificar una firma no resuelve ni acredita notificación. |
@@ -64,10 +79,10 @@ ninguna de esas piezas para Incompatibilidades.
 
 | Capacidad | Resultado pendiente | Propietario y dependencia |
 | --- | --- | --- |
-| INC1–INC4 | Solicitud reservada, actividad y evidencias; informes/subsanaciones con procedencia y versión. | Incompatibilidades conserva expediente; B aporta vínculo/puesto a fecha; Documentos custodia originales. |
+| INC1–INC4 | Solicitud reservada, actividad y evidencias; informes/subsanaciones con procedencia y versión. | Incompatibilidades conserva expediente; Personal aporta vínculo/puesto a fecha; Documentos custodia originales. |
 | INC5 | Propuesta, decisión competente, firma y notificación con evidencias separadas. | Tramitación/Jurídico/órgano habilitado según 133; servicios comunes conservan firma, registro y notificación. |
 | INC6 | Revisar cambios de relación, puesto, horario o actividad y registrar acto posterior. | Incompatibilidades coordina; Personal/Cronos emiten hechos mínimos. Una alerta no revoca. |
-| INC7/INC9 | Consulta, descarga y cada operación con autorización y auditoría nominal. | Consumidor del módulo con K/L y Documentos; sin acceso material por ser administrador. |
+| INC7/INC9 | Consulta, descarga y cada operación con autorización y auditoría nominal. | Consumidor del módulo con los servicios comunes de identidad y autorización y Documentos; sin acceso material por ser administrador. |
 | INC8 | Proyección publicable revisada, publicación/retirada y versión pública separadas. | Transparencia valida los campos; el expediente reservado no se expone. |
 | INC10 | Archivo, conservación y eliminación autorizada con traza mínima. | Archivo/DPD determinan serie; Documentos aplica la custodia, copias y expurgo admitidos. |
 
@@ -118,8 +133,8 @@ sus deltas comunes en PR separadas; no se toma su código ni se suma su esfuerzo
 | --- | --- | --- | --- | ---: |
 | I00 · inventario | Revalidar la deuda en la base vigente y el circuito de 133. | Este plan, en su turno documental. | Seguimiento y propietarios; sin rehacer piezas integradas. | 1–2 |
 | I01 · B3 | Catálogo de supuestos y documentos validado por versión; consumidor CLI informa regla ausente/conflicto. | Nuevos `data/catalogos/incompatibilidades/`; lector propio. | Ficha y circuito/competencias admitidos; provisional rotulado solo en prueba. | 3–5 |
-| I02 · B1 | Consulta nominal focal permite/deniega recurso exacto y deja los tres resultados en auditoría común. | Nuevos `incompatibilidades/ports/{autorizacion,auditoria}.go`, consumidor propio. | ABI/proveedor/emisor K y auditoría L; perfiles publicados fuera de petición; montaje por custodio. | 6–10 |
-| I03 · B2/B3 | Consultar vínculo/puesto/jornada a fecha con cobertura y procedencia; rechazar ausencia/ambigüedad. | `incompatibilidades/ports/personal.go`, consumidor y pruebas propios. | I02; B admite contrato, organización aporta entidad; no reutilizar acción Dietas. | 4–6 |
+| I02 · B1 | Consulta nominal focal permite/deniega recurso exacto y deja los tres resultados en auditoría común. | Nuevos `incompatibilidades/ports/{autorizacion,auditoria}.go`, consumidor propio. | ABI/proveedor/emisor de Identidad y Autorización y auditoría los servicios comunes; perfiles publicados fuera de petición; montaje por custodio. | 6–10 |
+| I03 · B2/B3 | Consultar vínculo/puesto/jornada a fecha con cobertura y procedencia; rechazar ausencia/ambigüedad. | `incompatibilidades/ports/personal.go`, consumidor y pruebas propios. | I02; Personal admite contrato, organización aporta entidad; no reutilizar acción Dietas. | 4–6 |
 | I04 · B4, SQL borrador | Candidata de persistencia de solicitud/actuaciones y adaptador; ensayo preparado y mínimo efecto probatorio. | SQL nuevo reservado y `adapters/postgres/` propios. | I01–I03; reserva previa fuera de Git y preimagen. Sin activar en principal. | 4–7 |
 | I05 · B4, ensayo | Ensayo clon principal, dos revisiones exactas y kit de instalación por dirección. | Pruebas de adaptador y kit propios. | I04; consumo V3, ACL, concurrencia e idempotencia; MCP local solo lectura. | 4–6 |
 | I06 · INC2/4 | Crear/recuperar solicitud sintética con misma clave y recibo; actividad y documentos pendientes visibles. | `domain/solicitud.go`, `application/solicitud.go`, HTTP/PG propios. | I01–I05; sin concesión, asiento oficial ni envío. | 6–10 |
@@ -129,7 +144,7 @@ sus deltas comunes en PR separadas; no se toma su código ni se suma su esfuerzo
 | I10 · INC5, propuesta | Preparar propuesta motivada con condiciones desde expediente revisado. | Caso de uso/documento de propuesta y textos propios. | I09 y plantillas/catálogo vigentes; no declarar resolución. | 3–5 |
 | I11 · INC5, decisión | Registrar acto competente y evidencia de firma original, con separación preparador/resolutor. | `ports/resolucion.go`, consumidor firma y decisión propios. | I10; órgano/delegación comprobados y B5 común configurado. | 4–7 |
 | I12 · INC5, comunicación | Enlazar asiento y notificación acreditados; reintentar sin repetir envío. | Consumidor de Registro/notificación y reconciliación propios. | I11; adaptadores oficiales, contacto autorizado Usuarios, recibo del destinatario. | 4–6 |
-| I13 · INC6 | Cambio de puesto/actividad abre revisión; acto posterior conserva condiciones/historia. | `ports/cambios.go`, caso de uso y receptor propios. | I11; hechos mínimos B/Cronos y regla aplicable. No revocación automática. | 4–7 |
+| I13 · INC6 | Cambio de puesto/actividad abre revisión; acto posterior conserva condiciones/historia. | `ports/cambios.go`, caso de uso y receptor propios. | I11; hechos mínimos de Personal y Cronos y regla aplicable. No revocación automática. | 4–7 |
 | I14 · INC8 | Preparar/revisar/publicar o retirar una proyección mínima, recuperable por versión. | Proyección propia y adaptador Transparencia por contrato. | I11; aprobación funcional/DPD, destinatario admitido; excluye anexos privados. | 3–5 |
 | I15 · INC10 | Archivo/expurgo con evidencia mínima y pruebas de copias/restauración. | Consumidor Archivo/Documentos y pruebas propios. | Serie y política aprobadas; I08/I11; no borrar historia conservada indiscriminadamente. | 4–6 |
 | I16 · entrega | Recorrido Chrome, negativos y reinicio; manual distingue recepción interna y efectos legales. | Pruebas focales y manual del módulo. | Capacidades instaladas anteriores; revisiones sensibles/usabilidad. | 4–6 |
@@ -161,10 +176,11 @@ el caso de uso de decisión y los contratos compartidos tienen un solo escritor.
 | RRHH/Jurídico/órgano competente | 5–9 h efectivas | Resolver 133, validar reglas/competencias, plantillas y circuito; espera sin fecha comprometida. |
 | DPD/Transparencia/Archivo | 4–8 h efectivas | Proyección, bases por finalidad, serie, conservación y eliminación. |
 | Sistemas/Registro/firma/notificación | 5–10 h efectivas | Contratos, entorno y evidencia de servicios oficiales; disponibilidad no presumida. |
-| Personal B, K/L, Usuarios/Cronos/Documentos | Estimación por sus dueños | Puertos y composición comunes; sus desarrollos no están incluidos en I02/I03/I08. |
+| Personal, los servicios comunes de identidad y autorización, Usuarios/Cronos/Documentos | Estimación por sus dueños | Puertos y composición comunes; sus desarrollos no están incluidos en I02/I03/I08. |
 
 Las horas miden esfuerzo, sin prometer fechas de publicación o respuesta externa.
-La instalación solo corresponde a dirección y no se ejecuta SQL en cidonia desde A.
+La instalación requiere revisión y ensayo; este módulo no ejecuta SQL
+en el servidor compartido.
 
 ## Comprobación y entrega
 
