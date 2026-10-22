@@ -1,10 +1,18 @@
-# RRHH: de la petición del centro al primer contacto
+# RRHH: tramitar la petición de personal temporal
 
-La navegación se comprobó el 8 de octubre de 2026. El recorrido desde una petición ratificada hasta el primer contacto se comprobó el 9 de octubre. Las cifras y personas de las imágenes pertenecen a esos ejemplos y pueden cambiar.
+Actualizado el 20 de octubre de 2026. Use el acceso de RRHH de la copia local
+que le faciliten, con datos ficticios. Las imágenes y los ejemplos conservados
+del 8 y 9 de octubre son históricos. Esta guía distingue los pasos del recorrido
+actual de los que todavía esperan una comprobación completa con reinicio.
+
+El recorrido principal parte de una petición ratificada y de una persona que
+ya está en la bolsa. Inscripción, méritos y alegaciones se enseñan aparte.
+No hace falta inscribir de nuevo a quien ya participa.
+
 
 ## Entrar en Inicio
 
-Abra [el portal de Recursos Humanos](https://vec.cidonia.cloud/portal-empleado/?lang=es#portal) con su acceso de RRHH. La primera pantalla se titula «Inicio». En «Lo pendiente» verá los plazos y las incidencias. Más abajo aparecen las peticiones por fase y un resumen de bolsas de trabajo.
+Abra **el portal de Recursos Humanos** con su acceso de RRHH. La primera pantalla se titula «Inicio». En «Lo pendiente» verá los plazos y las incidencias. Más abajo aparecen las peticiones por fase y un resumen de bolsas de trabajo.
 
 ![Inicio de RRHH. Los números señalan idioma, categorías, incidencias, bolsas y lista general de peticiones.](img/rrhh-navegacion-inicio.webp)
 
@@ -54,9 +62,9 @@ En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pen
 
 ## Recibir una petición ratificada del centro
 
-1. Abra [Peticiones de los centros](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es&vista=rrhh) con el acceso de RRHH. Las peticiones ratificadas que aún no tienen expediente aparecen con el estado de entrega **Pendiente de preparación**. Localice la suya por la fecha y hora de la columna **Ratificación** y pulse **Revisar**. Las que ya tienen expediente muestran **Expediente creado** y su número.
+1. Abra **Peticiones de los centros** con el acceso de RRHH. Las peticiones ratificadas que aún no tienen expediente aparecen con el estado de entrega **Pendiente de preparación**. Localice la suya por la fecha y hora de la columna **Ratificación** y pulse **Revisar**. Las que ya tienen expediente muestran **Expediente creado** y su número.
 2. Compruebe centro, categoría, grupo, motivo, período, número de personas y jornada. Compruebe también si el centro aportó una retención de crédito o documentos. Una retención que el centro marcó con **Sí** aparece como **Declarada; la comprueba RRHH**, con el número de operación de SICAL, la fecha y el importe; compruébela en SICAL o pídasela a Intervención. En el ejemplo, el centro pidió una persona de la categoría Administrativo, a jornada completa, y no aportó retención.
-3. Pulse **Crear expediente en RRHH**. En la revisión escriba el número que RRHH haya dado a este expediente en su registro habitual, marque la confirmación expresa y pulse **Crear expediente en RRHH** una sola vez. Si no dispone de ese número, deténgase.
+3. Pulse **Crear expediente en RRHH**. En la revisión escriba el número del expediente que proporciona la plataforma de expedientes electrónicos de la Diputación, marque la confirmación expresa y pulse **Crear expediente en RRHH** una sola vez. Si no dispone de ese número, deténgase.
 4. La pantalla muestra el recibo del alta. Anote dos datos: el **Número visible**, que es el número del expediente, y la **Referencia del recibo**, que sirve para comprobar el alta si algo falla. Use **Abrir el expediente** para seguir con el mismo caso. En el ejemplo se creó `2026/93001`.
 
 ![Bandeja de peticiones de los centros. La primera fila está Pendiente de preparación; las demás ya tienen expediente.](img/rrhh-20261009-centros.webp)
@@ -86,7 +94,46 @@ Con la unidad asignada, **Siguiente paso** dice «preparar el informe jurídico�
 
 ![Unidad y responsable que se revisan antes de confirmar la asignación.](img/rrhh-20261009-asignacion.webp)
 
-## Emitir un llamamiento para la persona elegida
+## Firmar el informe y recibir la fiscalización
+
+1. En la ficha, abra **Firma** y compruebe que el documento es el informe de remisión a Intervención del expediente actual.
+2. La técnica firma primero con su certificado; después firma la Jefatura del Servicio. Cada persona utiliza su acceso de firma y **Firmar con certificado**.
+3. Espere el recibo de cada firma y compruebe que el PDF conserva ambas firmas verificadas. Preparar el informe no lo firma.
+4. Remita a Intervención el expediente y su versión. Intervención registra su propia decisión; RRHH consulta el resultado en la ficha.
+5. Con fiscalización favorable, continúe al llamamiento. La ficha puede seguir indicando la fase **Fiscalización**: no hace falta registrar otra fiscalización para avanzar.
+
+Si hay reparo, tramite la subsanación de la unidad. Prepare el informe nuevo,
+obtenga de nuevo las firmas de técnica y Jefatura y remita la versión actual a
+Intervención. No reutilice las firmas del informe anterior. La nueva
+fiscalización necesita su propio recibo. Este tramo con reparo, subsanación e
+informe nuevo firmado se comprobó en una copia local el 20 de octubre.
+
+## Abrir el llamamiento desde el expediente
+
+El recorrido actual utiliza la bolsa constituida que corresponde a la necesidad
+registrada, después de la fiscalización favorable.
+
+1. Abra **Llamamiento** en la ficha y revise la bolsa, la categoría, el puesto y la persona que corresponde por orden.
+2. Si aparece **Pendiente de comprobación**, no salte a la siguiente persona. Use **Comprobar en su ficha**, complete los datos acreditados que faltan y vuelva al mismo expediente.
+3. Registre el llamamiento y su comunicación por la acción disponible; conserve el recibo. Un aviso de correo enviado no demuestra entrega ni aceptación.
+4. Registre el contacto real por el canal que corresponda. Respete la franja y el plazo que muestra la pantalla; no escriba fechas anteriores para poder continuar.
+5. La persona responde en **Mi Bolsa**. Consulte esa respuesta y su recibo antes de resolverla.
+
+Si la persona aceptó en Mi Bolsa pero la ficha exige un correo para confirmar,
+deténgase y conserve su recibo: está pendiente adaptar ese paso a la respuesta
+del portal. No cree ni adjunte un correo para sustituir una aceptación web.
+Cuando la respuesta sí llegó por correo, el formulario específico pide la
+referencia, la fecha y el archivo del correo; registrar ese antecedente no
+sustituye la revisión posterior de RRHH.
+
+La confirmación de la aceptación, la propuesta y el resto del mismo caso
+siguen pendientes de acreditación conjunta. Consulte [lo que falta](PENDIENTES.md).
+
+## Antecedente: asistente de llamamiento del 9 de octubre
+
+Este apartado y sus imágenes conservan el recorrido antiguo del asistente de
+Bolsa. No sustituyen el llamamiento desde la bolsa constituida de la ficha ni
+permiten omitir el informe firmado y la fiscalización previos.
 
 Desde la ficha asignada, pulse **Abrir llamamiento en Bolsa**. El asistente conserva la petición de origen; compruebe que muestra la bolsa de la categoría correspondiente. En el ejemplo fue **ADMINISTRATIVO**, con 41 personas.
 
@@ -102,7 +149,7 @@ Desde la ficha asignada, pulse **Abrir llamamiento en Bolsa**. El asistente cons
 
 ![Justificante de un llamamiento emitido y pendiente de respuesta.](img/rrhh-20261009-recibo-llamamiento.webp)
 
-## Anotar el contacto telefónico
+### Contacto telefónico en aquel recorrido
 
 Pulse **Empezar las llamadas** desde el justificante del llamamiento. La lista muestra las personas de ese llamamiento por orden. Abra **Ver ficha y llamar** de la persona correspondiente.
 
@@ -111,6 +158,45 @@ Compruebe la franja que muestra la ficha. En el recorrido era de **09:00 a 14:00
 ![Resultado Contactado y hora del intento registrada por la aplicación.](img/rrhh-20261009-contacto.webp)
 
 **Contactado** no significa que la persona haya aceptado o renunciado. Su respuesta se consulta por el cauce que le corresponde.
+
+## Continuar tras la aceptación: propuesta y resolución
+
+Estos pasos describen la continuación prevista en la ficha. Su comprobación
+de principio a fin en el mismo expediente sigue pendiente.
+
+1. Con la aceptación confirmada, abra **Preparar la propuesta de nombramiento**, revise los antecedentes y pulse **Guardar la propuesta**. Conserve el recibo; sigue siendo un borrador.
+2. En **Resolución de formalización**, revise propuesta y documento. Complete número, fecha, motivo y las comprobaciones solicitadas. Pulse **Registrar validación manual** y espere el recibo. Este registro no firma la resolución.
+3. En **Documentos**, descargue los PDF o Word que necesite. Compruebe expediente, contenido y si están pendientes de firma.
+4. En **Firma**, la resolución sigue el orden Jefatura del Servicio, Diputado o Diputada y Secretaría General. Cada persona firma con su propio acceso y conserva su recibo. Los documentos restantes se descargan sin atribuirles una firma inexistente.
+
+La firma en una copia parcial no acredita que el recorrido completo esté
+terminado ni que se haya enviado nada al portafirmas externo.
+
+## Incorporación, Personal, grabación manual y cese
+
+El orden es importante: primero acredita la incorporación el centro; después
+RRHH confirma el alta en Personal y prepara la grabación manual.
+
+1. Espere el recibo con el que el centro acredita la incorporación y su documento. Una aceptación del llamamiento no sustituye esa acreditación.
+2. En **Paso a Personal**, abra **Registrar incorporación en Personal** y revise el plan: persona, categoría, puesto, plaza, fechas y documento de formalización. Pulse **Registrar incorporación** solo si las comprobaciones son correctas y conserve el recibo de alta confirmado. Si el resultado es incierto, use **Comprobar la operación**.
+3. En **GINPIX**, pulse **Descargar ficha GINPIX** para grabarla manualmente en la aplicación de personal. Cuando se haya hecho, complete número y fecha y pulse **Registrar la confirmación de GINPIX** en Seguimiento. El recibo de VEC no acredita una transmisión automática a GINPIX.
+4. Cuando proceda el cese, registre causa y justificante desde **Cese**, revise las fechas y conserve el recibo.
+5. Compruebe en la bolsa que la persona vuelve a **Disponible** o **Disponible desde**, según la regla aplicable. Después pulse **Cerrar el expediente** cuando la ficha lo permita.
+
+El alta, la ocupación y el cese se realizan durante el recorrido: no se dan
+por hechos porque la copia tenga ya preparada la bolsa. Falta acreditar este
+tramo completo, su cierre y la recuperación tras reiniciar en el mismo caso.
+
+## Inscripciones y alegaciones de aspirantes
+
+En **Bolsas → Solicitudes y admisión**, elija la convocatoria, abra la solicitud
+y revise requisitos y méritos declarados. Registre la decisión y su motivo.
+Una admisión deja pendiente la incorporación a la bolsa: esta se registra
+aparte con la bolsa constituida y el acta que corresponda.
+
+En **Bolsas → Alegaciones**, seleccione la convocatoria o bolsa y abra la
+alegación para leer lo solicitado y consultar su justificante. Consultarla no
+la resuelve ni convierte su presentación en un registro oficial.
 
 ## Cancelar un expediente antes de la fiscalización
 
