@@ -1,6 +1,23 @@
 # Procesos selectivos: inventario y siguiente trabajo
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+## Vigencia al 20 de octubre de 2026
+
+Este módulo conserva su alcance y sigue después de Bolsa y Contratación
+según el [plan general](../producto/PLAN_IMPLEMENTACION.md). El estado de cada
+tarea lo fija el [tablero](../producto/TABLERO_TAREAS.md). Se trabaja en
+copias locales con datos ficticios; cidonia está congelada.
+
+El inventario de abajo conserva sus fechas, contratos y requisitos. Sus
+ramas, responsables, órdenes de reanudación, horas y cifras pertenecen a esos
+cortes: no son un encargo actual ni acreditan una instalación o un recorrido.
+Antes de reanudar, dirección debe contrastar qué se ha integrado en `main`
+y fijar una tarea con consumidor visible y comprobación propia. Lo pendiente
+de RRHH sigue en [dudas.md](../../dudas.md), con valor provisional configurable
+cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
+
+## Inventario histórico anterior al 20 de octubre de 2026
+
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 ## Cotejo local del tribunal al preparar un acta — 7 de octubre de 2026
 
@@ -29,16 +46,16 @@ API ni modifica el cierre de S2–S8.
 
 Sigue pendiente adaptar los visores que cambian idioma sin perder el archivo
 abierto. Requieren un contrato común que permita repintar sin navegar. La carga
-del idioma activo y el reintento de catálogos corresponden al lector común de V;
+del idioma activo y el reintento de catálogos corresponden al lector común de los servicios comunes;
 Personal adaptará después su carga para evitar esperas al importar el portal.
 
 ## Cierre del 2 de octubre de 2026: estado vigente
 
-Este apartado prevalece sobre los estados y órdenes de arranque del 1 de
-octubre conservados debajo. Las estimaciones siguen siendo las iniciales;
-no se han recalculado como trabajo restante. A conserva Selectivos, Carrera,
-Formación y RUM; B conserva Personal y G el baremador común. Las referencias
-históricas a H describen el reparto anterior.
+El inventario recoge el estado técnico del 2 de octubre de 2026. Sus
+estimaciones no son un cálculo actual del trabajo restante. Selectivos
+conserva las bases, fases y decisiones del proceso; Méritos mantiene el
+registro reutilizable, Personal aporta hechos laborales autorizados y el
+baremador común aplica las reglas de puntuación.
 
 | Minitarea | Entrega comprobada | Qué queda |
 | --- | --- | --- |
@@ -52,14 +69,14 @@ históricas a H describen el reparto anterior.
 | S7 · aprobados y traspaso | Pendiente. | Resultado aprobado y recibo idempotente de Bolsa/Personal, con rectificaciones. |
 | S8 · OEP y plazas | Pendiente. | Referencias y actos de RPT/Personal; cuadro de ejecución. |
 
-Para retomar, leer el FIN de cierre y comprobar los hashes/estados remotos;
+Antes de reanudar, se comprueban los hashes y estados remotos;
 no reconstruir S0–S3. Primero resolver el siguiente corte independiente de
 S2 o S3 con sus propietarios. S4 espera los hechos autorizados de RUM y los
 perfiles/actos que correspondan. Ninguna de estas fusiones acredita producción,
 aprobación de bases, solicitud registrada o firma legal.
 
 Estado comprobado en `origin/main@0a62a3ea6` el 1/10/2026. Este plan describe
-la continuación de oposición, concurso y concurso-oposición. El ensayo A que se
+la continuación de oposición, concurso y concurso-oposición. El ensayo de Selectivos que se
 preparaba hoy está conservado en ramas remotas, todavía fuera de `main`.
 
 ## Qué existe en `main`
@@ -79,8 +96,8 @@ esa inscripción y el baremador existentes. Bolsa recibirá una lista aprobada y
 Personal conservará la relación y ocupación que procedan. No se duplicarán sus
 tablas ni se deducirá un alta de una puntuación.
 
-H es dueño del Registro Único de Méritos. A consulta sus hechos y evidencias por
-un puerto autorizado; B aporta los datos de Personal, entre ellos relaciones,
+Méritos es dueño del Registro Único de Méritos. Selectivos consulta sus hechos y evidencias por
+un puerto autorizado; Personal aporta los datos de Personal, entre ellos relaciones,
 ocupaciones y servicios reconocidos. El baremador sigue siendo común. Selección
 conserva las bases y la decisión aplicada en cada convocatoria, sin convertir
 la puntuación en un dato permanente del mérito.
@@ -107,15 +124,15 @@ de padres, manifiestos, importadores y `dudas.md`.
 
 | Orden y responsable | Archivos previstos y dependencia | Criterio de cierre |
 | --- | --- | --- |
-| S0 · A, ensayo ya iniciado | Reunir `internal/modules/seleccion/**`, `cmd/vec-baremador-web/seleccion.go`, montaje HTTP y `web/static/portal-empleado/modulos/seleccion/**` desde las tres ramas WIP citadas abajo; catálogos ES/EN propios. Sin SQL. | Tres modalidades con ejemplos retirables, reglas configurables y desglose del baremador común en Chrome; sin admisión ni nota oficial. Corregir claves duplicadas de ES, crear EN, pruebas focales y revisión de HTTP/UX antes de PR. |
-| S1 · A y propietario de Bolsa | Nuevo puerto `seleccion/ports/convocatoria.go`, caso de uso de consulta, adaptador a Bolsa y ficha RRHH propia. Adaptar `bolsa/application/convocatorias_consulta_interna.go` y `bolsa/adapters/postgres/convocatorias_consulta.go`; SQL AD3 y Bolsa **solo en borrador** tras reservar números en `RESERVAS_MIGRACIONES.md` y fijar orden con D en `ORDEN_SQL_NUCLEO.md`. Obtener de RPT/Personal las referencias mínimas de OEP, plaza y versión necesarias para las bases. | Versión exacta, bases, requisitos, fases y huella visibles con lectura V3 nominal y auditoría en la transacción; 403 sin concesión, 503 si cae la dependencia, recuperación tras reiniciar. Ensayo en clon y dos revisiones sensibles antes de integrar. |
-| S2 · A y Bolsa | Reutilizar `gobiernoconvocatorias` y contratos de Documentos/Firma; adaptadores y vista RRHH propios. Depende de S1 y actos/órganos de la pregunta 110. Separar preparación de la versión y aprobación/publicación en PR recorribles. | Preparar una versión, aprobar/publicar mediante autoridad competente y conservarla cuando se rectifique; recibos, firma y fuente oficial comprobados. Las referencias de plaza/OEP exigidas por las bases están resueltas antes de aprobarlas. |
-| S3 · A, Bolsa y Registro/Documentos | Consumir la preparación de solicitud de Bolsa por puerto; casos de uso y vistas propias del aspirante. Depende de S2, identidad común, representación, firma, registro y reglas de tasa SEL-005. Separar solicitud recuperable de presentación registrada. | Persona interna o externa presenta una solicitud, recupera el mismo recibo y puede corregirla dentro del plazo de sus bases sin duplicar la inscripción. |
-| S4 · A, H y RRHH | Casos de uso de requisitos/admisión, listas, subsanación e impugnación de la admisión; puerto autorizado al Registro Único de Méritos de H y, para requisitos independientes de méritos, a los hechos de Personal de B. Depende de S3 y perfiles fijos. | RRHH motiva cada admisión o exclusión, publica listas provisional/definitiva tras aprobación y conserva subsanaciones, impugnaciones e historia. |
-| S5 · A, autoridad común y tribunal | Gobierno de miembros/abstenciones por proceso y fase, sesiones, actas; vistas propias. Preparación del tribunal desde S2; habilitación de actuaciones tras S4 y respuesta 110. Separar composición y actas en PR recorribles. | Miembros habilitados ven solo su fase; recusación/sustitución deja historia; acta firmada antes de publicar calificaciones. |
-| S6 · A, H y baremador común | Casos de uso de ejercicios, notas por fase, méritos y reclamación/rectificación de calificaciones; consumir hechos de H y el motor común existente. Depende de S4/S5, bases exactas y evidencia admitida. | Mínimos, fases y empates se explican; ninguna nota pendiente se transforma en aprobado. Calificación, reclamación y publicación conservan versión, autor y acto. |
-| S7 · A, Bolsa y Personal | Resultado aprobado, entrega idempotente por puertos a Bolsa o Personal y rectificación del resultado o entrega. Depende de S6, acto y datos de la pregunta 111. | Lista de aprobados y recibo recuperable del receptor con operación estable; el reintento no duplica efectos. La entrega a Personal no constituye nombramiento ni ocupación: B aplica el acto competente. Cada rectificación enlaza los actos y efectos previos. |
-| S8 · A, RPT/Personal | Cuadro OEP–plaza–convocatoria SEL-001, tras las referencias mínimas de S1. Depende del modelo histórico RPT y autoridad de vacantes. | RRHH ve grado de ejecución con cada plaza y acto de cobertura, sin tratar una propuesta como vacante cubierta. |
+| S0 · Procesos selectivos, ensayo ya iniciado | Reunir `internal/modules/seleccion/**`, `cmd/vec-baremador-web/seleccion.go`, montaje HTTP y `web/static/portal-empleado/modulos/seleccion/**` desde las tres ramas WIP citadas abajo; catálogos ES/EN propios. Sin SQL. | Tres modalidades con ejemplos retirables, reglas configurables y desglose del baremador común en Chrome; sin admisión ni nota oficial. Corregir claves duplicadas de ES, crear EN, pruebas focales y revisión de HTTP/UX antes de PR. |
+| S1 · Selectivos y propietario de Bolsa | Nuevo puerto `seleccion/ports/convocatoria.go`, caso de uso de consulta, adaptador a Bolsa y ficha RRHH propia. Adaptar `bolsa/application/convocatorias_consulta_interna.go` y `bolsa/adapters/postgres/convocatorias_consulta.go`; SQL AD3 y Bolsa **solo en borrador** tras reservar números en `RESERVAS_MIGRACIONES.md` y fijar orden con Autorización en `ORDEN_SQL_NUCLEO.md`. Obtener de RPT/Personal las referencias mínimas de OEP, plaza y versión necesarias para las bases. | Versión exacta, bases, requisitos, fases y huella visibles con lectura V3 nominal y auditoría en la transacción; 403 sin concesión, 503 si cae la dependencia, recuperación tras reiniciar. Ensayo en clon y dos revisiones sensibles antes de integrar. |
+| S2 · Selectivos y Bolsa | Reutilizar `gobiernoconvocatorias` y contratos de Documentos/Firma; adaptadores y vista RRHH propios. Depende de S1 y actos/órganos de la pregunta 110. Separar preparación de la versión y aprobación/publicación en PR recorribles. | Preparar una versión, aprobar/publicar mediante autoridad competente y conservarla cuando se rectifique; recibos, firma y fuente oficial comprobados. Las referencias de plaza/OEP exigidas por las bases están resueltas antes de aprobarlas. |
+| S3 · Procesos selectivos, Bolsa y Registro/Documentos | Consumir la preparación de solicitud de Bolsa por puerto; casos de uso y vistas propias del aspirante. Depende de S2, identidad común, representación, firma, registro y reglas de tasa SEL-005. Separar solicitud recuperable de presentación registrada. | Persona interna o externa presenta una solicitud, recupera el mismo recibo y puede corregirla dentro del plazo de sus bases sin duplicar la inscripción. |
+| S4 · Procesos selectivos, Méritos y RRHH | Casos de uso de requisitos/admisión, listas, subsanación e impugnación de la admisión; puerto autorizado al Registro Único de Méritos y, para requisitos independientes de méritos, a los hechos de Personal. Depende de S3 y perfiles fijos. | RRHH motiva cada admisión o exclusión, publica listas provisional/definitiva tras aprobación y conserva subsanaciones, impugnaciones e historia. |
+| S5 · Procesos selectivos, autoridad común y tribunal | Gobierno de miembros/abstenciones por proceso y fase, sesiones, actas; vistas propias. Preparación del tribunal desde S2; habilitación de actuaciones tras S4 y respuesta 110. Separar composición y actas en PR recorribles. | Miembros habilitados ven solo su fase; recusación/sustitución deja historia; acta firmada antes de publicar calificaciones. |
+| S6 · Procesos selectivos, Méritos y baremador común | Casos de uso de ejercicios, notas por fase, méritos y reclamación/rectificación de calificaciones; consumir hechos de Méritos y el motor común existente. Depende de S4/S5, bases exactas y evidencia admitida. | Mínimos, fases y empates se explican; ninguna nota pendiente se transforma en aprobado. Calificación, reclamación y publicación conservan versión, autor y acto. |
+| S7 · Procesos selectivos, Bolsa y Personal | Resultado aprobado, entrega idempotente por puertos a Bolsa o Personal y rectificación del resultado o entrega. Depende de S6, acto y datos de la pregunta 111. | Lista de aprobados y recibo recuperable del receptor con operación estable; el reintento no duplica efectos. La entrega a Personal no constituye nombramiento ni ocupación: Personal aplica el acto competente. Cada rectificación enlaza los actos y efectos previos. |
+| S8 · Procesos selectivos, RPT/Personal | Cuadro OEP–plaza–convocatoria SEL-001, tras las referencias mínimas de S1. Depende del modelo histórico RPT y autoridad de vacantes. | RRHH ve grado de ejecución con cada plaza y acto de cobertura, sin tratar una propuesta como vacante cubierta. |
 
 La consulta exacta actual merece una corrección conjunta al hacer S1: el SQL
 `bolsa_convocatorias/000002` devuelve `encontrada`, mientras el adaptador Go V1
@@ -132,75 +149,6 @@ conflictos de interés, acceso y publicación protegida. Una configuración de
 órganos no concede permisos: los perfiles serán fijos y su provisión seguirá
 huella y CAS.
 
-## Por dónde empezar mañana y trabajo conservado
+## Condiciones funcionales conservadas
 
-Primera tarea: **S0**, reconciliar las tres ramas WIP sobre el `main` vigente y
-cerrar el ensayo antes de abrir PR de producto. Hoy no hay PR de Selección
-abierta ni instalación SQL realizada por A.
-
-| Rama remota | SHA y contenido | Estado al parar |
-| --- | --- | --- |
-| `trabajo/codexa-selectivos-motor-20261001` | `9f781d286`: dominio, aplicación, puerto, adaptador al baremador y tres ejemplos sintéticos | Pruebas Go focales verdes; falta composición con HTTP/web y revisión final. |
-| `trabajo/codexa-selectivos-web-20261001` | `fcdfc852d`: formulario, cliente y vista local | Incompleta: falta catálogo EN, corregir claves duplicadas ES, tests y navegador. No servir todavía. |
-| `trabajo/codexa-selectivos-inventario-20261001` | `e6f640cb1`: montaje HTTP/README/test WIP, apilado sobre Personal B; preguntas 109–111 en `749f3567e` | Falta reunir motor/web y comprobar el recorrido. No tiene PR. |
-
-Los tres SHA están publicados para que el siguiente agente recupere el trabajo
-sin reconstruirlo. La PR de este fichero documenta el plan; no integra esos
-WIP ni declara Selectivos completo.
-
-## Estimación
-
-Horquillas provisionales de trabajo de A, incluidos implementación, pruebas
-focales y preparación de cada PR. Presuponen que los contratos comunes de
-identidad, firma, registro, representación y cobro que se necesiten ya son
-utilizables. No incluyen el trabajo de H en Méritos, B en Personal, D en sus
-autoridades comunes, otros propietarios ni las decisiones y esperas externas.
-S2, S3 y S5 se dividirán en PR pequeñas según se confirme cada contrato.
-
-| Minitarea | Horas de A | Principal incertidumbre |
-| --- | ---: | --- |
-| S0 · ensayo recuperado | 10–16 | Reconciliar las tres ramas WIP y comprobar Chrome. |
-| S1 · consulta exacta y V3 | 20–32 | Contrato de Bolsa, referencias RPT y ensayo SQL. |
-| S2 · bases, aprobación y publicación | 24–40 | Actos competentes, firma y fuente oficial. |
-| S3 · solicitud y presentación | 32–52 | Representación, registro y tasa según las bases. |
-| S4 · admisión y subsanación | 28–44 | Evidencias de H y decisión motivada. |
-| S5 · tribunal y actas | 24–40 | Autoridad por proceso y firma de actas. |
-| S6 · fases y calificaciones | 28–48 | Reglas de bases y reclamaciones. |
-| S7 · aprobados y traspaso | 24–40 | Recibo del receptor y rectificaciones. |
-| S8 · cuadro OEP y plazas | 16–28 | Referencias y actos de cobertura de RPT/Personal. |
-| **Total de esfuerzo de A** | **206–340** | No es la duración total de Selectivos. |
-
-Con jornadas de ocho horas, un equipo necesita **26–43 días de esfuerzo** si
-las dependencias están disponibles. Dos equipos no reducen esa cifra a la mitad:
-S0–S7 tienen un camino casi secuencial. Con S8 en paralelo, la planificación
-orientativa es **24–39 días**. La preparación de S5 desde S2 podría acortar ese
-camino, pero hay que separar sus horas de las actas posteriores a S4 antes de
-calcular otra horquilla. La cifra de dos equipos no es una fecha de entrega.
-
-RRHH debe facilitar o validar las bases por modalidad, reglas de tasa y
-exención, órganos competentes, composición del tribunal, actos y datos del
-traspaso (preguntas 109–111). Sistemas debe confirmar los contratos y entornos
-de identidad, representación, firma, registro, publicación oficial, cobro y
-conciliación que correspondan. Sus esfuerzos y plazos quedan **por estimar por
-sus responsables**; una espera por estas respuestas aumenta el calendario sin
-consumir las horas de A de la tabla. H y B estimarán por separado sus puertos y
-datos propios.
-
-## Consenso Astra
-
-En la primera ronda, Astra revisó la propiedad de los datos y el orden de los
-cortes. Se acordó que H mantiene el Registro Único de Méritos, B produce los
-hechos de Personal y A consume ambos por puertos autorizados según su finalidad.
-El baremador existente es común; A conserva las bases y decisiones de cada
-convocatoria. Acreditar un hecho, cumplir un requisito y puntuarlo siguen
-siendo decisiones distintas. Un mérito reutilizable se consulta a H; los hechos
-de Personal que se necesiten como requisitos independientes proceden de B.
-
-En la segunda ronda se mantuvo S8 como cuadro final, pero las referencias
-mínimas de plaza, OEP y versión se exigirán antes de aprobar las bases. S4
-incluye impugnaciones de admisión; S6, reclamaciones de calificaciones; S7,
-rectificaciones del resultado y de la entrega. S5 separa preparación del
-tribunal y actas. Astra dio GO a este reparto y pidió tratar la horquilla de
-dos equipos como escenario condicionado. La entrega a Bolsa o Personal tendrá
-un recibo recuperable; Personal decidirá los actos de relación y ocupación
-que le correspondan.
+Méritos conserva el registro reutilizable; Personal aporta hechos laborales y Selectivos aplica requisitos y puntuaciones por sus puertos autorizados. La acreditación del hecho, el cumplimiento del requisito y su puntuación son decisiones distintas. Las referencias de plaza, oferta de empleo y versión se exigen antes de aprobar las bases. Admisión, calificaciones, resultado y entrega conservan reclamaciones o rectificaciones propias. La entrega a Bolsa o Personal deja un recibo recuperable.
