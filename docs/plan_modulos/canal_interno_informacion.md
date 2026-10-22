@@ -1,11 +1,28 @@
 # Plan del Canal interno de información — 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+## Vigencia al 20 de octubre de 2026
+
+Este módulo conserva su alcance y sigue después de Bolsa y Contratación
+según el [plan general](../producto/PLAN_IMPLEMENTACION.md). El estado de cada
+tarea lo fija el [tablero](../producto/TABLERO_TAREAS.md). Se trabaja en
+copias locales con datos ficticios; cidonia está congelada.
+
+El inventario de abajo conserva sus fechas, contratos y requisitos. Sus
+ramas, responsables, órdenes de reanudación, horas y cifras pertenecen a esos
+cortes: no son un encargo actual ni acreditan una instalación o un recorrido.
+Antes de reanudar, dirección debe contrastar qué se ha integrado en `main`
+y fijar una tarea con consumidor visible y comprobación propia. Lo pendiente
+de RRHH sigue en [dudas.md](../../dudas.md), con valor provisional configurable
+cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
+
+## Inventario histórico anterior al 20 de octubre de 2026
+
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 ## Estado del primer corte — 7 de octubre de 2026
 
 **CAN01 es candidato local, pendiente de integración y publicación.** La rama
-`trabajo/codexv-canal-publico-20261007` contiene la entrada pública
+una rama histórica contiene la entrada pública
 `/canal-interno/`, catálogos de texto castellano e inglés y
 `web/static/canal-interno/destinos.json`, versión 1. El paquete enlaza el canal
 que figura en la [página institucional](https://www.dipgra.es/e-administracion/administracion-electronica/sistema-interno-de-informacion/),
@@ -26,7 +43,7 @@ redirección, POST rechazado y archivos no enumerados. El servidor VEC aún no s
 recorrido en Chrome; no se afirma despliegue, recepción ni seguimiento de denuncias.
 
 **CAN02 queda pendiente:** cambio nominal y auditado de esa configuración pública
-con permiso exacto y autoridad común K/L. También quedan pendientes la decisión
+con permiso exacto y autoridad común los servicios comunes de identidad y autorización. También quedan pendientes la decisión
 136 del Responsable y DPD para cualquier intercambio, su contrato técnico,
 custodios y política de eliminación. Hasta entonces el Sistema institucional
 conserva recepción, acuses, investigación y libro-registro.
@@ -40,8 +57,8 @@ solo documentación, sin código, SQL, instalación ni acceso a expedientes del 
 
 Base del inventario inicial: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos: [ficha del Canal interno integrada](../estudio_requisitos/ficha_canal_interno_informacion_2026-10-04.md),
-CAN1–CAN10. La cola vigente y las autoridades de identidad/autorización K,
-núcleo/auditoría L y Documentos se conservan. Personal B no produce un vínculo
+CAN1–CAN10. La cola vigente y las autoridades de identidad y autorización,
+núcleo y auditoría y Documentos se conservan. Personal no produce un vínculo
 obligatorio para acceder al canal ni recibe denuncias.
 
 ## Fuentes y decisiones aplicables
@@ -77,7 +94,7 @@ a preguntar por la existencia del canal o del reglamento ni se modifica la duda.
 ## Inventario en la base inspeccionada
 
 Se consultó primero `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
+una instantánea histórica.
 El índice representa otra instantánea; las rutas y límites siguientes se cotejaron
 por `git ls-tree` y lectura en el SHA indicado.
 
@@ -100,11 +117,11 @@ del canal. Un enlace operativo tampoco acredita recepción o protección del pro
 | Requisitos | Resultado pendiente | Propietario y dependencia |
 | --- | --- | --- |
 | CAN1–CAN3 | Entrada pública, explicación del ámbito y vías, normas/enlace versionados sin captar datos. | VEC mantiene configuración pública; el Sistema institucional mantiene el trámite y su admisibilidad. |
-| CAN4/CAN6 | Designaciones y necesidad de conocer por ente/canal/expediente/actuación. | Responsable y equipo receptor independiente; K provisiona perfiles fijos nominales, sin RRHH genérico. |
+| CAN4/CAN6 | Designaciones y necesidad de conocer por ente/canal/expediente/actuación. | Responsable y equipo receptor independiente; Identidad y Autorización provisionan perfiles fijos nominales, sin RRHH genérico. |
 | CAN5 | Comunicación/acuse/seguimiento, también anónimos, en el canal institucional. | Sistema institucional; VEC solo consume el estado/acuse mínimo autorizado si existe contrato. |
 | CAN7 | Acceso, descarga/exportación minimizada con permiso propio en compartimento reservado. | Custodio y Responsable; Documentos solo por contrato segregado admitido, sin búsqueda general. |
 | CAN8/CAN9 | Separar retención, suprimir/anonimizar y tratar copias/restauraciones. | DPD/Responsable/archivo del Sistema, según tratamiento y finalidad; VEC elimina sus mínimos cuando proceda. |
-| CAN10 | Cambio de configuración y actuación nominal auditados; anonimato sin inventar persona. | Autoridad común L con consumidor específico; referencia anónima solo si se admite integración anónima. |
+| CAN10 | Cambio de configuración y actuación nominal auditados; anonimato sin inventar persona. | Autoridad común los servicios comunes con consumidor específico; referencia anónima solo si se admite integración anónima. |
 
 La entrada pública no transmite sesión, persona, datos laborales, cabecera de
 referencia o parámetros personales al proveedor. Se usa el destino oficial
@@ -163,17 +180,17 @@ Dirección confirma SHA actual y archivos exclusivos. Rutas nuevas son prevision
 los cambios comunes y de entrada pública los producen sus custodios. B1 es
 autorización/auditoría nominal; B3 configuración; B5 documentos; B6 intercambio.
 La base B2 de vínculo laboral no es requisito del informante. Las horas comunes
-de K/L y del Sistema institucional se separan del consumo propio de VEC.
+de Identidad, Usuarios, los servicios comunes y el Sistema institucional se separan del consumo propio de VEC.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
 | C00 · inventario | Revalidar destino/normas en base vigente y qué mantiene cada custodio. | Este plan, en su turno. | Ficha; sin inspección de expedientes ni formulario del proveedor. | 1–2 |
 | C01 · B3/CAN3 | Fuente pública versionada de enlace/normas con consumidor y validación de destino. | `web/static/canal-interno/destinos.json` y lector propio en el candidato CAN01. | Fuente institucional; enlace sin campos de persona/empleado/sesión. | 2–3 |
-| C02 · B1/CAN10 | Cambio nominal de configuración con permiso exacto/auditoría; lectura pública solo devuelve campos públicos. | Consumidor propio de configuración/auditoría; común por custodio. | C01, K/L y gobierno existente; sin historial nominal de visitas al canal. | 4–6 |
+| C02 · B1/CAN10 | Cambio nominal de configuración con permiso exacto/auditoría; lectura pública solo devuelve campos públicos. | Consumidor propio de configuración/auditoría; común por custodio. | C01, los servicios comunes de identidad y autorización y gobierno existente; sin historial nominal de visitas al canal. | 4–6 |
 | C03 · CAN1/2 | Acceso público útil al canal y normas, ámbito/vías claros y ayuda desde catálogos. | Vista/cliente/textos propios en nueva superficie pública; montaje por dueño. | C01 para lectura pública; C02 pendiente para cambio gobernado; sin login/certificado ni recogida de datos. | 3–5 |
 | C04 · entrega inicial | Chrome comprueba enlace, teclado, público sin login y ausencia de identidad/referrer/parámetros transmitidos. | Pruebas focales/recorrido y ayuda propias. | C03; revisión de frontera/usabilidad; no acredita recepción del proveedor. | 2–4 |
 | C05 · decisión, opcional | Contrato mínimo autorizado por Responsable y DPD, límites/datos/retención y sistema de referencia fijados. | Contrato junto al futuro adaptador; actualización de este plan en su turno. | 136 resuelta para integración; proveedor/Sistemas admiten interfaz; sin inferir API. | 3–5 |
-| C06 · B1/CAN4/6 | Consumidor nominal segregado de gestores con consulta focal y los tres resultados auditados. | Nuevos `canalinterno/ports/{autorizacion,auditoria}.go`, consumidor propio. | C05, K/L, designaciones/perfiles fijos, conflictos y superficie segregada por custodio. | 6–10 |
+| C06 · B1/CAN4/6 | Consumidor nominal segregado de gestores con consulta focal y los tres resultados auditados. | Nuevos `canalinterno/ports/{autorizacion,auditoria}.go`, consumidor propio. | C05, los servicios comunes de identidad y autorización, designaciones/perfiles fijos, conflictos y superficie segregada por custodio. | 6–10 |
 | C07 · B6/CAN5 | Puerto/adaptador y consumidor de estado/acuse mínimos desde Sistema institucional. | `ports/canal.go`, `adapters/institucional/` y caso de uso propios. | C05/C06; sin cuerpo, identidad protegida o libro paralelo; anónimo solo conforme contrato. | 4–6 |
 | C08 · B6 | Derivación mínima admitida con recibo, reintento y conciliación sin duplicar comunicación institucional. | Entrega/reconciliación propias; SQL reservado si conserva estado mínimo. | C07, acuse del receptor; SQL en borrador, ensayo y dos revisiones antes de instalar. | 5–8 |
 | C09 · B5/CAN7 | Consulta/descarga excepcional minimizada desde custodio con permiso propio, sin exportación general. | Consumidor documental reservado y controles propios. | C05/C06; contrato de custodia y necesidad de conocer; entrega de contenido solo donde se habilite. | 4–7 |
@@ -194,7 +211,7 @@ admitida. Se reserva número fuera de Git antes de escribir, con preimagen/orden
 causal; permanece en borrador hasta ensayo en clon principal y dos revisiones
 exactas. MCP `postgres-clon-local` solo para lectura/EXPLAIN; dirección instala.
 No copiar el libro-registro, reaplicar migraciones, ejecutar DOWN sobre historia
-o SQL en cidonia desde A. La disponibilidad del conector no acredita garantías
+ni SQL en el servidor compartido desde este módulo. La disponibilidad del conector no acredita garantías
 jurídicas ni operativas del proveedor.
 
 ## Dependencias, paralelismo y estimación
@@ -213,14 +230,14 @@ C13 5–8 h. Camino **39–65 h**, redondeado a **5–9 jornadas**. Es la horqui
 una vez admitido el contrato; si el solape no es posible se vuelve a 7–11.
 Un equipo conserva adaptador/acuse/derivación y otro descarga/conservación/pruebas;
 el contrato de anonimato y la auditoría común tienen un responsable. El Sistema,
-K/L y DPD no se cuentan como equipos adicionales implícitos.
+los servicios comunes de identidad y autorización y DPD no se cuentan como equipos adicionales implícitos.
 
 | Trabajo externo, fuera del total técnico | Dedicación orientativa | Condición |
 | --- | ---: | --- |
 | Responsable del Sistema | 2–4 h iniciales; 4–8 h si integra | Validar enlace/alcance; después aprobar 136, designaciones y contrato mínimo. Espera sin fecha comprometida. |
 | DPD/Archivo/Seguridad | 5–10 h si integra | Bases/encargados, separación de conservación, minimización, copias y restauración; sin promesa de cierre formal. |
 | Sistemas/proveedor institucional | 6–12 h si integra | Confirmar interfaz admitida, garantías y entorno sintético; ninguna API se presume desde el enlace. |
-| K/L, Documentos y receptores autorizados | Estimación por sus propietarios | Capacidad de actor anónimo si procede, perfiles de gestores, auditoría/custodia segregadas y consumidores; fuera de C06/C09/C12. |
+| los servicios comunes de identidad y autorización, Documentos y receptores autorizados | Estimación por sus propietarios | Capacidad de actor anónimo si procede, perfiles de gestores, auditoría/custodia segregadas y consumidores; fuera de C06/C09/C12. |
 
 Las horas miden esfuerzo del consumo VEC; no incluyen adjudicación/contrato,
 auditoría completa del proveedor ni espera de responsables. El alcance y sus
