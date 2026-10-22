@@ -1,6 +1,23 @@
 # Plan de Nóminas: 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+## Vigencia al 20 de octubre de 2026
+
+Este módulo conserva su alcance y sigue después de Bolsa y Contratación
+según el [plan general](../producto/PLAN_IMPLEMENTACION.md). El estado de cada
+tarea lo fija el [tablero](../producto/TABLERO_TAREAS.md). Se trabaja en
+copias locales con datos ficticios; cidonia está congelada.
+
+El inventario de abajo conserva sus fechas, contratos y requisitos. Sus
+ramas, responsables, órdenes de reanudación, horas y cifras pertenecen a esos
+cortes: no son un encargo actual ni acreditan una instalación o un recorrido.
+Antes de reanudar, dirección debe contrastar qué se ha integrado en `main`
+y fijar una tarea con consumidor visible y comprobación propia. Lo pendiente
+de RRHH sigue en [dudas.md](../../dudas.md), con valor provisional configurable
+cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
+
+## Inventario histórico anterior al 20 de octubre de 2026
+
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 La persona consultará sus recibos originales por entidad, relación y periodo, con
 lectura y descarga autorizadas por separado. Podrá pedir revisión de una discrepancia.
@@ -11,7 +28,7 @@ ni instalación.
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de Nóminas](../estudio_requisitos/ficha_nominas_2026-10-04.md),
 N1–N12 y NOM-001–NOM-008 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
-Personal B mantiene relaciones y servicios; K identidad y perfiles; L las autoridades
+Personal mantiene relaciones y servicios; Identidad y perfiles; las autoridades comunes
 comunes. El plan no reasigna sus archivos ni modifica el seguimiento general.
 
 ## Fuentes y decisiones aplicables
@@ -32,7 +49,7 @@ no acredita API, custodia, autorización o permiso para copiar recibos.
 ## Inventario en la base inspeccionada
 
 La búsqueda empezó en `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
+una instantánea histórica.
 Sus resultados se cotejaron mediante `git ls-tree` y lectura de archivos de esta base;
 el índice corresponde a otra instantánea y no acredita el estado actual por sí solo.
 
@@ -41,9 +58,9 @@ el índice corresponde a otra instantánea y no acredita el estado actual por s�
 | Vista de recibos | `web/static/portal-empleado/modulos/nominas/vista.js`; `nominas.css`; `nominas.test.mjs` | Ya admite una fuente inyectada con `consultar`/`descargar`, periodos y estados de carga, vacío, denegación y error. Sin fuente muestra `no_configurado`. Reutilizarla; faltan cliente nominal, fuente admitida y montaje real de esa lectura. |
 | Presentación e idioma | `web/static/portal-empleado/modulos/nominas/datos-presentacion.js`; `i18n.js` | Atlas e importes de ejemplo son sintéticos; no son recibos ni derechos. Los mensajes están embebidos en JavaScript: deuda de migrarlos a catálogos de datos ES/EN antes de la integración nominal. No conectar el atlas como fuente económica. |
 | Borrador económico histórico | `internal/modules/personal/domain/payroll.go`; `payroll_test.go` | `BuildPayrollDraft` suma conceptos aportados y separa deducciones/bases marcadas. No contiene reglas completas por colectivo, cierre, autorización o conciliación. Sigue siendo preparación de Personal; no presentarlo como motor oficial ni ampliarlo para alojar Nóminas. |
-| Personal B | `internal/modules/personal/ports/{ficha_propia,historia_relaciones_propia,relacion_empleado}.go`; `adapters/composicion/FICHA_PROPIA.md`; `adapters/postgres/ficha_propia.go` | Referencias y consulta propia con autorización común. Reutilizar contratos mínimos mediante B; la ficha no concede permiso sobre recibos. Falta el contrato de relación/entidad/periodo para Nóminas. |
-| Usuarios / contexto K | `internal/modules/usuarios/application/correos.go`; `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Cuenta/contacto y contexto nominal separados del vínculo laboral. K provee identidad, emisor y perfiles fijos; falta consumidor de Nóminas. No crear login, maestro de personas o permisos por petición. |
-| Auditoría L | `internal/vec/ports/auditoria_intento_nominal.go`; `auditoria_frontera_ruta_exacta.go`; `internal/vec/adapters/postgres/auditoria_intento_nominal.go` | Registro común de denegado/error tras cerrar el intento original, con acuse. La frontera sin identidad tiene contrato propio. Falta configurar proceso/canal y las acciones/rutas exactas de Nóminas por sus custodios. |
+| Personal | `internal/modules/personal/ports/{ficha_propia,historia_relaciones_propia,relacion_empleado}.go`; `adapters/composicion/FICHA_PROPIA.md`; `adapters/postgres/ficha_propia.go` | Referencias y consulta propia con autorización común. Reutilizar contratos mínimos mediante Personal; la ficha no concede permiso sobre recibos. Falta el contrato de relación/entidad/periodo para Nóminas. |
+| Usuarios y contexto de identidad | `internal/modules/usuarios/application/correos.go`; `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Cuenta/contacto y contexto nominal separados del vínculo laboral. Identidad y Autorización proveen identidad, emisor y perfiles fijos; falta consumidor de Nóminas. No crear login, maestro de personas o permisos por petición. |
+| Auditoría común | `internal/vec/ports/auditoria_intento_nominal.go`; `auditoria_frontera_ruta_exacta.go`; `internal/vec/adapters/postgres/auditoria_intento_nominal.go` | Registro común de denegado/error tras cerrar el intento original, con acuse. La frontera sin identidad tiene contrato propio. Falta configurar proceso/canal y las acciones/rutas exactas de Nóminas por sus custodios. |
 | Documentos y firma | `internal/vec/documentos/application/servicio.go`; `ports/{firma,custodia_firmado}.go`; `adapters/postgres/custodia_firmado.go`; `internal/vec/ports/documentos.go` | Registro externo, custodia y descarga común; verificación de firma separada. Sus piezas específicas de CT no autorizan nómina. Falta tipo, política, custodio y consumidor del original; una referencia externa no acredita custodia de bytes. |
 | Tiempo y gastos | `internal/modules/cronos/ports/`; `internal/modules/dietas/ports/`; `internal/modules/contrataciontemporal/` | Sus propietarios mantienen incidencias, liquidaciones y contratación. No existe por estas piezas un conector económico aprobado para Nóminas; una propuesta o aprobación no prueba alta efectiva ni pago. |
 
@@ -56,10 +73,10 @@ instalación, activación en principal ni recorrido de Nóminas.
 
 | Capacidad | Resultado pendiente | Dueño y dependencia |
 | --- | --- | --- |
-| N1–N2 | Correspondencia titular/relación/entidad y lista propia paginada. | A consume el puerto de Personal B y el proveedor K; RRHH/Sistemas confirman fuente. |
-| N3–N5 | Lectura, descarga independiente y rectificación enlazada del original. | A conserva consumidor; L/Documentos acuerdan custodia, política y firma cuando proceda. |
-| N6–N8 | Discrepancia mínima, ámbitos económicos y auditoría completa. | A conserva expediente de discrepancia; unidad competente responde; K/L mantienen sus autoridades. |
-| N9 | Hechos económicos aprobados con procedencia, vigencia y versión. | B/Personal, Cronos, Dietas, CT y Acción social emiten sus contratos; Nóminas no lee sus tablas. |
+| N1–N2 | Correspondencia titular/relación/entidad y lista propia paginada. | Nóminas consume el puerto de Personal y el proveedor Identidad; RRHH/Sistemas confirman fuente. |
+| N3–N5 | Lectura, descarga independiente y rectificación enlazada del original. | Nóminas conserva consumidor; Documentos y servicios comunes acuerdan custodia, política y firma cuando proceda. |
+| N6–N8 | Discrepancia mínima, ámbitos económicos y auditoría completa. | Nóminas conserva expediente de discrepancia; unidad competente responde; los servicios comunes de identidad y autorización mantienen sus autoridades. |
+| N9 | Hechos económicos aprobados con procedencia, vigencia y versión. | Personal, Cronos, Dietas, CT y Acción social emiten sus contratos; Nóminas no lee sus tablas. |
 | N10–N12 | Conectores externos, reglas, revisión/cierre y ciclos conciliados. | Nóminas mantiene cálculo; Seguridad Social, Contrat@, fiscalidad, Intervención y Tesorería conservan sus actos. Requiere ampliación y presupuesto propios. |
 
 Un único perfil activo fijo y concesión central positiva deben fijar acción,
@@ -80,25 +97,26 @@ No se registran importes, banco, retenciones, familia, salud ni documentos compl
 ## Minitareas y salidas por PR
 
 Cada corte parte del SHA vigente que dirección confirme y recibe archivos exclusivos.
-Las rutas nuevas son previsión. Composición, manifiestos, K, L y B solo los modifica
-su custodio en un corte dependiente; no se crean autoridades paralelas.
+Las rutas nuevas son previsión. La composición, los manifiestos y los contratos de Identidad,
+Autorización y Personal se modifican en sus módulos propietarios; no se
+crean autoridades paralelas.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
 | N00 · inventario | Revalidar piezas y deuda, sin repetir vista o preparador. | Este plan durante su turno. | SHA/FIN vigentes. | 1–2 |
 | N01 · fuente | Contrato de lectura, titular, versión, cobertura y continuación oficial. | Contrato junto al adaptador propio. | Duda129; RRHH/Sistemas; custodia y tratamiento. | 3–5 |
-| N02 · B1 | Consumidor nominal que consulta o deniega un recurso exacto con auditoría. | Nuevos `nominas/ports/{autorizacion,auditoria}.go`; consumidor propio. | N01; ABI K/L y perfiles fijos provisionados por huella/CAS. | 6–10 |
-| N03 · B2/B3 | Correspondencia persona/relación/entidad histórica, con conflicto explicado. | Puerto/consumidor de relación de Nóminas. | B entrega relación y datos de servicio; K antes de lectura personal. DTO puede acordarse antes. | 3–5 |
+| N02 · B1 | Consumidor nominal que consulta o deniega un recurso exacto con auditoría. | Nuevos `nominas/ports/{autorizacion,auditoria}.go`; consumidor propio. | N01; ABI los servicios comunes de identidad y autorización y perfiles fijos provisionados por huella/CAS. | 6–10 |
+| N03 · B2/B3 | Correspondencia persona/relación/entidad histórica, con conflicto explicado. | Puerto/consumidor de relación de Nóminas. | Personal entrega relación y datos de servicio; Identidad y Autorización antes de lectura personal. DTO puede acordarse antes. | 3–5 |
 | N04 · N2 | Puerto, adaptador admitido y consumidor focal del listado paginado. | `nominas/ports/recibos.go`, aplicación y adaptador propio. | N01–N03; fuente nominal autorizada. | 5–8 |
 | N05 · N2/N7 | Vista existente conectada con estados claros y textos ES/EN en datos. | Cliente/vista de Nóminas; nuevos catálogos ES/EN. | N04; montaje por custodio y revisión de usabilidad. | 4–6 |
-| N06 · N3/N4 | Lectura original con referencia, versión, huella y permiso exacto. | Consumidor documental propio; casos de uso. | N02/N04; contrato L/Documentos y custodio admitidos. | 4–7 |
+| N06 · N3/N4 | Lectura original con referencia, versión, huella y permiso exacto. | Consumidor documental propio; casos de uso. | N02/N04; contrato Documentos y servicios comunes y custodio admitidos. | 4–7 |
 | N07 · B5/N3 | Descarga autorizada aparte, auditada y ligada al original. | Cliente y consumidor de descarga propios. | N06; no URL con identidad/token ni caché compartida. | 4–6 |
 | N08 · SQL necesario | Borrador reservado de estado mínimo de integración/rectificaciones/discrepancia. | SQL y adaptador propios de Nóminas. | Contratos N01–N07; no duplicar recibos corporativos. | 4–6 |
 | N09 · ensayo | Ensayo en clon principal, revisiones exactas y kit; instalación por dirección. | Pruebas/kit propios. | N08; reserva, preimagen y dependencias. | 4–8 |
 | N10 · N5/N6 | Rectificación enlazada y discrepancia mínima recuperable por la unidad competente. | Casos de uso, cliente y catálogos propios. | N06–N09 cuando haya estado durable; circuito interno admitido. | 4–6 |
 | N11 · recorrido | Titular→recibo/descarga/discrepancia, negativos, reinicio y manual. | Pruebas focales y manual del módulo. | N05–N10; revisión documental, sensible y de usabilidad. | 4–6 |
-| N12 · N9 posterior | Contratos económicos por fuente y periodo, con consumidor de ensayo. | Puertos y consumidor propios; cada emisor por su dueño. | Ampliación encargada; hechos aprobados B/Cronos/Dietas/CT/Acción social. | 6–10 |
-| N13 · N11 posterior | Inventario y preparación contrastable de reglas por colectivo, sin cierre oficial. | Preparación propia y datos versionados de ensayo. | Políticas aprobadas; revisar límite de `payroll.go` con B, sin mover su autoridad unilateralmente. | 8–14 |
+| N12 · N9 posterior | Contratos económicos por fuente y periodo, con consumidor de ensayo. | Puertos y consumidor propios; cada emisor por su dueño. | Ampliación encargada; hechos aprobados Personal/Cronos/Dietas/CT/Acción social. | 6–10 |
+| N13 · N11 posterior | Inventario y preparación contrastable de reglas por colectivo, sin cierre oficial. | Preparación propia y datos versionados de ensayo. | Políticas aprobadas; revisar límite de `payroll.go` con Personal, sin mover su autoridad unilateralmente. | 8–14 |
 | N14 · N10 posterior | Acuerdo técnico y preparación de lotes de un intercambio externo elegido. | Puerto, adaptador preparatorio y consumidor propio. | Fuente/operador/esquema admitidos; distinguir RED/SILTRA, Contrat@ e IRPF. | 8–12 |
 | N15 · N12 posterior | Guion de ciclos paralelos, revisión, fiscalización, cierre y conciliación con criterios acordados. | Plan de validación económica junto al consumidor. | N12–N14; responsables de Nóminas/Intervención/Tesorería. | 6–10 |
 
@@ -122,7 +140,7 @@ a la vez; su lectura espera autorización real. Con dos equipos, uno conserva li
 cliente y catálogos (N04/N05); otro original, descarga y estado propio (N06–N09).
 N10 reúne contratos finales; N11 espera capacidades montadas y, cuando corresponda,
 instaladas. Un solo escritor conserva vista, idioma y cada contrato compartido.
-K/L/B no son un tercer equipo incluido en estas horas. N12–N15 pueden estudiarse
+los servicios comunes de identidad y autorización/Personal no son un tercer equipo incluido en estas horas. N12–N15 pueden estudiarse
 después sin abrir cálculo real mientras se usan los recibos de origen.
 
 ## Configuración y estimación
@@ -145,7 +163,7 @@ no reduce el esfuerzo ni es una fecha comprometida.
 | --- | ---: | --- |
 | RRHH / unidad de Nóminas | 4–8 h | Resolver129, cobertura y circuito de discrepancia; reglas económicas requieren encargo posterior. |
 | Sistemas / proveedor actual | 6–12 h | Interfaz, entorno, identificadores, integridad y continuidad del original. |
-| K/L, Documentos y Personal B | Estimación de sus dueños | Identidad/perfiles, proceso/canal, custodia/firma y relación histórica; se cuenta aquí solo el consumidor. |
+| los servicios comunes de identidad y autorización, Documentos y Personal | Estimación de sus dueños | Identidad/perfiles, proceso/canal, custodia/firma y relación histórica; se cuenta aquí solo el consumidor. |
 | DPD / Archivo | 3–6 h | Finalidades, campos, series, acceso, conservación y riesgos; aprobación sin plazo comprometido. |
 | Intervención / Tesorería / organismos externos | Estimación posterior | Ciclos y acuses de la ampliación económica; no están dentro del primer corte. |
 
