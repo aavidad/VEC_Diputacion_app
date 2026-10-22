@@ -1,13 +1,29 @@
-# Mi bolsa: consultar la situación y aceptar un llamamiento
+# Aspirante: inscripción, méritos y Mi Bolsa
 
-**Comprobado el 9 de octubre de 2026.** Las imágenes muestran un ejemplo. Su bolsa, número de orden y fechas pueden ser distintos.
+Actualizado el 20 de octubre de 2026. Se trabaja en copias locales con datos
+ficticios. Las imágenes conservadas son históricas, del recorrido del 9 de
+octubre; las cifras, fechas y algunos rótulos pueden haber cambiado.
+
+## Entrar con el acceso correcto
+
+Use la dirección y el certificado que le faciliten para su cuenta de aspirante.
+No utilice cidonia para preparar este recorrido.
+
+- **Acceso interno usado en los recorridos:** permite enseñar por separado la inscripción, los méritos, la admisión y las alegaciones. No es necesario repetir la inscripción para una persona que ya participa en la bolsa del llamamiento.
+- **Cuenta externa propia:** tiene una entrada y un acceso separados. El 20 de octubre se comprobó que abría Mi Bolsa antes y después de reiniciar, pero esa cuenta no tenía participaciones. Esa comprobación no acredita todavía su inscripción, aceptación ni subida de justificantes.
+
+Que una persona sea empleada no suma sus permisos internos a los de aspirante.
+Si no ve sus participaciones o no puede abrir una opción, comuníquelo a RRHH;
+no cambie de identidad para intentar acceder. Los botones públicos de acceso
+no sustituyen el acceso preparado de la copia.
+
 
 ## Inscribirse en una bolsa
 
-**Comprobado el 20 de octubre de 2026** en una copia de desarrollo.
+El recorrido de inscripción del 20 de octubre corresponde al acceso interno preparado en una copia local.
 
 1. En el menú, dentro de **Tramitación**, pulse **Inscribirme en una bolsa**. Verá las bolsas con plazo abierto, con su plazo de inscripción, el número de categorías, cómo se presenta la solicitud y los requisitos.
-2. Pulse **Consultar bolsa** en la que le interese. La ficha muestra la categoría y cada requisito. Si un requisito figura como **Cumple (comprobado)**, no tiene que hacer nada con él.
+2. Pulse **Consultar bolsa** en la que le interese. La ficha muestra la categoría y cada requisito. Marque **Declaro que lo cumplo** en los que deba declarar. Si un requisito figura como **Cumple (comprobado)**, no tiene que declararlo de nuevo.
 3. Pulse **Solicitar inscripción**. En **Revise su solicitud** compruebe la bolsa, la categoría y el plazo.
 4. Pulse **Presentar solicitud** una sola vez. Aparece «Solicitud presentada. Guarde su número de recibo», con el estado **Pendiente de revisión** y el número de recibo.
 
@@ -17,9 +33,37 @@ Recursos Humanos revisa la solicitud. Cuando la resuelva, el estado cambiará a 
 
 Si la conexión se corta al presentar, abra **Mis solicitudes** antes de repetir. Si la solicitud aparece, ya está presentada: VEC no crea una segunda solicitud para la misma bolsa y categoría.
 
+La admisión no le incorpora por sí sola a la bolsa. RRHH debe registrar
+por separado esa incorporación con el acta que corresponda. Si la convocatoria
+exige una solicitud conjunta de varias categorías y la página indica que no
+la permite, no presente solicitudes separadas para sustituirla: contacte con
+la oficina de atención.
+
+## Declarar un título o mérito
+
+1. Abra **Mis méritos** y pulse **Añadir título o mérito**.
+2. Elija el tipo, escriba el nombre y la fecha de obtención o inicio. Complete la fecha de finalización y la duración en horas cuando correspondan.
+3. Pulse **Registrar mérito** y espere la confirmación de que queda pendiente de revisión.
+4. Vuelva a la cartera para comprobar que aparece. Si el resultado es incierto, use **Reintentar registro** para recuperar la misma operación.
+
+Declarar el mérito no acredita un título ni concede puntos definitivos. Este
+formulario no debe confundirse con la aportación de un PDF acreditado.
+
+## Presentar una alegación
+
+1. Abra **Alegaciones** y elija la decisión de su solicitud o la actuación de su participación que desea revisar.
+2. En **Qué solicita y por qué**, explique su petición y su motivo.
+3. Pulse **Presentar alegación** y conserve el **Justificante de la alegación**.
+4. Consulte **Mis alegaciones** y abra **Ver alegación** para recuperar lo presentado.
+
+El justificante corresponde a la presentación en VEC. No acredita un asiento
+en el registro oficial ni la resolución de la alegación. RRHH consulta su
+contenido por separado. Si no hay una decisión o actuación disponible, no
+elija otra ajena para poder continuar.
+
 ## Ver su situación
 
-Entre en [Mi área personal](https://vec.cidonia.cloud/area-personal/?lang=es) con su acceso y pulse **Mi bolsa** en el menú. La pantalla se titula «Disponibilidad y llamamientos». En **Mi participación** verá la bolsa, su número de orden inicial y la última situación registrada. **Disponible** significa que consta como disponible en esa bolsa. Recibir un llamamiento depende del orden y de las reglas que se apliquen.
+Entre en **Mi área personal** de la copia local con su acceso y pulse **Mi bolsa** en el menú. La pantalla se titula «Disponibilidad y llamamientos». En **Mi participación** verá la bolsa, su número de orden inicial y la última situación registrada. **Disponible** significa que consta como disponible en esa bolsa. Recibir un llamamiento depende del orden y de las reglas que se apliquen.
 
 ![Recorte de Mi bolsa: participación, número de orden y situación Disponible.](img/aspirante-mi-bolsa.webp)
 
@@ -63,3 +107,15 @@ Que la respuesta quede registrada no cambia en ese momento su situación en la b
 Si aparece «No se ha podido confirmar el resultado. Consulte Mi bolsa antes de volver a enviar la petición», vuelva a **Mi bolsa** y compruebe si figura **Respuesta registrada** con un recibo. Si no aparece, comunique a RRHH el mensaje que vio antes de intentar otro envío.
 
 Si todavía no aparece **Llamamiento abierto**, espere a que RRHH registre el contacto. La indicación **Enviado** del correo, por sí sola, no abre una respuesta en esta pantalla.
+
+## Renunciar con causa justificada
+
+Si elige **Renuncio con causa justificada**, debe aportar el justificante
+que pide la pantalla y revisar su renuncia antes de enviarla. Esta vía exige
+que la custodia de documentos y la revisión de archivos estén disponibles.
+No basta con escribir una referencia de documento ni con enviar un correo.
+Si no puede adjuntar o recuperar el justificante, contacte con RRHH.
+
+La aportación y descarga del PDF por RRHH siguen pendientes de acreditarse en
+el recorrido externo completo. Consulte [los pasos pendientes](PENDIENTES.md).
+La aceptación explicada arriba no necesita un justificante de renuncia.
