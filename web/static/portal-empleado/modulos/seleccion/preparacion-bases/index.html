@@ -28,6 +28,15 @@
       </header>
       <main id="contenido-principal" class="contenido-portal" tabindex="-1"><div id="espacio-trabajo"><div class="pila">
         <section id="bases-ayuda-contenido" class="panel" hidden><header class="cabecera-panel"><h2 data-texto="ayuda"></h2></header><div class="cuerpo-panel"><p data-texto="ayuda_texto"></p></div></section>
+        <section class="panel"><header class="cabecera-panel"><h2 data-texto="edicion_titulo"></h2></header><div class="cuerpo-panel pila">
+          <form id="bases-edicion" class="pila" novalidate>
+            <label class="campo" for="bases-titulo"><span data-texto="edicion_nombre"></span><input id="bases-titulo" type="text" maxlength="180" required aria-describedby="bases-edicion-error"></label>
+            <label class="campo" for="bases-modalidad"><span data-texto="edicion_modalidad"></span><select id="bases-modalidad" required><option value="" data-texto="edicion_elegir"></option><option value="separada" data-texto="modalidades_inscripcion.separada"></option><option value="conjunta" data-texto="modalidades_inscripcion.conjunta"></option></select></label>
+            <p id="bases-edicion-error" role="alert" hidden></p>
+            <div class="acciones-vista"><button id="bases-guardar" type="submit" class="boton-primario" data-texto="guardar" disabled></button><button id="bases-reintentar" type="button" class="boton-secundario" data-texto="reintentar" hidden disabled></button></div>
+          </form>
+          <div id="bases-confirmacion" role="status" aria-live="polite"></div>
+        </div></section>
         <section class="panel"><header class="cabecera-panel"><h2 data-texto="consulta_titulo"></h2></header><div class="cuerpo-panel pila">
           <p data-texto="consulta_limite"></p>
           <form id="bases-consulta" class="pila" novalidate>

@@ -2,9 +2,10 @@ import { ErrorConsultaBases, validarSelector, leerConsulta } from './contrato-ht
 import { MAXIMO_BYTES } from './modelo.js?v=VEC_WEB_VERSION';
 
 export const RUTA_CONSULTA_BASES = '/api/vec/seleccion/preparacion-bases/consultar';
+export const RUTA_GUARDAR_BASES = '/api/vec/seleccion/preparacion-bases/guardar';
 const fallo = codigo => new ErrorConsultaBases(codigo);
 
-async function leerBytes(respuesta) {
+export async function leerBytes(respuesta) {
   const n = respuesta.headers?.get('content-length');
   if (n !== null && (!/^\d+$/u.test(n) || Number(n) > MAXIMO_BYTES)) throw fallo('respuesta_incompatible');
   if (!respuesta.body?.getReader) throw fallo('respuesta_incompatible');

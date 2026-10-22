@@ -89,7 +89,8 @@
     "firma_y_custodia": "Signature and custody",
     "acto_aprobacion": "Approval act",
     "publicacion_oficial": "Official publication",
-    "comprobacion": "Outstanding check"
+    "comprobacion": "Outstanding check",
+    "modalidad_inscripcion": "Application method"
   },
   "motivos": {
     "referencia_ausente": "The exact reference, version and content hash are missing.",
@@ -139,5 +140,27 @@
     "operacion_abortada": "Lookup cancelled. You can look up another preparation."
   },
   "material_actual": "Open material",
-  "ver_detalle_consulta": "View revision, receipts and full response"
+  "ver_detalle_consulta": "View revision, receipts and full response",
+  "modalidades_inscripcion": {
+    "separada": "One application per category",
+    "conjunta": "Several categories in one application"
+  },
+  "edicion_titulo": "Create or continue a preparation",
+  "edicion_nombre": "Rules title · Required",
+  "edicion_modalidad": "How applications will be submitted · Required",
+  "edicion_elegir": "Choose an option",
+  "edicion_validacion": "Enter a title and choose how applications will be submitted.",
+  "guardar": "Save preparation",
+  "reintentar": "Check the same save",
+  "guardando": "Saving the preparation…",
+  "guardado": "Preparation saved. Reference: {referencia}. Receipt: {recibo}.",
+  "edicion_cargada": "Preparation loaded. You can change the title or application method and save another revision.",
+  "guardado_errores": {
+    "incierto": "The save could not be confirmed. Check the same save without changing the details.",
+    "solicitud_invalida": "Check the title and application method before saving.",
+    "respuesta_incompatible": "The response cannot confirm the save. Check the same save.",
+    "acceso_denegado": "Your session cannot save this preparation. Contact the service manager.",
+    "version_en_conflicto": "The revision no longer matches the retained version. Check the same save before loading it again.",
+    "servicio_no_disponible": "The save could not be confirmed. Check the same save."
+  }
 }

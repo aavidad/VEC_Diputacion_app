@@ -21,7 +21,7 @@ const ayuda = v => forma(v, { referencia: cadena, categoria: cadena, orden: ente
 export const contenido = v => forma(v, {
   identificador_publico: cadena, tipo: cadena, catalogo_categorias: catalogo, categorias: lista(cadena),
   titulo: cadena, resumen: cadena, descripcion: cadena, plazos: lista(plazo), requisitos: lista(requisito), documentos: lista(documento), ayuda: lista(ayuda),
-});
+}, ['modalidad_inscripcion']) && (!Object.hasOwn(v, 'modalidad_inscripcion') || ['', 'separada', 'conjunta'].includes(v.modalidad_inscripcion));
 export const pendiente = v => forma(v, { campo: v => CAMPOS.includes(v), codigo: v => CODIGOS.includes(v) });
 const mensaje = v => forma(v, { campo: cadena, codigo: cadena, mensaje: cadena });
 

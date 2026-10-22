@@ -46,6 +46,7 @@ export function pintarSalida({ raiz, dto, textos, institucional = false }) {
   const resto = nodo(d, 'details'); resto.append(nodo(d, 'summary', textos.plural('comprobaciones_material', comprobaciones.children.length)), comprobaciones); pendientes.cuerpo.append(resto); resumen.append(pendientes.n);
   const propuesta = panel(d, contenido.titulo || t('propuesta')); propuesta.cuerpo.append(datos(d, [
     [t('campos.estado'), t('pendiente')], [t('campos.tipo'), Object.hasOwn(textos.mensajes.modalidades, contenido.tipo) ? t(`modalidades.${contenido.tipo}`) : valor(contenido.tipo)],
+    [t('campos.modalidad_inscripcion'), contenido.modalidad_inscripcion ? t(`modalidades_inscripcion.${contenido.modalidad_inscripcion}`) : t('sin_dato')],
     [t('campos.resumen'), valor(contenido.resumen)], [t('campos.descripcion'), valor(contenido.descripcion)], [t('campos.categorias'), (contenido.categorias ?? []).join(', ') || t('sin_dato')],
   ])); resumen.append(propuesta.n); fragmento.append(resumen);
   const requisitos = panel(d, t('requisitos')); requisitos.cuerpo.append(tabla(d, t('requisitos'), ['requisito', 'obligatorio'], (contenido.requisitos ?? []).map(r => [descripcion(r), t(r.obligatorio ? 'si' : 'no')]), t)); fragmento.append(requisitos.n);
