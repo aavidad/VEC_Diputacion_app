@@ -47,7 +47,8 @@ Funciona en castellano y en inglés, en ordenador y en móvil.
 ## Más información
 
 - [Manuales por perfil](docs/manuales/README.md)
-- [VEC en cifras](docs/presentacion_rrhh/CIFRAS_VEC.md)
+- [VEC en cifras (PDF)](docs/presentacion_rrhh/VEC_en_cifras.pdf): tamaño, equipo que haría falta y coste si se encargara fuera
+- [VEC en cifras (texto)](docs/presentacion_rrhh/CIFRAS_VEC.md)
 
 ## Licencia y autoría
 
