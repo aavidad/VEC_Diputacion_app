@@ -1,85 +1,53 @@
 # VEC · Diputación de Granada
 
-VEC es la aplicación de Recursos Humanos de la Diputación de Granada. Reúne la
-gestión de bolsas de trabajo y la contratación temporal, el área del aspirante
-y las bases comunes de personas, permisos, documentos, firma y auditoría.
-Está en desarrollo y usa siempre datos ficticios.
+VEC es la aplicación de Recursos Humanos de la Diputación de Granada para las
+bolsas de empleo temporal y la contratación temporal. Reúne en un mismo sitio
+todo el camino de una contratación: la petición del centro, el análisis, el
+informe y las firmas, la revisión de Intervención, el llamamiento a la persona
+de la bolsa, la formalización, la incorporación y el cese.
 
-## Estado al 4 de noviembre de 2026
+## Vídeos
 
-La **fase 1, Bolsa y Contratación temporal**, está casi cerrada: 163 de sus 164
-tareas activas están terminadas y vistas en el navegador, en una copia nueva y
-también después de reiniciarla. La que falta es la oferta de varias plazas en
-un mismo expediente, que está en revisión.
+[Vídeos de la presentación a Recursos Humanos](https://github.com/aavidad/VEC_Diputacion_app/releases/tag/presentacion-rrhh-20261105).
+Son capturas reales de la aplicación funcionando. Los datos de las personas son
+inventados.
 
-- El caso de aceptación se recorre entero: petición del centro, ratificación,
-  tramitación de RRHH, fiscalización, llamamiento desde Bolsa, resolución,
-  incorporación, alta en Personal, cese y vuelta a la bolsa. Está descrito en
-  [FLUJO_APP, apartado 4.0](docs/producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
-- Se han repasado todas las pantallas con cada perfil a 1440, 1024 y 390
-  píxeles de ancho. La firma funciona también desde el móvil.
-- Hay [manuales por perfil](docs/manuales/README.md) y vídeos con capturas
-  reales y datos inventados:
-  [vídeos de la presentación a RRHH](https://github.com/aavidad/VEC_Diputacion_app/releases/tag/presentacion-rrhh-20261105).
-- El material de la sesión con Recursos Humanos del 5 de noviembre (orden del
-  día, guion y cifras) está en [docs/presentacion_rrhh](docs/presentacion_rrhh/).
-  Las [cifras de VEC](docs/presentacion_rrhh/CIFRAS_VEC.md) cuentan unos 1,5
-  millones de líneas de aplicación.
+## Desde casa, cualquier persona puede
 
-Siguen pendientes las decisiones de RRHH recogidas en [dudas.md](dudas.md), el
-resto de módulos y el paso a producción.
+- Consultar las convocatorias abiertas y las listas de cada bolsa.
+- Inscribirse en una bolsa y recibir un justificante de su solicitud.
+- Mantener su cartera de méritos y presentar alegaciones.
+- Ver en Mi Bolsa su situación y su número de orden en cada bolsa.
+- Recibir por correo electrónico las ofertas y los llamamientos, y responder desde la web.
+- Elegir qué ofertas le interesan.
+- Comprobar que un documento de la Diputación es auténtico con su código.
 
-El trabajo y los ensayos se hacen **en copias locales**. Cidonia está congelada;
-la siguiente instalación irá a un servidor nuevo. Lo fusionado no acredita por
-sí solo una instalación real. El [estado del proyecto](ESTADO_PROYECTO.md), el
-[plan de implementación](docs/producto/PLAN_IMPLEMENTACION.md#5-fases-y-criterios-de-cierre)
-y el [tablero de tareas](docs/producto/TABLERO_TAREAS.md) recogen avances y
-pendientes.
+## Dentro de la Diputación, el personal puede
 
-## Módulos
+- **Centros:** pedir personal y seguir cada petición hasta la incorporación.
+- **Quien ratifica y firma:** revisar y firmar desde la web, también desde el móvil.
+- **Recursos Humanos:** llevar las bolsas, los expedientes, los llamamientos y
+  los documentos, que se preparan con la plantilla vigente y un código de comprobación.
+- **Jefatura:** ver lo pendiente, firmar y cambiar las reglas sin programar;
+  cada cambio queda con su versión y su motivo.
+- **Intervención:** fiscalizar, con reparo y subsanación cuando hace falta.
+- **Administración:** gestionar perfiles y permisos con dos personas administradoras.
 
-| Área | Alcance actual |
-| --- | --- |
-| Bolsa | Convocatorias, inscripción y admisión, candidaturas, preferencias, llamamientos y consulta en Mi Bolsa. El alcance depende de la configuración y los permisos de la copia. |
-| Contratación temporal | Peticiones del centro y expediente de RRHH, documentos PDF y Word, fiscalización, firma y actuaciones de incorporación y cese. El caso completo se recorre de la petición al cese. |
-| Personal y Organización | Bases de puestos, categorías y relaciones de servicio que necesita la contratación. El resto de su alcance queda para la fase siguiente. |
-| Administración y servicios comunes | Identidad por certificado, gobierno de perfiles, catálogos, documentos y auditoría, con activación específica en la copia. |
-| Cronos, Dietas y demás módulos | Conservan código y planes de distinto alcance. Su desarrollo se retoma según el orden del plan, después de Bolsa y Contratación. |
+## Lo que VEC hace por su cuenta
 
-La arquitectura es hexagonal. Cada módulo conserva sus datos y publica
-contratos para los demás; identidad, autorización, auditoría e idiomas son
-comunes. El detalle está en el [documento técnico](docs/producto/TRD.md).
+- Manda un correo electrónico a las personas disponibles al publicar una oferta
+  y a la persona llamada en un llamamiento.
+- Calcula los plazos y propone qué hacer cuando vencen.
+- Cambia la situación de las personas en la bolsa y la fase de cada expediente.
+- Guarda un justificante de cada paso y registra todo lo que hace cada persona,
+  también las consultas.
 
-## Arrancar una copia local
+Funciona en castellano y en inglés, en ordenador y en móvil.
 
-Sigue [Crear y usar una copia local](deploy/principal/LEEME_copia_local.md).
-El guion `deploy/principal/copia_local.py` prepara y gestiona una instancia
-propia con PostgreSQL y la aplicación. La receta indica requisitos, material
-privado autorizado, módulos opcionales, comprobaciones, reinicio y borrado.
-No basta con compilar para disponer del recorrido: firma, Administración y
-Personal requieren la preparación descrita allí.
+## Más información
 
-Para usar la copia desde el navegador, sigue la
-[guía del recorrido](GUIA_RECORRIDO_ALBERTO.md) y los [manuales por perfil](docs/manuales/README.md). Cada persona entra con su
-certificado y perfil. Los recibos locales no acreditan una confirmación de
-GINPIX, del correo corporativo ni de otros sistemas externos.
-
-## Documentación
-
-| Para | Documento |
-| --- | --- |
-| Conocer el producto y su alcance | [Requisitos de producto](docs/producto/PRD.md) |
-| Ver qué queda y en qué orden | [Plan](docs/producto/PLAN_IMPLEMENTACION.md) y [tablero](docs/producto/TABLERO_TAREAS.md) |
-| Seguir los perfiles y el caso de aceptación | [Flujo de la aplicación](docs/producto/FLUJO_APP.md) |
-| Usar las pantallas | [Manuales por perfil](docs/manuales/README.md) y [guía del recorrido](GUIA_RECORRIDO_ALBERTO.md) |
-| Preparar y recuperar una instancia | [Copia local](deploy/principal/LEEME_copia_local.md) y [manual de Sistemas](docs/manual_sistemas/README.md) |
-| Desarrollar o integrar | [Manual del programador](docs/manual_programador/README.md), [diseño de interfaz](docs/producto/DISENO_UI_UX.md) y [esquema del backend](docs/producto/ESQUEMA_BACKEND.md) |
-| Presentar VEC a RRHH | [Material de la presentación](docs/presentacion_rrhh/) |
-| Consultar decisiones pendientes de RRHH | [Preguntas abiertas](dudas.md) |
-
-La ayuda de cada pantalla se abre con el botón «?». El uso con datos reales
-requiere las autorizaciones y condiciones de la fase de paso a producción;
-ningún ensayo local las sustituye.
+- [Manuales por perfil](docs/manuales/README.md)
+- [VEC en cifras](docs/presentacion_rrhh/CIFRAS_VEC.md)
 
 ## Licencia y autoría
 
