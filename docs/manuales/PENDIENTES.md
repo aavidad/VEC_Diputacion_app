@@ -1,43 +1,45 @@
-# Recorridos pendientes
+# Lo que falta o no está comprobado
 
-## Reparo y subsanación del 20 de octubre de 2026
+Actualizado el 4 de noviembre de 2026. Esta lista dice lo que VEC todavía no hace, lo que espera una respuesta de Recursos Humanos y lo que no se ha podido ver en pantalla. Una función no figura como disponible hasta que se ha visto funcionar en una copia nueva, también después de reiniciar. Las copias de ensayo tienen siempre datos inventados.
 
-En una copia local con firma se recorrió en el expediente 2026/92006 el reparo, la subsanación, el informe nuevo firmado por el técnico y la Jefatura y la fiscalización favorable con su recibo. Tras reiniciar se conservó todo sin duplicados. También se abrió «Plantillas de documentos» desde su dirección.
+El 4 de noviembre se recorrió en una copia nueva el expediente entero, desde la petición del centro hasta el cese y el cierre, con los mismos datos antes y después de reiniciar. Las incidencias que cortaban ese recorrido el 2 de noviembre (registrar la resolución, publicar la oferta desde el expediente, la no incorporación con segunda revisión y la firma del informe nuevo tras un reparo) ya no figuran aquí.
 
-Quedan textos y avisos por corregir en esas pantallas:
+## Contratación temporal
 
-- El recibo del reparo dice «Fase resultante: Fiscalización», pero el expediente pasa a subsanación por la unidad.
-- Antes del informe nuevo, el expediente ya dice «Pendiente de nueva fiscalización por Intervención».
-- El recuadro de subsanación muestra la versión anterior y dice que no consta un plazo autorizado, en lugar de los 15 días.
-- La confirmación del informe nuevo enseña la referencia interna del expediente.
-- Durante el reparo sigue a la vista el bloque «Respuesta del llamamiento».
-- El enlace «Plantillas de documentos» no aparece en el menú hasta entrar una vez en esa pantalla.
-- La ayuda dice que los plazos para subsanar están sin definir; el catálogo ya fija 15 días hábiles.
-- El aviso de firma enseña la referencia interna del recibo, y «Quién debe firmar» dice «Nadie: firmas de VEC completas».
+- **Varias plazas en un solo expediente.** La oferta de dos plazas se publica desde el expediente y se acepta, pero formalizar varias plazas dentro de un único expediente se ha aplazado. Hoy cada plaza sigue su camino.
+- **Mejora de empleo.** Cuando la persona elegida ya trabaja en la misma bolsa, VEC debe detener la selección para que Recursos Humanos lo compruebe. En la copia del 4 de noviembre el ejemplo no se pudo preparar, así que no se vio.
+- **El día después del cese.** El día del cese Mi bolsa muestra «Trabajando» y la fecha desde la que vuelve a recibir ofertas. Cómo queda el día siguiente no se ha visto sin cambiar el reloj de la copia.
+- **Recibos iniciales tras reiniciar.** Después de reiniciar, la ficha, el historial, los documentos y las firmas salen iguales. Algunos justificantes de los primeros pasos (petición, ratificación, análisis, asignación) no se recuperan uno a uno desde su pantalla. Está anotado para el equipo de la aplicación.
+- **Primera carga tras reiniciar.** Una vez, la primera vez que se abrió la ficha tras reiniciar faltaban los documentos y el circuito de firma. Al recargar salieron completos.
+- **Cancelar con una oferta en preparación.** No se ha comprobado qué avisa la pantalla ni cómo se recupera una publicación cuya respuesta se pierde.
+- **Llamamientos cortados.** Si alguien recibió el aviso y quien lo emitió ya no está, el expediente puede quedar parado. Falta un permiso propio para cerrarlo desde la web y decidir qué pasa con quien quedó por detrás. Hasta entonces lo resuelve Informática.
+- **Aviso a la persona cuando la oferta antecede a Intervención.** El orden del ofrecimiento es configurable. Por defecto va después de la fiscalización favorable. Cambiarlo exige un acto firmado de Administración, que no se ha probado con las dos personas administradoras.
+- **Documentos tras el cese.** Están el cese en PDF y Word y la resolución firmada. La comunicación al centro tras el cese y la hoja de cálculo para nóminas no se dan por disponibles.
 
-## Comprobación de Intervención del 19 de octubre de 2026
+## Bolsas y solicitudes
 
-En una copia local se registraron una fiscalización favorable, otra favorable con observaciones y otra desfavorable, en tres expedientes distintos. Los tres devolvieron recibo. Se comprobaron los campos y la validación de observaciones en Chrome a 1440 y 390 píxeles. Tras reiniciar la aplicación y la base de datos, RRHH consultó la conformidad y el reparo: conservaban su versión, fecha e historial.
+- **Méritos y baremo.** Se ve la cartera de méritos del aspirante, sin puntos. Declarar un mérito nuevo desde Mi bolsa se rechaza hoy por un desajuste de permisos y está pendiente de corregir. Falta la valoración y la resolución de alegaciones por Recursos Humanos. Admitir una solicitud no incorpora a la bolsa.
+- **Guardar cambios de plazo y de política de ofertas.** Se ven «Reglas vigentes» y «Política de ofertas», pero guardar un cambio no está comprobado. Tampoco la activación de reglas por las dos personas administradoras.
+- **Reglas sin comprobar.** Jornada en porcentaje con motivo si es menor, renuncia pendiente de justificante, efectos en todas las bolsas, descuento de periodos previos y cese de una sustitución con comunicado.
+- **Carga completa desde Convoca.** Falta la carga de todos los datos, no solo la de pruebas.
+- **Renuncia por correo de quien ya aceptó en Mi bolsa.** Hoy la persona se retira desde Mi bolsa. Si vale un correo como renuncia lo decide Recursos Humanos (véase la lista de preguntas).
+- **Bases y convocatoria.** La modalidad de inscripción, la declaración de publicación oficial y la consulta pública con descarga de bases están hechas. Falta el cálculo automático del plazo desde la publicación oficial.
 
-La copia no tenía disponible el circuito de firma. Siguen pendientes la remisión con el informe firmado y el recorrido completo de reparo, subsanación, nuevo informe firmado y nueva fiscalización en un mismo expediente. También falta comprobar la consulta de antecedentes y la recuperación del recibo anterior desde el acceso propio de Intervención. Los pasos y las capturas están en [el manual de Intervención](intervencion.md).
+## Centro e Intervención
 
-## Comprobación del 9 de octubre de 2026
+- **Centro.** Presentar, ratificar con dos firmas, descargar la petición firmada, devolver y corregir, cancelar y confirmar la incorporación están comprobados. Falta ver la cancelación desde dos pestañas a la vez.
+- **Intervención.** Intervención fiscaliza fuera de VEC y Recursos Humanos anota el resultado. Quién lo anota sigue pendiente de confirmación (pregunta 171). El acceso propio de Intervención no ofrece todavía consulta de antecedentes ni lista de expedientes pendientes.
 
-Se recorrieron en orden la petición del centro, su ratificación, el expediente 2026/93001 que salió de ella, el llamamiento, el contacto telefónico y la aceptación desde Mi bolsa, siempre con la misma persona de la bolsa. Las imágenes del formulario del centro se tomaron aparte, con una petición de ejemplo que no se presentó.
+## Administración
 
-Quedan pendientes:
+- «Cambiar perfiles» en la ficha de un usuario no abre el formulario.
+- La lista de usuarios muestra «Nombre sin registrar» donde falta el dato.
+- Falta comprobar el cambio de módulos tras el cambio de interruptor del 27 de octubre.
 
-- Alta propia del aspirante y las gestiones de su ficha y sus preferencias.
-- Descarga de los documentos de ese mismo expediente. Las descargas en PDF y Word solo funcionan cuando el expediente está en la fase de nombramiento, y este expediente todavía no ha llegado a ella. Se comprobaron con otro expediente que sí está en esa fase.
-- Firma del informe por el técnico y la jefatura; fiscalización con reparo y conformidad, subsanación y resolución.
-- Incorporación, paso a Personal, cese y regreso a la bolsa de esa persona.
-- Recorrido propio de administración del portal: perfiles, módulos, copias y configuración.
-- Comprobar que los últimos justificantes siguen visibles después de reiniciar el servidor.
+## Lo que depende de Informática y de protección de datos
 
-El informe preparado se mostró como texto provisional al registrarlo. Al volver a abrir la ficha se conservó su registro. Ese informe no es un documento firmado.
+El correo corporativo, el portafirmas de la Diputación, la conexión con GINPIX y con SICAL, el directorio corporativo, el mensaje al móvil, la evaluación de impacto y la lista pública de cada bolsa esperan a esas áreas. Mientras tanto, la firma se hace con certificado en el programa de firma, la grabación en GINPIX es manual y el correo es de ensayo.
 
-## Comprobaciones anteriores, del 29 y el 30 de septiembre de 2026
+## Imágenes
 
-Antes de este recorrido se hicieron varias pruebas parciales en copias de ensayo del portal. En ellas se comprobó que cada perfil entraba solo en lo suyo, que la petición del centro llegaba a RRHH y que los recibos se conservaban después de reiniciar el servidor. También se descargaron borradores de un expediente antiguo.
-
-Esas pruebas no completaron ningún proceso de principio a fin. Quedaron sin recorrer el análisis y el informe de un expediente nuevo, la fiscalización por Intervención, la respuesta del aspirante, la firma, la incorporación y el cierre, y en Bolsa la publicación de ofertas, los avisos y la adjudicación. El detalle técnico de esas pruebas se conserva en el historial del repositorio.
+Las capturas que faltan están en [CAPTURAS_PENDIENTES.md](CAPTURAS_PENDIENTES.md). Cada una se hará sobre la copia final y sustituirá a la imagen que ahora no existe. Las imágenes antiguas son ejemplos y no acreditan por sí solas los pasos.
