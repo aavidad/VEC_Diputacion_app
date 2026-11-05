@@ -35,6 +35,7 @@ type RenderizadorBorradorCatalogoVivo struct {
 	PDF               vecports.RenderizadorDocumento
 	DOCX              vecports.RenderizadorDocumento
 	Etiquetas         EtiquetadorReferencias
+	Resolucion        ports.FuenteResolucionDocumentoRRHH
 	Ahora             func() time.Time
 	OmitirReferencias bool
 }
@@ -96,9 +97,9 @@ func (r RenderizadorBorradorCatalogoVivo) generar(
 	}
 	var contenido []byte
 	if formato == vecdomain.FormatoDocumentoPDF {
-		contenido, err = (RenderizadorBorradorDesarrollo{PDF: r.PDF, Etiquetas: r.Etiquetas, Plantillas: plantillas, OmitirReferencias: r.OmitirReferencias}).RenderizarBorrador(ctx, tipo, detalle)
+		contenido, err = (RenderizadorBorradorDesarrollo{PDF: r.PDF, Etiquetas: r.Etiquetas, Plantillas: plantillas, Resolucion: r.Resolucion, OmitirReferencias: r.OmitirReferencias}).RenderizarBorrador(ctx, tipo, detalle)
 	} else {
-		contenido, err = (RenderizadorBorradorDOCXDesarrollo{DOCX: r.DOCX, Etiquetas: r.Etiquetas, Plantillas: plantillas, OmitirReferencias: r.OmitirReferencias}).RenderizarBorradorDOCX(ctx, tipo, detalle)
+		contenido, err = (RenderizadorBorradorDOCXDesarrollo{DOCX: r.DOCX, Etiquetas: r.Etiquetas, Plantillas: plantillas, Resolucion: r.Resolucion, OmitirReferencias: r.OmitirReferencias}).RenderizarBorradorDOCX(ctx, tipo, detalle)
 	}
 	if err != nil {
 		return BorradorCatalogado{}, err
